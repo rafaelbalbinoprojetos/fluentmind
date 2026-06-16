@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import ThemeSwitcher from "../../components/ThemeSwitcher.jsx";
-import { supabase } from "../../lib/supabase.js";
+import { supabase, supabaseConfigured } from "../../lib/supabase.js";
 import { translateAuthErrorMessage } from "../../utils/authErrors.js";
 
 const LOGIN_ROUTE = "/app";
@@ -31,6 +31,12 @@ export default function PasswordRecoveryPage() {
     let ignore = false;
 
     const resolveMode = async () => {
+      if (!supabaseConfigured || !supabase) {
+        setMode("request");
+        setErrorMessage("Supabase não configurado. Verifique as variáveis de ambiente do projeto.");
+        return;
+      }
+
       try {
         const { data, error } = await supabase.auth.getSession();
         if (error) throw error;
@@ -52,6 +58,12 @@ export default function PasswordRecoveryPage() {
     };
 
     resolveMode();
+
+    if (!supabaseConfigured || !supabase) {
+      return () => {
+        ignore = true;
+      };
+    }
 
     const {
       data: { subscription },
@@ -79,6 +91,9 @@ export default function PasswordRecoveryPage() {
     setErrorMessage(null);
     setNotice(null);
     try {
+      if (!supabaseConfigured || !supabase) {
+        throw new Error("Supabase não configurado.");
+      }
       const redirectTo = import.meta.env.VITE_SUPABASE_RESET_REDIRECT ?? `${window.location.origin}/recuperar-senha`;
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
       if (error) throw error;
@@ -107,6 +122,9 @@ export default function PasswordRecoveryPage() {
     setErrorMessage(null);
     setNotice(null);
     try {
+      if (!supabaseConfigured || !supabase) {
+        throw new Error("Supabase não configurado.");
+      }
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
 

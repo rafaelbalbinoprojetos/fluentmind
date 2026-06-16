@@ -91,6 +91,15 @@ export function AuthProvider({ children }) {
 
     init();
 
+    if (!supabaseConfigured || !supabase) {
+      return () => {
+        ignore = true;
+        if (fallbackTimer) {
+          clearTimeout(fallbackTimer);
+        }
+      };
+    }
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, updatedSession) => {
@@ -109,6 +118,9 @@ export function AuthProvider({ children }) {
   }, []);
 
   const refreshUser = useCallback(async () => {
+    if (!supabaseConfigured || !supabase) {
+      throw new Error("Supabase não configurado.");
+    }
     const { data, error: userError } = await supabase.auth.getUser();
     if (userError) {
       setError(userError);
@@ -120,6 +132,9 @@ export function AuthProvider({ children }) {
 
   const updateUserMetadata = useCallback(
     async (patch) => {
+      if (!supabaseConfigured || !supabase) {
+        throw new Error("Supabase não configurado.");
+      }
       const currentMetadata = user?.user_metadata ?? {};
       const newMetadata = { ...currentMetadata, ...patch };
       const { data, error: updateError } = await supabase.auth.updateUser({
@@ -143,6 +158,11 @@ export function AuthProvider({ children }) {
   const signIn = useCallback(
     async ({ email, password }) => {
       setError(null);
+      if (!supabaseConfigured || !supabase) {
+        const configError = new Error("Supabase não configurado.");
+        setError(configError);
+        throw configError;
+      }
       const normalizedEmail = email.trim().toLowerCase();
 
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
@@ -210,6 +230,11 @@ export function AuthProvider({ children }) {
   );
 
   const signOut = useCallback(async () => {
+    if (!supabaseConfigured || !supabase) {
+      setSession(null);
+      setUser(null);
+      return;
+    }
     const { error: signOutError } = await supabase.auth.signOut();
     if (signOutError) {
       setError(signOutError);

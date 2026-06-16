@@ -2,7 +2,8 @@ param(
   [string]$RemoteUrl = "https://github.com/rafaelbalbinoprojetos/fluentmind.git",
   [string]$Branch = "main",
   [string]$CommitMessage = "Initial FluentMind upload",
-  [switch]$IncludeEnv
+  [switch]$IncludeEnv,
+  [switch]$ForceOverwriteRemote
 )
 
 $ErrorActionPreference = "Stop"
@@ -84,8 +85,43 @@ if (-not $Status) {
   git commit -m $CommitMessage | Out-Host
 }
 
+Write-Step "Checking remote branch"
+$RemoteBranchExists = $false
+git ls-remote --exit-code --heads origin $Branch *> $null
+if ($LASTEXITCODE -eq 0) {
+  $RemoteBranchExists = $true
+}
+
+if ($RemoteBranchExists -and -not $ForceOverwriteRemote) {
+  Write-Step "Integrating existing remote history"
+  Write-Host "The remote branch already exists. Pulling it before push..."
+
+  git fetch origin $Branch | Out-Host
+  git merge "origin/$Branch" --allow-unrelated-histories --no-edit
+
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host ""
+    Write-Host "Merge stopped because Git found conflicts." -ForegroundColor Yellow
+    Write-Host "Resolve the conflicts, then run:"
+    Write-Host "  git add -A"
+    Write-Host "  git commit"
+    Write-Host "  git push -u origin $Branch"
+    exit 1
+  }
+} elseif ($RemoteBranchExists -and $ForceOverwriteRemote) {
+  Write-Host "ForceOverwriteRemote was provided. The remote branch will be overwritten with --force-with-lease." -ForegroundColor Yellow
+}
+
 Write-Step "Pushing to GitHub"
-git push -u origin $Branch
+if ($ForceOverwriteRemote) {
+  git push -u origin $Branch --force-with-lease
+} else {
+  git push -u origin $Branch
+}
+
+if ($LASTEXITCODE -ne 0) {
+  Fail "Git push failed. Review the error above before running the script again."
+}
 
 Write-Host ""
 Write-Host "Upload finished." -ForegroundColor Green

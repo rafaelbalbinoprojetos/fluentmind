@@ -3,9 +3,10 @@ import { OpenAI } from "openai";
 import { requireUser } from "./_utils/auth.js";
 import { consumeAiUsage, resolveAiPlan } from "./_utils/aiUsage.js";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || process.env.CHATGPT_API_KEY || process.env.OPENAI_KEY,
-});
+function getOpenAiClient() {
+  const apiKey = process.env.OPENAI_API_KEY || process.env.CHATGPT_API_KEY || process.env.OPENAI_KEY;
+  return apiKey ? new OpenAI({ apiKey }) : null;
+}
 
 export const config = {
   api: {
@@ -85,7 +86,7 @@ const ELEVENLABS_VOICES = {
   male:   process.env.ELEVENLABS_VOICE_MALE   || "IKpiSijWzlhOL6uX83EH",
 };
 
-async function handleSpeak(req, res, user) {
+async function handleSpeak(req, res, user, openai) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   const body   = parseBody(req);
   const text   = String(body.text || "").trim();
@@ -151,7 +152,7 @@ async function handleSpeak(req, res, user) {
 
 // ─── STT (speech-to-text) — lógica original ───────────────────────────────
 
-async function handleTranscribe(req, res, user) {
+async function handleTranscribe(req, res, user, openai) {
   const body = parseBody(req);
   const { audio, mimeType } = body;
 
@@ -192,7 +193,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Método não suportado." });
   }
 
-  if (!openai.apiKey) {
+  const openai = getOpenAiClient();
+
+  if (!openai) {
     return res.status(500).json({
       error: "OPENAI_API_KEY não configurada.",
       details: "Configure OPENAI_API_KEY na Vercel. Também aceito CHATGPT_API_KEY ou OPENAI_KEY como fallback.",
@@ -204,8 +207,8 @@ export default async function handler(req, res) {
     const body = parseBody(req);
     const action = body.action ?? "transcribe";
 
-    if (action === "speak") return await handleSpeak(req, res, user);
-    return await handleTranscribe(req, res, user);
+    if (action === "speak") return await handleSpeak(req, res, user, openai);
+    return await handleTranscribe(req, res, user, openai);
   } catch (error) {
     console.error("[transcribe]", error);
     const status = error.statusCode || 500;

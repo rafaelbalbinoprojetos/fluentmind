@@ -4,9 +4,10 @@ import { OpenAI } from "openai";
 import { requireUser } from "./_utils/auth.js";
 import { consumeAiUsage, resolveAiPlan } from "./_utils/aiUsage.js";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || process.env.CHATGPT_API_KEY || process.env.OPENAI_KEY,
-});
+function getOpenAiClient() {
+  const apiKey = process.env.OPENAI_API_KEY || process.env.CHATGPT_API_KEY || process.env.OPENAI_KEY;
+  return apiKey ? new OpenAI({ apiKey }) : null;
+}
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
@@ -841,7 +842,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Método não suportado." });
   }
 
-  if (!openai.apiKey) {
+  const openai = getOpenAiClient();
+
+  if (!openai) {
     return res.status(500).json({
       error: "OPENAI_API_KEY não configurada.",
       details: "Configure OPENAI_API_KEY na Vercel. Também aceito CHATGPT_API_KEY ou OPENAI_KEY como fallback.",

@@ -176,18 +176,15 @@ export default function ChatbotPage() {
     } catch (error) {
       console.error(error);
       toast.error(error.message || "Não foi possível conversar com Neo agora.");
-
-      const fallback = createNeoReply(text);
       setMessages((current) => [
         ...current,
         {
           id: `m-${Date.now()}-neo`,
           role: "neo",
           createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-          ...fallback,
+          content: `I could not reach Neo right now.\n\nTechnical detail:\n${error.message || "Unknown error"}\n\nPlease check the Vercel function logs or environment variables.`,
         },
       ]);
-      setSelectedExpression(fallback.detectedExpression || "I'm getting used to it.");
     } finally {
       setTyping(false);
     }

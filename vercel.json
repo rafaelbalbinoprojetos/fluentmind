@@ -3,7 +3,6 @@
     { "path": "/api/radar/generate-daily", "schedule": "30 22 * * 1-5" }
   ],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)", "destination": "/" }
+    { "source": "/((?!api/.*).*)", "destination": "/index.html" }
   ]
 }

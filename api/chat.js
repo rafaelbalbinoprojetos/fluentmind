@@ -860,13 +860,22 @@ export default async function handler(req, res) {
     const { messages = [], userName = null, chatTone = "natural" } = body;
     const user = await requireUser(req);
     const userId = user.id;
-    const plan = await resolveAiPlan(user);
+    let plan = "pro";
+    try {
+      plan = await resolveAiPlan(user);
+    } catch (usageError) {
+      console.warn("[chat] Could not resolve AI plan. Continuing in mock-friendly mode.", usageError?.message || usageError);
+    }
 
-    await consumeAiUsage({
-      userId,
-      plan,
-      deltas: { ai_chat: 1 },
-    });
+    try {
+      await consumeAiUsage({
+        userId,
+        plan,
+        deltas: { ai_chat: 1 },
+      });
+    } catch (usageError) {
+      console.warn("[chat] Could not register AI usage. Continuing without blocking chat.", usageError?.message || usageError);
+    }
 
     const systemPrompt = buildSystemPrompt(userName, chatTone);
 
@@ -902,6 +911,8 @@ export default async function handler(req, res) {
               userId,
               plan,
               deltas: { ai_registros: 1 },
+            }).catch((usageError) => {
+              console.warn("[chat] Could not register AI record usage.", usageError?.message || usageError);
             });
           }
           if (["get_expense_summary", "get_financial_summary", "get_financial_details"].includes(name)) {
@@ -909,6 +920,8 @@ export default async function handler(req, res) {
               userId,
               plan,
               deltas: { ai_analises: 1 },
+            }).catch((usageError) => {
+              console.warn("[chat] Could not register AI analysis usage.", usageError?.message || usageError);
             });
           }
           console.log(`[chat] Chamando função ${name} com`, parsedArgs);

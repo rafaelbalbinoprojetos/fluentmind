@@ -69,7 +69,12 @@ function normalizePlan(value) {
 }
 
 async function hasUltraAccess({ userId, email } = {}) {
-  ensureSupabase();
+  try {
+    ensureSupabase();
+  } catch (error) {
+    console.warn("[aiUsage] Supabase admin not configured while checking Ultra access.", error?.message || error);
+    return false;
+  }
   const normalizedEmail = normalizeEmail(email);
   if (!userId && !normalizedEmail) return false;
 
@@ -107,7 +112,10 @@ export async function resolveAiPlan(user) {
   const trialExpiresAt = metadata.trial_expires_at;
   const trialActive = trialStatus === "active" && trialExpiresAt && new Date(trialExpiresAt).getTime() > Date.now();
   const premiumByPlan = plan === "premium";
-  const premiumByUltra = await hasUltraAccess({ userId: user?.id, email: user?.email });
+  const premiumByUltra = await hasUltraAccess({ userId: user?.id, email: user?.email }).catch((error) => {
+    console.warn("[aiUsage] Could not check Ultra access.", error?.message || error);
+    return false;
+  });
   const premiumByMasterEmail = isMasterEmail(user?.email);
 
   return premiumByPlan || premiumByUltra || premiumByMasterEmail || trialActive ? "pro" : "basic";
@@ -162,7 +170,7 @@ export async function consumeAiUsage({ userId, plan, deltas, enforceLimits = tru
   const limits = LIMITS_BY_PLAN[planKey];
   const hasUsage = Object.values(deltas || {}).some((value) => Number(value) > 0);
 
-  if (planKey === "basic" && hasUsage) {
+  if (planKey === "basic" && hasUsage && enforceLimits) {
     const error = new Error("Recurso disponível apenas no plano Pro.");
     error.statusCode = 403;
     error.code = "plan_required";

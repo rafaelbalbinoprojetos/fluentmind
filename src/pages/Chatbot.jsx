@@ -24,6 +24,9 @@ import {
   Zap,
 } from "lucide-react";
 import { libraryPlaylists } from "../data/libraryMock.js";
+import { useAuth } from "../context/AuthContext.jsx";
+
+const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
 
 const conversations = [
   { id: "today-1", title: "Thinking in English", group: "Hoje", active: true, tag: "Conversation" },
@@ -90,6 +93,7 @@ function createNeoReply(text) {
 }
 
 export default function ChatbotPage() {
+  const { user, session } = useAuth();
   const [messages, setMessages] = useState(initialMessages);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
@@ -103,10 +107,14 @@ export default function ChatbotPage() {
     [messages],
   );
 
-  const submitMessage = (event) => {
+  const submitMessage = async (event) => {
     event.preventDefault();
     const text = input.trim();
     if (!text) return;
+    if (!session?.access_token) {
+      toast.error("Sessão expirada. Faça login novamente.");
+      return;
+    }
 
     const userMessage = {
       id: `m-${Date.now()}-user`,
@@ -119,8 +127,36 @@ export default function ChatbotPage() {
     setInput("");
     setTyping(true);
 
-    window.setTimeout(() => {
-      const reply = createNeoReply(text);
+    try {
+      const currentMessages = [...messages, userMessage].map((message) => ({
+        role: message.role === "neo" ? "assistant" : "user",
+        content: message.content,
+      }));
+
+      const response = await fetch(`${API_BASE}/api/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          messages: currentMessages,
+          userName: user?.user_metadata?.display_name?.trim() || user?.email?.split("@")[0] || null,
+          chatTone: user?.user_metadata?.chat_tone || "natural",
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || data?.details || `Erro ${response.status}`);
+      }
+
+      const replyText = typeof data.reply === "string" ? data.reply : data.reply?.content;
+      const reply = {
+        content: replyText || "I could not generate a response now. Try asking in another way.",
+        detectedExpression: data.detectedExpression || null,
+      };
+
       setMessages((current) => [
         ...current,
         {
@@ -130,10 +166,28 @@ export default function ChatbotPage() {
           ...reply,
         },
       ]);
-      setSelectedExpression(reply.detectedExpression || "I'm getting used to it.");
+      if (reply.detectedExpression) {
+        setSelectedExpression(reply.detectedExpression);
+        toast("Useful expression detected.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message || "Não foi possível conversar com Neo agora.");
+
+      const fallback = createNeoReply(text);
+      setMessages((current) => [
+        ...current,
+        {
+          id: `m-${Date.now()}-neo`,
+          role: "neo",
+          createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+          ...fallback,
+        },
+      ]);
+      setSelectedExpression(fallback.detectedExpression || "I'm getting used to it.");
+    } finally {
       setTyping(false);
-      toast("Useful expression detected.");
-    }, 850);
+    }
   };
 
   const openSaveModal = (expression) => {

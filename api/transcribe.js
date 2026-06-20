@@ -87,10 +87,6 @@ const ELEVENLABS_VOICES = {
 
 async function handleSpeak(req, res, user) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: "ELEVENLABS_API_KEY não configurada." });
-  }
-
   const body   = parseBody(req);
   const text   = String(body.text || "").trim();
   const gender = body.voice === "male" ? "male" : "female";
@@ -103,39 +99,54 @@ async function handleSpeak(req, res, user) {
     return res.status(400).json({ error: "Texto muito longo para síntese de voz." });
   }
 
-  const elevenRes = await fetch(`${ELEVENLABS_API_URL}/${voiceId}?output_format=mp3_44100_128`, {
-    method: "POST",
-    headers: {
-      "xi-api-key":   apiKey,
-      "Content-Type": "application/json",
-      "Accept":       "audio/mpeg",
-    },
-    body: JSON.stringify({
-      text,
-      model_id: ELEVENLABS_MODEL,
-      voice_settings: {
-        stability:        0.5,
-        similarity_boost: 0.80,
-        style:            0.2,
-        use_speaker_boost: true,
-      },
-    }),
-  });
+  let base64;
+  let mimeType = "audio/mpeg";
 
-  if (!elevenRes.ok) {
-    const errText = await elevenRes.text().catch(() => "");
-    console.error("[elevenlabs]", elevenRes.status, errText);
-    return res.status(502).json({ error: "Falha ao gerar áudio. Tente novamente." });
+  if (apiKey) {
+    const elevenRes = await fetch(`${ELEVENLABS_API_URL}/${voiceId}?output_format=mp3_44100_128`, {
+      method: "POST",
+      headers: {
+        "xi-api-key":   apiKey,
+        "Content-Type": "application/json",
+        "Accept":       "audio/mpeg",
+      },
+      body: JSON.stringify({
+        text,
+        model_id: ELEVENLABS_MODEL,
+        voice_settings: {
+          stability:        0.5,
+          similarity_boost: 0.80,
+          style:            0.2,
+          use_speaker_boost: true,
+        },
+      }),
+    });
+
+    if (!elevenRes.ok) {
+      const errText = await elevenRes.text().catch(() => "");
+      console.error("[elevenlabs]", elevenRes.status, errText);
+      return res.status(502).json({ error: "Falha ao gerar áudio. Tente novamente." });
+    }
+
+    const arrayBuffer = await elevenRes.arrayBuffer();
+    base64 = Buffer.from(arrayBuffer).toString("base64");
+  } else {
+    const speech = await openai.audio.speech.create({
+      model: process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts",
+      voice: gender === "male" ? "verse" : "alloy",
+      input: text,
+      format: "mp3",
+    });
+
+    const arrayBuffer = await speech.arrayBuffer();
+    base64 = Buffer.from(arrayBuffer).toString("base64");
   }
 
-  const arrayBuffer = await elevenRes.arrayBuffer();
-  const base64 = Buffer.from(arrayBuffer).toString("base64");
-
   // Consumo simbólico
-  const plan = await resolveAiPlan(user);
+  const plan = await resolveAiPlan(user).catch(() => "pro");
   await consumeAiUsage({ userId: user.id, plan, deltas: { ai_chat: 1 } }).catch(() => {});
 
-  return res.status(200).json({ audio: base64, mimeType: "audio/mpeg" });
+  return res.status(200).json({ audio: base64, mimeType });
 }
 
 // ─── STT (speech-to-text) — lógica original ───────────────────────────────
@@ -167,8 +178,8 @@ async function handleTranscribe(req, res, user) {
     temperature: 0.2,
   });
 
-  const plan = await resolveAiPlan(user);
-  await consumeAiUsage({ userId: user.id, plan, deltas: { ai_chat: 1 } });
+  const plan = await resolveAiPlan(user).catch(() => "pro");
+  await consumeAiUsage({ userId: user.id, plan, deltas: { ai_chat: 1 } }).catch(() => {});
 
   return res.status(200).json({ text: transcription.text?.trim() ?? "" });
 }

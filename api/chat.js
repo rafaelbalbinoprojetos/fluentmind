@@ -5,7 +5,7 @@ import { requireUser } from "./_utils/auth.js";
 import { consumeAiUsage, resolveAiPlan } from "./_utils/aiUsage.js";
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY || process.env.CHATGPT_API_KEY || process.env.OPENAI_KEY,
 });
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -842,7 +842,10 @@ export default async function handler(req, res) {
   }
 
   if (!openai.apiKey) {
-    return res.status(500).json({ error: "OPENAI_API_KEY não configurada." });
+    return res.status(500).json({
+      error: "OPENAI_API_KEY não configurada.",
+      details: "Configure OPENAI_API_KEY na Vercel. Também aceito CHATGPT_API_KEY ou OPENAI_KEY como fallback.",
+    });
   }
 
   try {

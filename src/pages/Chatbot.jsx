@@ -148,7 +148,10 @@ export default function ChatbotPage() {
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data?.error || data?.details || `Erro ${response.status}`);
+        const serverMessage = response.status >= 500
+          ? data?.details || data?.error
+          : data?.error || data?.details;
+        throw new Error(serverMessage || `Erro ${response.status}`);
       }
 
       const replyText = typeof data.reply === "string" ? data.reply : data.reply?.content;

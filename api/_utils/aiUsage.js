@@ -31,7 +31,7 @@ const USAGE_LABELS = {
   ai_registros: "registros via IA",
   ai_analises: "análises",
   ai_relatorios: "relatórios inteligentes",
-  ai_chat: "chat financeiro",
+  ai_chat: "chat de idiomas",
 };
 
 function normalizeEmail(value) {

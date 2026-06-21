@@ -4,10 +4,6 @@ export const NAV_LINKS = [
   { id: "insights", to: "/insights", label: "Revisao", shortLabel: "Revisao" },
   { id: "chatbot", to: "/chatbot", label: "Conversas", shortLabel: "Conversas" },
   { id: "neuralUniverse", to: "/neural-universe", label: "Neural Universe", shortLabel: "Universe" },
-  { id: "fixedBills", to: "/contas-fixas", label: "Playlists", shortLabel: "Playlists" },
-  { id: "expenses", to: "/despesas", label: "Meus Erros", shortLabel: "Erros" },
-  { id: "overtime", to: "/extra", label: "Progresso", shortLabel: "Progresso" },
-  { id: "investments", to: "/investir", label: "Estatisticas", shortLabel: "Stats" },
   { id: "users", to: "/usuarios", label: "Usuarios", shortLabel: "Usuarios" },
   { id: "landing", to: "/", label: "Descubra", shortLabel: "Descubra" },
   { id: "settings", to: "/configuracoes", label: "Configuracoes", shortLabel: "Config" },
@@ -16,13 +12,9 @@ export const NAV_LINKS = [
 export const MOBILE_NAV_ALLOWED_PATHS = [
   "/dashboard",
   "/biblioteca",
+  "/insights",
   "/chatbot",
   "/neural-universe",
-  "/contas-fixas",
-  "/insights",
-  "/despesas",
-  "/extra",
-  "/investir",
   "/configuracoes",
 ];
 
@@ -31,7 +23,7 @@ export const DEFAULT_MOBILE_NAV_PATHS = [
   "/biblioteca",
   "/insights",
   "/chatbot",
-  "/extra",
+  "/configuracoes",
 ];
 
 export const MOBILE_NAV_LINKS = NAV_LINKS.filter((link) => MOBILE_NAV_ALLOWED_PATHS.includes(link.to));

@@ -12,7 +12,7 @@ describe("Legal pages", () => {
     renderWithRouter(<PrivacyPolicyPage />);
 
     expect(
-      screen.getByRole("heading", { name: /política de privacidade – korden/i }),
+      screen.getByRole("heading", { name: /politica de privacidade - fluentmind/i }),
     ).toBeInTheDocument();
     const termsLink = screen.getByRole("link", { name: /termos de uso/i });
     expect(termsLink).toHaveAttribute("href", "/termos-de-uso");
@@ -21,8 +21,8 @@ describe("Legal pages", () => {
   test("TermsOfUsePage direciona para a Política de Privacidade", () => {
     renderWithRouter(<TermsOfUsePage />);
 
-    expect(screen.getByRole("heading", { name: /termos de uso – korden/i })).toBeInTheDocument();
-    const privacyLink = screen.getByRole("link", { name: /política de privacidade/i });
+    expect(screen.getByRole("heading", { name: /termos de uso - fluentmind/i })).toBeInTheDocument();
+    const privacyLink = screen.getByRole("link", { name: /politica de privacidade/i });
     expect(privacyLink).toHaveAttribute("href", "/politica-de-privacidade");
   });
 });

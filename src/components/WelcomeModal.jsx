@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function WelcomeModal({ open, onStart, onSeePlans, onClose }) {
+export default function WelcomeModal({ open, onStart, onClose }) {
   if (!open) return null;
 
   const handleRootClick = () => {
@@ -82,17 +82,10 @@ export default function WelcomeModal({ open, onStart, onSeePlans, onClose }) {
             >
               Comecar agora
             </button>
-            <button
-              type="button"
-              onClick={onSeePlans}
-              className="inline-flex w-full items-center justify-center rounded-xl border border-white/30 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 sm:w-auto"
-            >
-              Ver planos Premium
-            </button>
           </div>
 
           <p className="mt-6 text-center text-[11px] text-sky-100/70">
-            Cancelamento simples, sem cartao ate o fim do teste. Experimente e faca o upgrade no seu tempo.
+            Experimente o fluxo inicial e acompanhe as proximas evolucoes do FluentMind.
           </p>
         </div>
       </div>

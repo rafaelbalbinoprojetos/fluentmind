@@ -1,79 +1,73 @@
 import { Link } from "react-router-dom";
 
-const CONTACT_SUPPORT = "suporte@granaapp.com.br";
+const CONTACT_SUPPORT = "suporte@fluentmind.app";
 
 const TERMS_SECTIONS = [
   {
-    title: "1. Aceitação dos Termos",
+    title: "1. Aceitacao dos Termos",
     content: [
-      "Ao utilizar o KORDEN, você concorda integralmente com estes Termos de Uso e com a Política de Privacidade. Se não concordar com alguma condição, interrompa o uso do aplicativo.",
+      "Ao utilizar o FluentMind, voce concorda com estes Termos de Uso e com a Politica de Privacidade. Se nao concordar com alguma condicao, interrompa o uso da plataforma.",
     ],
   },
   {
-    title: "2. Descrição do serviço",
+    title: "2. Descricao do servico",
     content: [
-      "A KORDEN é uma plataforma de gestão financeira pessoal que oferece recursos para acompanhar renda, despesas e metas.",
+      "O FluentMind e uma plataforma de aprendizado de idiomas baseada em conversas com IA, expressoes salvas, revisao inteligente e acompanhamento de progresso.",
     ],
     list: [
-      "Controle detalhado de rendas e despesas.",
-      "Gestão de despesas fixas e investimentos.",
-      "Cálculos automáticos de juros compostos e simulações.",
-      "Registro de horas extras, ganhos pontuais e metas.",
-      "Biblioteca com conteúdos e materiais de estudo.",
-      "Chatbot financeiro para dúvidas rápidas e sugestões.",
-      "O aplicativo tem caráter educacional e não configura consultoria financeira formal.",
+      "Conversas com IA para pratica contextual.",
+      "Biblioteca pessoal de MindBlocks e expressoes uteis.",
+      "Revisao de frases, erros corrigidos e playlists de estudo.",
+      "Dashboard de progresso e metas de pratica.",
+      "O aplicativo tem carater educacional e nao substitui acompanhamento pedagogico profissional quando necessario.",
     ],
   },
   {
-    title: "3. Cadastro e segurança",
+    title: "3. Cadastro e seguranca",
     content: [
-      "Para acessar todas as funcionalidades é necessário criar uma conta pessoal com informações verdadeiras. Você é responsável por manter a confidencialidade das credenciais e não compartilhar sua conta.",
+      "Para acessar todas as funcionalidades e necessario criar uma conta pessoal com informacoes verdadeiras. Voce e responsavel por manter a confidencialidade das credenciais.",
     ],
   },
   {
-    title: "4. Planos e pagamentos",
+    title: "4. Uso de IA",
     content: [
-      "Oferecemos recursos gratuitos e planos Premium com pagamento via Mercado Pago.",
+      "As respostas geradas por IA podem conter erros, imprecisoes ou sugestoes inadequadas ao contexto. Use o conteudo como apoio de estudo e revise informacoes importantes.",
+    ],
+  },
+  {
+    title: "5. Uso responsavel",
+    content: [
+      "Para preservar a experiencia de todos, e proibido utilizar o FluentMind para:",
     ],
     list: [
-      "As assinaturas são processadas com segurança pelo Mercado Pago.",
-      "O cancelamento pode ser feito a qualquer momento, mas valores já pagos não são reembolsados após o período ativo.",
+      "Atividades ilegais, abusivas ou fraudulentas.",
+      "Insercao de dados ofensivos, discriminatorios ou sensiveis de terceiros.",
+      "Engenharia reversa, copia, modificacao ou revenda nao autorizada do software.",
+      "Tentativas de contornar limites, autenticacao ou mecanismos de seguranca.",
     ],
   },
   {
-    title: "5. Uso responsável",
+    title: "6. Limitacao de responsabilidade",
     content: [
-      "Para preservar a experiência de todos, é proibido utilizar o KORDEN para:",
-    ],
-    list: [
-      "Atividades ilegais ou fraudulentas.",
-      "Inserção de dados falsos, ofensivos ou sensíveis.",
-      "Engenharia reversa, cópia, modificação ou revenda do software.",
-      "Qualquer tentativa de contornar mecanismos de segurança.",
-    ],
-  },
-  {
-    title: "6. Limitação de responsabilidade",
-    content: [
-      "Os dados e projeções exibidos são estimativas automáticas. A KORDEN não se responsabiliza por perdas financeiras decorrentes de decisões tomadas com base nas informações do aplicativo.",
+      "O FluentMind oferece recursos educacionais e automatizados. Nao garantimos fluencia, certificacoes ou resultados especificos, pois o progresso depende de pratica, contexto e consistencia individual.",
     ],
   },
   {
     title: "7. Propriedade intelectual",
     content: [
-      "Marca, logotipo, interface, conteúdos e código-fonte são propriedade exclusiva da KORDEN e protegidos por leis de direitos autorais.",
+      "Marca, logotipo, interface, conteudos e codigo-fonte sao protegidos por leis de direitos autorais e propriedade intelectual.",
     ],
   },
   {
-    title: "8. Alterações nos termos",
+    title: "8. Alteracoes nos termos",
     content: [
-      "Estes Termos podem ser atualizados mediante aviso dentro do aplicativo. O uso contínuo após mudanças representa aceite automático das novas condições.",
+      "Estes Termos podem ser atualizados mediante aviso dentro do aplicativo ou por canais oficiais. O uso continuo apos mudancas representa aceite das novas condicoes.",
     ],
   },
   {
     title: "9. Contato",
     content: [
-      `Dúvidas e solicitações podem ser enviadas para ${CONTACT_SUPPORT}. Estamos à disposição para ajudar.`,
+      `Duvidas e solicitacoes podem ser enviadas para ${CONTACT_SUPPORT}.`,
     ],
   },
 ];
@@ -83,27 +77,17 @@ function TermsOfUsePage() {
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-16 sm:px-6 lg:px-8">
         <header className="space-y-4 rounded-3xl border border-slate-200 bg-white/95 p-8 shadow-xl shadow-slate-900/5 backdrop-blur dark:border-slate-800 dark:bg-slate-900/70">
-          <p className="text-sm font-medium uppercase tracking-widest text-sky-500">
-            Termos de Uso
-          </p>
+          <p className="text-sm font-medium uppercase tracking-widest text-violet-500">Termos de Uso</p>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white sm:text-4xl">
-            Termos de Uso – KORDEN
+            Termos de Uso - FluentMind
           </h1>
           <p className="text-base text-slate-500 dark:text-slate-300">
-            Última atualização: Novembro de 2025 · Endereço:{" "}
-            <a
-              href="https://www.korden.com.br"
-              className="font-medium text-sky-600 underline-offset-4 hover:underline"
-              target="_blank"
-              rel="noreferrer"
-            >
-              www.korden.com.br
-            </a>
+            Ultima atualizacao: Junho de 2026
           </p>
           <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
-            <span>Serviço educacional e organizador financeiro</span>
+            <span>Plataforma educacional de idiomas</span>
             <span className="h-1 w-1 rounded-full bg-slate-400" aria-hidden />
-            <span>Conectado ao Mercado Pago</span>
+            <span>Conversas, revisoes e progresso com IA</span>
           </div>
         </header>
 
@@ -129,12 +113,12 @@ function TermsOfUsePage() {
 
         <footer className="rounded-3xl border border-slate-200 bg-gradient-to-r from-violet-500/10 to-sky-500/10 p-8 text-slate-700 shadow-lg shadow-slate-900/5 dark:border-slate-800 dark:text-slate-200">
           <p className="text-base">
-            Para mais detalhes sobre como tratamos os seus dados, consulte a{" "}
+            Para mais detalhes sobre tratamento de dados, consulte a{" "}
             <Link
               to="/politica-de-privacidade"
               className="font-semibold text-sky-600 underline-offset-4 hover:underline"
             >
-              Política de Privacidade
+              Politica de Privacidade
             </Link>
             .
           </p>

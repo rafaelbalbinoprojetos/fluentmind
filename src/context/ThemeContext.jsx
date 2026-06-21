@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 
-const STORAGE_KEY = "granaapp:theme:v2";
+const STORAGE_KEY = "fluentmind:theme:v2";
 const DEFAULT_LIGHT_THEME = "lilac";
 const DEFAULT_DARK_THEME = "fluentmind-night";
 

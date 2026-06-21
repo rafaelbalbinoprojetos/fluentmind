@@ -1,45 +1,28 @@
-﻿import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import SettingsMenu from "../components/SettingsMenu.jsx";
 import PageTransition from "../components/PageTransition.jsx";
 import WelcomeModal from "../components/WelcomeModal.jsx";
 import VoiceRecordingModal from "../components/VoiceRecordingModal.jsx";
-import PremiumPlansModal from "../components/PremiumPlansModal.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import toast, { Toaster } from "react-hot-toast";
-import { formatCurrency } from "../utils/formatters.js";
-import { minutesToHours } from "../utils/overtime.js";
-import { EXPENSE_CATEGORIES } from "../utils/constants.js";
 import {
   NAV_LINKS,
   normalizeMobileNavSelection,
 } from "../data/navigation.js";
-import { DEFAULT_PLAN_ID } from "../data/plans.js";
-import { openMercadoPagoCheckout } from "../lib/mercadoPago.js";
 
 const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
-const CHECKOUT_ENDPOINT = `${API_BASE}/api/mercadopago/checkout`;
-const MERCADO_PAGO_PUBLIC_KEY = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY ?? "";
-const MERCADO_PAGO_LOCALE = import.meta.env.VITE_MERCADOPAGO_LOCALE ?? "pt-BR";
 const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
 
 const ICON_MAP = {
   dashboard: DashboardIcon,
-  expenses: ExpensesIcon,
-  fixedBills: BillsIcon,
-  income: IncomeIcon,
-  investments: InvestIcon,
-  compound: CompoundIcon,
-  overtime: ExtraIcon,
-  manager: GestorIcon,
   library: LibraryIcon,
   insights: InsightsIcon,
   chatbot: ChatbotIcon,
   neuralUniverse: NeuralUniverseIcon,
-  radar: RadarIcon,
-  cards: CardIcon,
-  bankConnections: BankIcon,
   settings: SettingsIcon,
+  users: SettingsIcon,
+  landing: LibraryIcon,
 };
 
 const NAV_ITEMS = NAV_LINKS.map((link) => ({
@@ -66,7 +49,6 @@ const NOTIFICATION_TYPE_LABELS = {
   warning: "Atencao",
 };
 
-const CATEGORY_LABEL_MAP = new Map(EXPENSE_CATEGORIES.map((category) => [category.value, category.label]));
 const MONTH_LABEL_FORMATTER = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
 const TIME_LABEL_FORMATTER = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
 function getNotificationBadgeClasses(type) {
@@ -77,37 +59,10 @@ function getNotificationTypeLabel(type) {
   return NOTIFICATION_TYPE_LABELS[type] ?? NOTIFICATION_TYPE_LABELS.info;
 }
 
-function safeNumber(value) {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : 0;
-}
-
-function parseISODate(value) {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function isWithinRange(date, start, end) {
-  if (!date) return false;
-  return date >= start && date <= end;
-}
-
-function filterByRange(collection, accessor, start, end) {
-  return collection.filter((item) => {
-    const date = parseISODate(accessor(item));
-    return date && isWithinRange(date, start, end);
-  });
-}
-
-function getMonthRanges(referenceDate = new Date()) {
+function getMonthRange(referenceDate = new Date()) {
   const utcYear = referenceDate.getUTCFullYear();
   const utcMonth = referenceDate.getUTCMonth();
-  const currentStart = new Date(Date.UTC(utcYear, utcMonth, 1, 0, 0, 0, 0));
-  const currentEnd = new Date(Date.UTC(utcYear, utcMonth + 1, 0, 23, 59, 59, 999));
-  const previousStart = new Date(Date.UTC(utcYear, utcMonth - 1, 1, 0, 0, 0, 0));
-  const previousEnd = new Date(Date.UTC(utcYear, utcMonth, 0, 23, 59, 59, 999));
-  return { currentStart, currentEnd, previousStart, previousEnd };
+  return new Date(Date.UTC(utcYear, utcMonth, 1, 0, 0, 0, 0));
 }
 
 function toAscii(value) {
@@ -136,50 +91,18 @@ function isAndroidChromiumBrowser() {
   return isAndroid && hasChromiumEngine && !isFirefox;
 }
 
-function formatPercent(value, { showSign = false } = {}) {
-  if (!Number.isFinite(value)) return "0%";
-  const base = Math.abs(value).toFixed(1);
-  if (!showSign) {
-    return `${value.toFixed(1)}%`;
-  }
-  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
-  return `${sign}${base}%`;
-}
-
-function daysUntilNextDueDate(now, dueDay) {
-  if (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31) return null;
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const currentMonthDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const dueDayThisMonth = Math.min(dueDay, currentMonthDays);
-  const dueThisMonth = new Date(now.getFullYear(), now.getMonth(), dueDayThisMonth);
-
-  if (dueThisMonth >= startOfToday) {
-    return Math.round((dueThisMonth.getTime() - startOfToday.getTime()) / 86400000);
-  }
-
-  const nextMonthDays = new Date(now.getFullYear(), now.getMonth() + 2, 0).getDate();
-  const dueDayNextMonth = Math.min(dueDay, nextMonthDays);
-  const dueNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, dueDayNextMonth);
-  return Math.round((dueNextMonth.getTime() - startOfToday.getTime()) / 86400000);
-}
-
-function buildPersonalizedNotifications({ userId, now, revenues, expenses, investments, overtime, cards }) {
-  const { currentStart, currentEnd, previousStart, previousEnd } = getMonthRanges(now);
+function buildPersonalizedNotifications({ userId, now }) {
+  const currentStart = getMonthRange(now);
   const monthKey = `${currentStart.getUTCFullYear()}-${String(currentStart.getUTCMonth() + 1).padStart(2, "0")}`;
   const monthLabel = capitalize(toAscii(MONTH_LABEL_FORMATTER.format(currentStart)));
-  const previousMonthLabel = capitalize(toAscii(MONTH_LABEL_FORMATTER.format(previousStart)));
   const timeLabel = `Atualizado as ${TIME_LABEL_FORMATTER.format(now)}`;
   const summaryIdBase = `${userId ?? "anon"}-${monthKey}`;
-  const expressionCount = (expenses?.length ?? 0) + (revenues?.length ?? 0) + 24;
-  const playlistCount = Math.max(3, investments?.length ?? 0);
-  const practiceCount = Math.max(1, overtime?.length ?? 0);
-  const reviewCount = Math.max(5, (cards?.length ?? 0) + 6);
 
   return [
     {
       id: `learning-summary-${summaryIdBase}`,
       title: `Resumo de ${monthLabel}`,
-      message: `${expressionCount} expressoes salvas, ${playlistCount} playlists e ${practiceCount} sessoes de pratica prontas para continuar.`,
+      message: "Continue salvando expressoes, revisando MindBlocks e praticando conversas curtas com IA.",
       time: timeLabel,
       type: "info",
       read: false,
@@ -187,7 +110,7 @@ function buildPersonalizedNotifications({ userId, now, revenues, expenses, inves
     {
       id: `review-${summaryIdBase}`,
       title: "Revisao inteligente pendente",
-      message: `${reviewCount} itens podem ser revisados hoje para manter sua memoria ativa.`,
+      message: "Separe alguns minutos para revisar expressoes recentes e fortalecer sua memoria ativa.",
       time: timeLabel,
       type: "warning",
       read: false,
@@ -201,226 +124,7 @@ function buildPersonalizedNotifications({ userId, now, revenues, expenses, inves
       read: false,
     },
   ];
-
-  const currentRevenues = filterByRange(revenues, (item) => item.date, currentStart, currentEnd);
-  const currentExpenses = filterByRange(expenses, (item) => item.date, currentStart, currentEnd);
-  const previousExpenses = filterByRange(expenses, (item) => item.date, previousStart, previousEnd);
-  const currentInvestments = filterByRange(investments, (item) => item.date, currentStart, currentEnd);
-  const previousInvestments = filterByRange(investments, (item) => item.date, previousStart, previousEnd);
-  const currentOvertime = filterByRange(overtime, (item) => item.start_time, currentStart, currentEnd);
-
-  const totalRevenueCurrent = currentRevenues.reduce((acc, item) => acc + safeNumber(item.value), 0);
-  const totalExpensesCurrent = currentExpenses.reduce((acc, item) => acc + Math.abs(safeNumber(item.value)), 0);
-  const totalExpensesPrevious = previousExpenses.reduce((acc, item) => acc + Math.abs(safeNumber(item.value)), 0);
-  const totalInvestmentsCurrent = currentInvestments.reduce((acc, item) => acc + safeNumber(item.value), 0);
-  const totalInvestmentsPrevious = previousInvestments.reduce((acc, item) => acc + safeNumber(item.value), 0);
-
-  const totalOvertimeMinutesCurrent = currentOvertime.reduce((acc, item) => {
-    const start = parseISODate(item.start_time);
-    const end = parseISODate(item.end_time);
-    if (!start || !end) return acc;
-    return acc + Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
-  }, 0);
-  const totalOvertimeValueCurrent = currentOvertime.reduce(
-    (acc, item) => acc + Math.max(0, safeNumber(item.total_value)),
-    0,
-  );
-
-  const notifications = [];
-
-  notifications.push({
-    id: `summary-${summaryIdBase}`,
-    title: `Resumo de ${monthLabel}`,
-    message: `Receitas ${formatCurrency(totalRevenueCurrent)} · Despesas ${formatCurrency(totalExpensesCurrent)} · Investimentos ${formatCurrency(totalInvestmentsCurrent)}`,
-    time: timeLabel,
-    type: "info",
-    read: false,
-  });
-
-  if (totalInvestmentsCurrent > 0) {
-    if (totalRevenueCurrent > 0) {
-      const investmentShare = (totalInvestmentsCurrent / Math.max(totalRevenueCurrent, 1e-6)) * 100;
-      if (investmentShare >= 10) {
-        notifications.push({
-          id: `invest-share-${summaryIdBase}`,
-          title: "Investimentos em alta",
-          message: `Parabens! Os aportes de ${formatCurrency(totalInvestmentsCurrent)} representam ${formatPercent(investmentShare)} das suas entradas em ${monthLabel}.`,
-          time: timeLabel,
-          type: "success",
-          read: false,
-        });
-      } else {
-        notifications.push({
-          id: `invest-progress-${summaryIdBase}`,
-          title: "Aumente seus aportes",
-          message: `Os aportes somam ${formatCurrency(totalInvestmentsCurrent)} (${formatPercent(investmentShare)} das entradas). Busque atingir pelo menos 10% em ${monthLabel}.`,
-          time: timeLabel,
-          type: "info",
-          read: false,
-        });
-      }
-    } else {
-      notifications.push({
-        id: `invest-no-income-${summaryIdBase}`,
-        title: "Investimentos registrados",
-        message: `Voce investiu ${formatCurrency(totalInvestmentsCurrent)} em ${monthLabel}. Registre suas rendas para acompanhar o percentual investido.`,
-        time: timeLabel,
-        type: "info",
-        read: false,
-      });
-    }
-  } else if (totalInvestmentsPrevious > 0) {
-    notifications.push({
-      id: `invest-missing-${summaryIdBase}`,
-      title: "Sem novos investimentos",
-      message: `Nao encontramos aportes em ${monthLabel}. O ultimo registro foi de ${formatCurrency(totalInvestmentsPrevious)} no mes anterior.`,
-      time: timeLabel,
-      type: "warning",
-      read: false,
-    });
-  }
-
-  const expensesByCategory = new Map();
-  currentExpenses.forEach((item) => {
-    const label = CATEGORY_LABEL_MAP.get(item.category) ?? item.category ?? "Sem categoria";
-    const value = Math.abs(safeNumber(item.value));
-    expensesByCategory.set(label, (expensesByCategory.get(label) ?? 0) + value);
-  });
-
-  if (expensesByCategory.size > 0 && totalExpensesCurrent > 0) {
-    const [topCategoryLabel, topCategoryValue] = Array.from(expensesByCategory.entries()).sort((a, b) => b[1] - a[1])[0];
-    const topCategoryShare = (topCategoryValue / totalExpensesCurrent) * 100;
-    if (topCategoryShare >= 35) {
-      notifications.push({
-        id: `expense-top-${summaryIdBase}`,
-        title: `Atencao com ${topCategoryLabel.toLowerCase()}`,
-        message: `${topCategoryLabel} representa ${formatPercent(topCategoryShare)} das despesas de ${monthLabel} (${formatCurrency(topCategoryValue)}). Avalie possibilidades de ajuste.`,
-        time: timeLabel,
-        type: "warning",
-        read: false,
-      });
-    } else if (topCategoryShare >= 20) {
-      notifications.push({
-        id: `expense-monitor-${summaryIdBase}`,
-        title: `Monitorando ${topCategoryLabel.toLowerCase()}`,
-        message: `${topCategoryLabel} concentra ${formatPercent(topCategoryShare)} dos gastos de ${monthLabel}. Manter esse indicador abaixo de 20% ajuda no controle.`,
-        time: timeLabel,
-        type: "info",
-        read: false,
-      });
-    }
-  }
-
-  if (totalRevenueCurrent > 0 && totalExpensesCurrent > totalRevenueCurrent * 1.05) {
-    const difference = totalExpensesCurrent - totalRevenueCurrent;
-    notifications.push({
-      id: `expense-over-income-${summaryIdBase}`,
-      title: "Despesas acima das entradas",
-      message: `As despesas superam as receitas em ${formatCurrency(difference)} neste mes. Reveja gastos ou busque novas entradas.`,
-      time: timeLabel,
-      type: "warning",
-      read: false,
-    });
-  } else if (totalRevenueCurrent === 0 && totalExpensesCurrent > 0) {
-    notifications.push({
-      id: `expense-no-income-${summaryIdBase}`,
-      title: "Registre suas rendas",
-      message: "Encontramos despesas, mas nenhuma renda registrada neste mes. Adicione suas entradas para acompanhar o saldo real.",
-      time: timeLabel,
-      type: "info",
-      read: false,
-    });
-  }
-
-  if (totalExpensesPrevious > 0) {
-    const expenseDelta = ((totalExpensesCurrent - totalExpensesPrevious) / Math.max(totalExpensesPrevious, 1e-6)) * 100;
-    if (expenseDelta >= 15) {
-      notifications.push({
-        id: `expense-delta-${summaryIdBase}`,
-        title: "Gastos em crescimento",
-        message: `As despesas aumentaram ${formatPercent(expenseDelta, { showSign: true })} em relacao a ${previousMonthLabel}. Analise onde ocorreu a variacao.`,
-        time: timeLabel,
-        type: "warning",
-        read: false,
-      });
-    } else if (expenseDelta <= -10) {
-      notifications.push({
-        id: `expense-drop-${summaryIdBase}`,
-        title: "Controle exemplar de gastos",
-        message: `As despesas cairam ${formatPercent(expenseDelta, { showSign: true })} frente a ${previousMonthLabel}. Excelente resultado!`,
-        time: timeLabel,
-        type: "success",
-        read: false,
-      });
-    }
-  }
-
-  if (totalOvertimeMinutesCurrent > 0) {
-    const overtimeLabel = minutesToHours(totalOvertimeMinutesCurrent);
-    const overtimeValueLabel = formatCurrency(totalOvertimeValueCurrent);
-    const overtimeType = totalOvertimeMinutesCurrent >= 2400 ? "warning" : "info";
-    const overtimeTitle =
-      totalOvertimeMinutesCurrent >= 2400 ? "Atencao com as horas extras" : "Horas extras registradas";
-    const overtimeMessage =
-      totalOvertimeMinutesCurrent >= 2400
-        ? `Voce somou ${overtimeLabel} em ${monthLabel}, gerando ${overtimeValueLabel}. Garanta momentos de descanso e avalie reduzir o ritmo.`
-        : `Voce registrou ${overtimeLabel} em ${monthLabel}, totalizando ${overtimeValueLabel}.`;
-    notifications.push({
-      id: `overtime-${summaryIdBase}`,
-      title: overtimeTitle,
-      message: overtimeMessage,
-      time: timeLabel,
-      type: overtimeType,
-      read: false,
-    });
-  }
-
-  const dueSoonCards = (cards ?? [])
-    .map((card) => {
-      const dueDay = Number(card?.due_day);
-      const daysLeft = daysUntilNextDueDate(now, dueDay);
-      return {
-        id: card?.id,
-        name: String(card?.name || "Cartão"),
-        dueDay,
-        daysLeft,
-      };
-    })
-    .filter((card) => Number.isInteger(card.daysLeft) && card.daysLeft >= 0 && card.daysLeft <= 2)
-    .sort((a, b) => a.daysLeft - b.daysLeft || a.name.localeCompare(b.name, "pt-BR"));
-
-  dueSoonCards.forEach((card) => {
-    const label =
-      card.daysLeft === 0
-        ? "vence hoje"
-        : card.daysLeft === 1
-        ? "vence amanhã"
-        : `vence em ${card.daysLeft} dias`;
-
-    notifications.push({
-      id: `card-due-${summaryIdBase}-${card.id ?? card.name}`,
-      title: "Vencimento de cartão próximo",
-      message: `${card.name} ${label} (dia ${card.dueDay}).`,
-      time: timeLabel,
-      type: "warning",
-      read: false,
-    });
-  });
-
-  if (notifications.length === 0) {
-    notifications.push({
-      id: `no-data-${summaryIdBase}`,
-      title: "Sem movimentos recentes",
-      message: `Ainda nao encontramos lancamentos em ${monthLabel}. Utilize os atalhos para registrar despesas, rendas ou investimentos.`,
-      time: timeLabel,
-      type: "info",
-      read: false,
-    });
-  }
-
-  return notifications;
 }
-
 export default function Layout() {
   const [menuAberto, setMenuAberto] = useState(false);
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
@@ -432,8 +136,6 @@ export default function Layout() {
   const [quickSearch, setQuickSearch] = useState("");
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
-  const [plansOpen, setPlansOpen] = useState(false);
-  const [subscribingPlan, setSubscribingPlan] = useState(null);
   const [pwaInstallEvent, setPwaInstallEvent] = useState(null);
   const [canInstallPwa, setCanInstallPwa] = useState(false);
   const [isStandalonePwa, setIsStandalonePwa] = useState(() => isStandaloneMode());
@@ -479,15 +181,9 @@ export default function Layout() {
   const refreshNotifications = React.useCallback(() => {
     setNotificationsVersion((version) => version + 1);
   }, []);
-  const handleOpenPlans = React.useCallback(() => setPlansOpen(true), []);
-  const handleClosePlans = React.useCallback(() => {
-    setPlansOpen(false);
-    setSubscribingPlan(null);
+  const handleOpenPlans = React.useCallback(() => {
+    toast("Planos do FluentMind serao reativados em uma etapa futura.");
   }, []);
-  useEffect(() => {
-    window.addEventListener("granaapp:open-plans", handleOpenPlans);
-    return () => window.removeEventListener("granaapp:open-plans", handleOpenPlans);
-  }, [handleOpenPlans]);
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
 
@@ -634,18 +330,6 @@ export default function Layout() {
     }
   }, [activateTrial]);
 
-  const handleWelcomeSeePlans = React.useCallback(async () => {
-    try {
-      setWelcomeDismissed(true);
-      await activateTrial({ markSeen: true, activate: false });
-    } catch (error) {
-      console.error("Erro ao registrar boas-vindas:", error);
-    } finally {
-      setWelcomeOpen(false);
-      handleOpenPlans();
-    }
-  }, [activateTrial, handleOpenPlans]);
-
   const handleWelcomeClose = React.useCallback(async () => {
     setWelcomeDismissed(true);
     if (hasSeenWelcome) {
@@ -680,91 +364,6 @@ export default function Layout() {
     }
   }, [activateTrial]);
 
-  const handleAutomaticSubscription = React.useCallback(
-    async (planId = DEFAULT_PLAN_ID) => {
-      if (!user) {
-        toast.error("Faca login para concluir a assinatura.");
-        return;
-      }
-
-      const normalizedPlan = typeof planId === "string" ? planId : DEFAULT_PLAN_ID;
-      setSubscribingPlan(normalizedPlan);
-      try {
-        const response = await fetch(CHECKOUT_ENDPOINT, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            plan: normalizedPlan,
-            userId: user.id,
-            email: user.email,
-          }),
-        });
-
-        let payload = {};
-        try {
-          payload = await response.json();
-        } catch {
-          payload = {};
-        }
-
-        if (!response.ok) {
-          const message = payload?.error ?? "Nao foi possivel iniciar o checkout.";
-          throw new Error(message);
-        }
-
-        const preferenceId =
-          payload?.preferenceId || payload?.id || payload?.preference_id || payload?.preference?.id;
-        const checkoutUrl =
-          payload?.checkoutUrl || payload?.init_point || payload?.sandbox_init_point || payload?.url;
-
-        let openedViaPopup = false;
-        if (preferenceId && MERCADO_PAGO_PUBLIC_KEY) {
-          try {
-            await openMercadoPagoCheckout({
-              publicKey: MERCADO_PAGO_PUBLIC_KEY,
-              locale: MERCADO_PAGO_LOCALE,
-              preferenceId,
-              theme: {
-                elementsColor: "#10b981",
-                headerColor: "#020617",
-              },
-            });
-            openedViaPopup = true;
-          } catch (sdkError) {
-            console.error("Popup do Mercado Pago indisponivel:", sdkError);
-          }
-        }
-
-        if (!openedViaPopup) {
-          if (!checkoutUrl) {
-            throw new Error("Mercado Pago indisponivel no momento.");
-          }
-          window.open(checkoutUrl, "_blank", "noopener,noreferrer");
-        }
-
-        handleClosePlans();
-        toast.success(
-          openedViaPopup
-            ? "Checkout aberto em popup. Finalize com cartao, Pix ou boleto."
-            : "Abrimos o checkout do Mercado Pago em uma nova aba.",
-        );
-      } catch (subscriptionError) {
-        console.error("Erro ao iniciar checkout do Mercado Pago:", subscriptionError);
-        toast.error(subscriptionError.message ?? "Nao foi possivel abrir o checkout agora.");
-      } finally {
-        setSubscribingPlan(null);
-      }
-    },
-    [user, handleClosePlans],
-  );
-
-  useEffect(() => {
-    const handleActivateTrialRequest = () => {
-      handleActivateTrial();
-    };
-    window.addEventListener("granaapp:activate-trial", handleActivateTrialRequest);
-    return () => window.removeEventListener("granaapp:activate-trial", handleActivateTrialRequest);
-  }, [handleActivateTrial]);
 
   const unreadCount = notifications.reduce(
     (count, notification) => (notification.read ? count : count + 1),
@@ -839,11 +438,6 @@ export default function Layout() {
         const personalized = buildPersonalizedNotifications({
           userId: user.id,
           now: new Date(),
-          revenues: [],
-          expenses: [],
-          investments: [],
-          overtime: [],
-          cards: [],
         });
 
         if (!ignore) {
@@ -1336,18 +930,7 @@ export default function Layout() {
       <WelcomeModal
         open={welcomeOpen}
         onStart={handleWelcomeStart}
-        onSeePlans={handleWelcomeSeePlans}
         onClose={handleWelcomeClose}
-      />
-      <PremiumPlansModal
-        open={plansOpen}
-        onClose={handleClosePlans}
-        onSubscribe={handleAutomaticSubscription}
-        subscribingPlanId={subscribingPlan}
-        hasPremiumAccess={hasPremiumAccess}
-        currentPlanId={plan}
-        trialActive={trialActive}
-        trialEndsAt={trialEndsAt}
       />
     </div>
   );

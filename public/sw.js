@@ -1,4 +1,4 @@
-const APP_CACHE = "korden-app-shell-v1";
+const APP_CACHE = "fluentmind-app-shell-v1";
 const APP_SHELL = ["/", "/index.html", "/manifest.webmanifest", "/vite.svg"];
 
 self.addEventListener("install", (event) => {

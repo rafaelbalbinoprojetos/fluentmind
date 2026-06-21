@@ -1,5 +1,5 @@
 {
-  "name": "granaapp-react",
+  "name": "fluentmind",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -20,7 +20,6 @@
     "lucide-react": "^0.468.0",
     "openai": "^4.59.0",
     "pdf-parse": "^1.1.1",
-    "pluggy-connect-sdk": "^1.0.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-hot-toast": "^2.6.0",
@@ -39,6 +38,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.22",
     "globals": "^16.4.0",
+    "jsdom": "^29.1.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.13",
     "vite": "^7.1.7",

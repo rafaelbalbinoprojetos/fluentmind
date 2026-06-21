@@ -1,14 +1,5 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
-import PremiumPlansModal from "../components/PremiumPlansModal.jsx";
-import { useAuth } from "../context/AuthContext.jsx";
-import { openMercadoPagoCheckout } from "../lib/mercadoPago.js";
+import { Link } from "react-router-dom";
 
-const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
-const CHECKOUT_ENDPOINT = `${API_BASE}/api/mercadopago/checkout`;
-const MERCADO_PAGO_PUBLIC_KEY = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY ?? "";
-const MERCADO_PAGO_LOCALE = import.meta.env.VITE_MERCADOPAGO_LOCALE ?? "pt-BR";
 const HERO_IMAGE =
   "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1800&q=85";
 
@@ -19,11 +10,11 @@ const HOW_IT_WORKS = [
   },
   {
     title: "Salve expressoes",
-    description: "Transforme frases uteis em uma biblioteca pessoal.",
+    description: "Transforme frases uteis em uma biblioteca pessoal de MindBlocks.",
   },
   {
     title: "Revise no tempo certo",
-    description: "Reforce erros corrigidos, audio e playlists de frases.",
+    description: "Reforce erros corrigidos, audio, playlists de frases e progresso.",
   },
 ];
 
@@ -35,84 +26,6 @@ const OUTCOMES = [
 ];
 
 export default function LandingPage() {
-  const navigate = useNavigate();
-  const { user, subscription } = useAuth();
-  const [plansOpen, setPlansOpen] = useState(false);
-  const [subscribingPlanId, setSubscribingPlanId] = useState(null);
-
-  const {
-    plan = "free",
-    trialActive = false,
-    trialEndsAt = null,
-    hasPremiumAccess = false,
-  } = subscription ?? {};
-
-  const handleOpenPlans = () => setPlansOpen(true);
-  const handleClosePlans = () => {
-    setPlansOpen(false);
-    setSubscribingPlanId(null);
-  };
-
-  const handleSubscribe = async (planId) => {
-    if (!user?.id || !user?.email) {
-      toast.error("Faça login para assinar o plano Premium.");
-      navigate("/app", { replace: false, state: { from: "/dashboard" } });
-      return;
-    }
-
-    setSubscribingPlanId(planId);
-
-    try {
-      const response = await fetch(CHECKOUT_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          plan: planId,
-          userId: user.id,
-          email: user.email,
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.error || "Não foi possível iniciar o checkout.");
-      }
-
-      const preferenceId = data?.preferenceId || data?.id || data?.preference_id || data?.preference?.id;
-      const checkoutUrl = data?.checkoutUrl || data?.init_point || data?.sandbox_init_point || data?.url;
-
-      let openedViaPopup = false;
-      if (preferenceId && MERCADO_PAGO_PUBLIC_KEY) {
-        try {
-          await openMercadoPagoCheckout({
-            publicKey: MERCADO_PAGO_PUBLIC_KEY,
-            preferenceId,
-            locale: MERCADO_PAGO_LOCALE,
-            theme: {
-              elementsColor: "#6366f1",
-              headerColor: "#4f46e5",
-            },
-          });
-          openedViaPopup = true;
-        } catch (sdkError) {
-          console.error("Popup do Mercado Pago indisponível:", sdkError);
-        }
-      }
-
-      if (!openedViaPopup) {
-        if (!checkoutUrl) {
-          throw new Error("Mercado Pago indisponível no momento.");
-        }
-        window.open(checkoutUrl, "_blank", "noopener,noreferrer");
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error(error.message || "Não foi possível iniciar o checkout.");
-    } finally {
-      setSubscribingPlanId(null);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-slate-950/70 backdrop-blur">
@@ -126,21 +39,12 @@ export default function LandingPage() {
               <span className="block text-xs text-sky-100/70">Stop translating. Start thinking.</span>
             </span>
           </Link>
-          <div className="flex items-center gap-2">
-            <Link
-              to="/app"
-              className="inline-flex items-center justify-center rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-slate-100 transition hover:bg-white/10"
-            >
-              Entrar
-            </Link>
-            <button
-              type="button"
-              onClick={handleOpenPlans}
-              className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-violet-500 to-sky-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:from-violet-400 hover:to-sky-400"
-            >
-              Ver planos
-            </button>
-          </div>
+          <Link
+            to="/app"
+            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-violet-500 to-sky-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:from-violet-400 hover:to-sky-400"
+          >
+            Entrar
+          </Link>
         </div>
       </header>
 
@@ -240,17 +144,6 @@ export default function LandingPage() {
           </div>
         </section>
       </main>
-
-      <PremiumPlansModal
-        open={plansOpen}
-        onClose={handleClosePlans}
-        onSubscribe={handleSubscribe}
-        subscribingPlanId={subscribingPlanId}
-        hasPremiumAccess={hasPremiumAccess}
-        currentPlanId={plan}
-        trialActive={trialActive}
-        trialEndsAt={trialEndsAt}
-      />
     </div>
   );
 }

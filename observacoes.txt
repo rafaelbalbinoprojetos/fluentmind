@@ -1,1 +1,3 @@
-vercel --prod --force
+VERCEL UTILIZADO MINHA CONTA https://vercel.com/rafael-balbinos-projects/fluentmind/7HMWN8yg6LECrj5i1o8zihsGrBx9
+SUPABSE UTILIZADO A CONTA fluentmidpro@gmail.com
+chatpt logado com minha conta do google com rafaelbalbinoprojetos@gmail.com

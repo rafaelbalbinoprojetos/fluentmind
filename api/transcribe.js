@@ -170,7 +170,7 @@ async function handleTranscribe(req, res, user, openai) {
   }
 
   const extension = detectExtensionFromMime(mimeType) || detectExtensionFromBuffer(buffer) || "webm";
-  const file = await OpenAI.toFile(buffer, `granaapp-audio.${extension}`);
+  const file = await OpenAI.toFile(buffer, `fluentmind-audio.${extension}`);
 
   const transcription = await openai.audio.transcriptions.create({
     file,

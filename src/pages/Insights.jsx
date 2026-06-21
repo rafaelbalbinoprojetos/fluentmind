@@ -4,6 +4,7 @@ import { Brain, Check, Eye, RotateCcw, Sparkles, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
 import { listMindBlocks, updateMindBlock } from "../services/mindblocks.js";
 import { createReviewEvent, listReviewEvents } from "../services/reviewEvents.js";
+import { recordDailyActivity } from "../services/learningProgress.js";
 
 const REVIEW_SCORES = {
   again: { masteryDelta: -8, nextDays: 0, correct: false, toast: "No problem. Send it to another round." },
@@ -123,6 +124,11 @@ export default function InsightsPage() {
           nextReviewAt: score.nextDays === 0 ? "Today" : `In ${score.nextDays} days`,
           isReviewDue: score.nextDays === 0,
           status: score.nextDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : "learning",
+        }),
+        recordDailyActivity(user.id, {
+          expressions_reviewed: 1,
+          [`reviews_${result}`]: 1,
+          study_minutes: 1,
         }),
       ]);
 

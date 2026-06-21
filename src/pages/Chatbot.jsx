@@ -23,7 +23,6 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { libraryPlaylists } from "../data/libraryMock.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
   createConversationMessage,
@@ -31,6 +30,9 @@ import {
   listConversationMessages,
   listConversationSessions,
 } from "../services/conversations.js";
+import { createMindBlock } from "../services/mindblocks.js";
+import { addMindBlockToPlaylist, createPlaylist, listPlaylists } from "../services/playlists.js";
+import { recordDailyActivity } from "../services/learningProgress.js";
 
 const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
 
@@ -66,6 +68,8 @@ export default function ChatbotPage() {
   const [voiceMode, setVoiceMode] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [selectedExpression, setSelectedExpression] = useState("I'm getting used to it.");
+  const [playlists, setPlaylists] = useState([]);
+  const [savingMindBlock, setSavingMindBlock] = useState(false);
 
   const mindBlocksCreated = useMemo(
     () => messages.filter((message) => message.detectedExpression).length,
@@ -127,8 +131,29 @@ export default function ChatbotPage() {
     };
   }, [user?.id]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadPlaylists() {
+      if (!user?.id) return;
+
+      try {
+        const nextPlaylists = await listPlaylists(user.id);
+        if (isMounted) setPlaylists(nextPlaylists);
+      } catch (error) {
+        console.error(error);
+        toast.error("Nao foi possivel carregar suas playlists.");
+      }
+    }
+
+    loadPlaylists();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
+
   const ensureActiveSession = async (firstPrompt) => {
-    if (activeSessionId) return activeSessionId;
+    if (activeSessionId) return { sessionId: activeSessionId, created: false };
 
     const newSession = await createConversationSession({
       userId: user.id,
@@ -139,7 +164,7 @@ export default function ChatbotPage() {
     setActiveSessionId(newSession.id);
     await refreshConversations(newSession.id);
     setMessages([]);
-    return newSession.id;
+    return { sessionId: newSession.id, created: true };
   };
 
   const selectConversation = async (conversationId) => {
@@ -168,12 +193,17 @@ export default function ChatbotPage() {
     setTyping(true);
 
     try {
-      const sessionId = await ensureActiveSession(text);
+      const { sessionId, created } = await ensureActiveSession(text);
       const storedUserMessage = await createConversationMessage({
         userId: user.id,
         sessionId,
         role: "user",
         content: text,
+      });
+      await recordDailyActivity(user.id, {
+        messages_sent: 1,
+        conversations_started: created ? 1 : 0,
+        study_minutes: 1,
       });
 
       const visibleMessages = messages[0]?.id === "welcome-neo" ? [] : messages;
@@ -254,6 +284,75 @@ export default function ChatbotPage() {
     setSaveModalOpen(true);
   };
 
+  const ensureDefaultPlaylist = async () => {
+    if (playlists.length > 0) return playlists[0];
+
+    const playlist = await createPlaylist({
+      userId: user.id,
+      name: "Conversation MindBlocks",
+      description: "Expressions saved from Neo conversations.",
+      color: "violet",
+      icon: "brain",
+    });
+
+    setPlaylists([playlist]);
+    return playlist;
+  };
+
+  const saveMindBlockFromChat = async (form) => {
+    if (!user?.id) {
+      toast.error("Sessao expirada. Faca login novamente.");
+      return;
+    }
+
+    try {
+      setSavingMindBlock(true);
+      let createdDefaultPlaylist = false;
+      const targetPlaylist = form.playlist ? playlists.find((item) => item.id === form.playlist) : null;
+      let playlist = targetPlaylist;
+      if (!playlist) {
+        playlist = await ensureDefaultPlaylist();
+        createdDefaultPlaylist = playlists.length === 0;
+      }
+      const mindBlock = await createMindBlock({
+        expression: form.expression,
+        translation: form.translation,
+        category: form.category,
+        notes: form.notes,
+        context: form.notes,
+        source: "Neo Conversation",
+      }, {
+        userId: user.id,
+        mode: form.review ? "review" : "save",
+      });
+
+      if (playlist?.id) {
+        await addMindBlockToPlaylist({
+          userId: user.id,
+          playlistId: playlist.id,
+          mindBlockId: mindBlock.id,
+        });
+        setPlaylists((current) => current.map((item) => (
+          item.id === playlist.id ? { ...item, count: (item.count ?? 0) + 1 } : item
+        )));
+      }
+      await recordDailyActivity(user.id, {
+        expressions_saved: 1,
+        mindblocks_created: 1,
+        playlists_created: createdDefaultPlaylist ? 1 : 0,
+        study_minutes: 1,
+      });
+
+      setSaveModalOpen(false);
+      toast.success("MindBlock salvo na sua biblioteca.");
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message || "Nao foi possivel salvar o MindBlock.");
+    } finally {
+      setSavingMindBlock(false);
+    }
+  };
+
   const mockAction = (message) => toast(message);
 
   return (
@@ -320,11 +419,10 @@ export default function ChatbotPage() {
       {saveModalOpen ? (
         <SaveMindBlockModal
           expression={selectedExpression}
+          playlists={playlists}
+          saving={savingMindBlock}
           onClose={() => setSaveModalOpen(false)}
-          onSave={() => {
-            setSaveModalOpen(false);
-            toast.success("MindBlock successfully created.");
-          }}
+          onSave={saveMindBlockFromChat}
         />
       ) : null}
     </main>
@@ -585,12 +683,12 @@ function IntelList({ title, items, tone = "" }) {
   );
 }
 
-function SaveMindBlockModal({ expression, onClose, onSave }) {
+function SaveMindBlockModal({ expression, playlists, saving, onClose, onSave }) {
   const [form, setForm] = useState({
     expression,
     translation: expression === "I'm looking forward to it." ? "Estou ansioso por isso." : "Estou me acostumando com isso.",
     category: "Daily Fluency",
-    playlist: "daily-fluency",
+    playlist: playlists[0]?.id ?? "",
     difficulty: "B1",
     tags: "conversation, natural",
     notes: "Saved from a conversation with Neo.",
@@ -620,7 +718,8 @@ function SaveMindBlockModal({ expression, onClose, onSave }) {
           <label>
             <span>Playlist</span>
             <select value={form.playlist} onChange={(event) => update("playlist", event.target.value)}>
-              {libraryPlaylists.map((playlist) => <option key={playlist.id} value={playlist.id}>{playlist.name}</option>)}
+              {playlists.length === 0 ? <option value="">Create default playlist</option> : null}
+              {playlists.map((playlist) => <option key={playlist.id} value={playlist.id}>{playlist.name}</option>)}
             </select>
           </label>
           <NeoField label="Difficulty" value={form.difficulty} onChange={(value) => update("difficulty", value)} />
@@ -642,8 +741,10 @@ function SaveMindBlockModal({ expression, onClose, onSave }) {
           ))}
         </div>
         <footer className="neo-save-footer">
-          <button type="button" onClick={onClose}>Cancel</button>
-          <button type="button" className="fm-gradient" onClick={onSave}><Check className="h-4 w-4" /> Save MindBlock</button>
+          <button type="button" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="button" className="fm-gradient" onClick={() => onSave(form)} disabled={saving}>
+            <Check className="h-4 w-4" /> {saving ? "Saving..." : "Save MindBlock"}
+          </button>
         </footer>
       </section>
     </div>

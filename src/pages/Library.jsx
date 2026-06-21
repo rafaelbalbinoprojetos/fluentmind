@@ -40,6 +40,7 @@ import {
   listPlaylistLinks,
   listPlaylists,
 } from "../services/playlists.js";
+import { recordDailyActivity } from "../services/learningProgress.js";
 
 const FILTERS = ["All", "Favorites", "Mastered", "Learning", "Review Due", "Mistakes", "Recently Saved"];
 const STATUSES = ["All statuses", "new", "learning", "mastered", "review_due"];
@@ -334,6 +335,12 @@ export default function LibraryPage() {
           item.id === selectedPlaylistId ? { ...item, count: (item.count ?? 0) + 1 } : item
         )));
       }
+      await recordDailyActivity(user.id, {
+        expressions_saved: 1,
+        mindblocks_created: 1,
+        playlists_created: playlists.length === 0 && !payload.playlist ? 1 : 0,
+        study_minutes: 1,
+      });
       setExpressions((current) => [expressionWithPlaylist, ...current]);
       setAddModalOpen(false);
       toast.success(mode === "review" ? "Expression saved and moved to review." : "Expression saved as a new MindBlock.");

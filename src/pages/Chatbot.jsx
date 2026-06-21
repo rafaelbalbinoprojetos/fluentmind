@@ -1,25 +1,20 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import {
-  Archive,
   Brain,
   Check,
   Copy,
   Headphones,
   Heart,
   Mic,
-  MoreHorizontal,
   Plus,
   RotateCcw,
-  Search,
   Send,
   Share2,
   Sparkles,
   Star,
   Trash2,
-  Volume2,
   X,
-  Zap,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
@@ -48,15 +43,6 @@ const welcomeMessages = [
   },
 ];
 
-const smartContext = {
-  summary: "Practicing natural daily fluency, especially adaptation and routine expressions.",
-  usefulExpressions: ["I'm getting used to it.", "That makes sense.", "Let me think it through."],
-  mistakes: ["I am used with it.", "I have 40 years."],
-  vocabulary: ["routine", "adapt", "naturally", "fluency"],
-  pattern: "I'm getting used to + noun / verb-ing",
-  gain: "+2.4%",
-};
-
 function getAssistantName(user) {
   return user?.user_metadata?.assistant_name?.trim() || "Neo";
 }
@@ -75,11 +61,6 @@ export default function ChatbotPage() {
   const [selectedExpression, setSelectedExpression] = useState("I'm getting used to it.");
   const [playlists, setPlaylists] = useState([]);
   const [savingMindBlock, setSavingMindBlock] = useState(false);
-
-  const mindBlocksCreated = useMemo(
-    () => messages.filter((message) => message.detectedExpression).length,
-    [messages],
-  );
 
   const refreshConversations = useCallback(async (nextActiveSessionId = activeSessionId) => {
     if (!user?.id) return [];
@@ -170,12 +151,6 @@ export default function ChatbotPage() {
     await refreshConversations(newSession.id);
     setMessages([]);
     return { sessionId: newSession.id, created: true };
-  };
-
-  const selectConversation = async (conversationId) => {
-    setActiveSessionId(conversationId);
-    setConversations((current) => current.map((item) => ({ ...item, active: item.id === conversationId })));
-    await loadConversationMessages(conversationId);
   };
 
   const startNewConversation = () => {
@@ -421,74 +396,6 @@ export default function ChatbotPage() {
   );
 }
 
-function NeoConversationSidebar({ conversations, loading, onSelect, onNew }) {
-  const groups = ["Hoje", "Ontem", "Esta semana", "Anteriores", "Arquivadas"];
-
-  return (
-    <aside className="neo-left-sidebar">
-      <div className="neo-avatar-card">
-        <div className="neo-avatar-large"><Brain className="h-8 w-8" /></div>
-        <div>
-          <h2>Neo</h2>
-          <p>Fluency mentor</p>
-        </div>
-      </div>
-
-      <button type="button" className="neo-new-button" onClick={onNew}>
-        <Plus className="h-4 w-4" /> New Conversation
-      </button>
-
-      <label className="neo-search">
-        <Search className="h-4 w-4" />
-        <input placeholder="Search conversations..." />
-      </label>
-
-      <div className="neo-tag-row">
-        {["Speaking", "Corrections", "Review", "Work"].map((tag) => <span key={tag}>{tag}</span>)}
-      </div>
-
-      <div className="neo-conversation-groups">
-        {loading ? (
-          <section>
-            <h3>Carregando</h3>
-            <div className="neo-conversation-item">
-              <span>Loading your conversations...</span>
-              <small>Supabase</small>
-            </div>
-          </section>
-        ) : null}
-        {groups.map((group) => (
-          <section key={group}>
-            <h3>{group}</h3>
-            <div className="grid gap-2">
-              {conversations.filter((item) => item.group === group).map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={`neo-conversation-item ${item.active ? "is-active" : ""}`}
-                  onClick={() => onSelect(item.id)}
-                >
-                  <span>{item.title}</span>
-                  <small>{item.tag}</small>
-                </button>
-              ))}
-            </div>
-          </section>
-        ))}
-        {!loading && conversations.length === 0 ? (
-          <section>
-            <h3>Comece aqui</h3>
-            <button type="button" className="neo-conversation-item is-active" onClick={onNew}>
-              <span>First conversation</span>
-              <small><Archive className="inline h-3 w-3" /> Ready</small>
-            </button>
-          </section>
-        ) : null}
-      </div>
-    </aside>
-  );
-}
-
 function NeoChatHeader({ assistantName, voiceMode, onToggleVoice, onClear, activeSessionId }) {
   return (
     <header className="neo-chat-header">
@@ -516,23 +423,6 @@ function NeoChatHeader({ assistantName, voiceMode, onToggleVoice, onClear, activ
         </Link>
       </div>
     </header>
-  );
-}
-
-function TodayExpressionCard({ onSave }) {
-  return (
-    <section className="neo-today-card">
-      <div>
-        <p>Today's Expression</p>
-        <h2>I'm looking forward to it.</h2>
-        <span>Estou ansioso por isso.</span>
-      </div>
-      <div className="neo-mini-actions">
-        <button type="button" onClick={() => toast("Audio available.")}><Volume2 className="h-4 w-4" /> Listen</button>
-        <button type="button" onClick={onSave}><Star className="h-4 w-4" /> Save</button>
-        <button type="button" onClick={() => toast("Pronunciation practice coming soon.")}><Mic className="h-4 w-4" /> Practice</button>
-      </div>
-    </section>
   );
 }
 
@@ -634,45 +524,6 @@ function VoiceModePanel({ assistantName, onClose }) {
         <span>Listening</span>
         <span>Thinking</span>
         <span>Responding</span>
-      </div>
-    </section>
-  );
-}
-
-function NeoIntelligencePanel({ context, mindBlocksCreated }) {
-  return (
-    <aside className="neo-right-sidebar">
-      <section className="neo-intel-card">
-        <p>Conversation Summary</p>
-        <h2>{context.summary}</h2>
-      </section>
-      <IntelList title="Useful Expressions" items={context.usefulExpressions} tone="accent" />
-      <IntelList title="Detected Mistakes" items={context.mistakes} tone="danger" />
-      <IntelList title="New Vocabulary" items={context.vocabulary} />
-      <section className="neo-intel-card">
-        <p>Grammar Pattern</p>
-        <h2>{context.pattern}</h2>
-      </section>
-      <section className="neo-intel-grid">
-        <div><span>{mindBlocksCreated}</span><small>MindBlocks created</small></div>
-        <div><span>{context.gain}</span><small>Estimated fluency gain</small></div>
-      </section>
-      <section className="neo-intel-card">
-        <p>Neural Connections</p>
-        <div className="neo-neural-mini">
-          <span>Core</span><i /><span>Daily</span><i /><span>Expression</span>
-        </div>
-      </section>
-    </aside>
-  );
-}
-
-function IntelList({ title, items, tone = "" }) {
-  return (
-    <section className="neo-intel-card">
-      <p>{title}</p>
-      <div className="neo-intel-list">
-        {items.map((item) => <span key={item} className={tone}>{item}</span>)}
       </div>
     </section>
   );

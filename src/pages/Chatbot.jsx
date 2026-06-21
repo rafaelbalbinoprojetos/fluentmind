@@ -5,8 +5,6 @@ import {
   Brain,
   Check,
   Copy,
-  Download,
-  Focus,
   Headphones,
   Heart,
   Mic,
@@ -24,6 +22,9 @@ import {
   Zap,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
+import {
+  Link,
+} from "react-router-dom";
 import {
   createConversationMessage,
   createConversationSession,
@@ -56,15 +57,19 @@ const smartContext = {
   gain: "+2.4%",
 };
 
+function getAssistantName(user) {
+  return user?.user_metadata?.assistant_name?.trim() || "Neo";
+}
+
 export default function ChatbotPage() {
   const { user, session } = useAuth();
+  const assistantName = getAssistantName(user);
   const [conversations, setConversations] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [messages, setMessages] = useState(welcomeMessages);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [loadingConversations, setLoadingConversations] = useState(true);
-  const [focusMode, setFocusMode] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [selectedExpression, setSelectedExpression] = useState("I'm getting used to it.");
@@ -226,7 +231,9 @@ export default function ChatbotPage() {
         body: JSON.stringify({
           messages: currentMessages,
           userName: user?.user_metadata?.display_name?.trim() || user?.email?.split("@")[0] || null,
+          assistantName,
           chatTone: user?.user_metadata?.chat_tone || "natural",
+          assistantVoice: user?.user_metadata?.assistant_voice || "mineirinha",
         }),
       });
 
@@ -356,38 +363,27 @@ export default function ChatbotPage() {
   const mockAction = (message) => toast(message);
 
   return (
-    <main className={`neo-page ${focusMode ? "is-focus" : ""} ${voiceMode ? "is-voice" : ""}`}>
-      {!focusMode ? (
-        <NeoConversationSidebar
-          conversations={conversations}
-          loading={loadingConversations}
-          onSelect={selectConversation}
-          onNew={startNewConversation}
-        />
-      ) : null}
-
+    <main className={`neo-page neo-page-chat-only ${voiceMode ? "is-voice" : ""}`}>
       <section className="neo-chat-shell">
         <NeoChatHeader
-          focusMode={focusMode}
+          assistantName={assistantName}
           voiceMode={voiceMode}
-          onToggleFocus={() => setFocusMode((value) => !value)}
           onToggleVoice={() => setVoiceMode((value) => !value)}
           onClear={() => {
             startNewConversation();
           }}
-          onExport={() => mockAction("Export options coming soon.")}
+          activeSessionId={activeSessionId}
         />
 
-        <TodayExpressionCard onSave={() => openSaveModal("I'm looking forward to it.")} />
-
         {voiceMode ? (
-          <VoiceModePanel onClose={() => setVoiceMode(false)} />
+          <VoiceModePanel assistantName={assistantName} onClose={() => setVoiceMode(false)} />
         ) : (
           <div className="neo-message-list">
             {messages.map((message) => (
               <NeoMessage
                 key={message.id}
                 message={message}
+                assistantName={assistantName}
                 onSave={() => openSaveModal(message.detectedExpression)}
                 onMock={mockAction}
               />
@@ -411,10 +407,6 @@ export default function ChatbotPage() {
           </button>
         </form>
       </section>
-
-      {!focusMode ? (
-        <NeoIntelligencePanel context={smartContext} mindBlocksCreated={mindBlocksCreated} />
-      ) : null}
 
       {saveModalOpen ? (
         <SaveMindBlockModal
@@ -497,14 +489,14 @@ function NeoConversationSidebar({ conversations, loading, onSelect, onNew }) {
   );
 }
 
-function NeoChatHeader({ focusMode, voiceMode, onToggleFocus, onToggleVoice, onClear, onExport }) {
+function NeoChatHeader({ assistantName, voiceMode, onToggleVoice, onClear, activeSessionId }) {
   return (
     <header className="neo-chat-header">
       <div>
         <div className="flex items-center gap-3">
           <div className="neo-avatar-small"><Brain className="h-5 w-5" /></div>
           <div>
-            <h1>Neo</h1>
+            <h1>{assistantName}</h1>
             <p>Your personal fluency mentor</p>
           </div>
         </div>
@@ -516,9 +508,12 @@ function NeoChatHeader({ focusMode, voiceMode, onToggleFocus, onToggleVoice, onC
 
       <div className="neo-header-actions">
         <button type="button" className={voiceMode ? "is-active" : ""} onClick={onToggleVoice}><Mic className="h-4 w-4" /> Voice Mode</button>
-        <button type="button" className={focusMode ? "is-active" : ""} onClick={onToggleFocus}><Focus className="h-4 w-4" /> Focus Mode</button>
         <button type="button" onClick={onClear}><Trash2 className="h-4 w-4" /> Clear</button>
-        <button type="button" onClick={onExport}><Download className="h-4 w-4" /> Export</button>
+        <Link to="/conversas" className="neo-header-link">
+          <MessageCircle className="h-4 w-4" />
+          Conversations
+          {activeSessionId ? <span className="sr-only">current conversation saved</span> : null}
+        </Link>
       </div>
     </header>
   );
@@ -541,7 +536,7 @@ function TodayExpressionCard({ onSave }) {
   );
 }
 
-function NeoMessage({ message, onSave, onMock }) {
+function NeoMessage({ message, assistantName, onSave, onMock }) {
   const isNeo = message.role === "neo";
 
   return (
@@ -549,7 +544,7 @@ function NeoMessage({ message, onSave, onMock }) {
       {isNeo ? <div className="neo-message-avatar"><Brain className="h-5 w-5" /></div> : null}
       <div className="neo-message-stack">
         <div className="neo-message-meta">
-          <span>{isNeo ? "Neo" : "You"}</span>
+          <span>{isNeo ? assistantName : "You"}</span>
           <small>{message.createdAt}</small>
         </div>
         <div className="neo-message-bubble">
@@ -628,13 +623,13 @@ function NeoTypingIndicator() {
   );
 }
 
-function VoiceModePanel({ onClose }) {
+function VoiceModePanel({ assistantName, onClose }) {
   return (
     <section className="neo-voice-panel">
       <button type="button" className="neo-close-voice" onClick={onClose}><X className="h-4 w-4" /></button>
       <div className="neo-voice-brain"><Brain className="h-16 w-16" /></div>
       <p>Listening</p>
-      <h2>Speak naturally. Neo will turn your voice into MindBlocks.</h2>
+      <h2>Speak naturally. {assistantName} will turn your voice into MindBlocks.</h2>
       <div className="neo-voice-states">
         <span>Listening</span>
         <span>Thinking</span>

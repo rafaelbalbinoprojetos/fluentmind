@@ -40,10 +40,14 @@ export default function SettingsPage() {
   }, [mobileNavSelection, storedMobileNav]);
 
   const [displayName, setDisplayName] = useState(() => metadata.display_name ?? "");
+  const [assistantName, setAssistantName] = useState(() => metadata.assistant_name ?? "Neo");
+  const [assistantVoice, setAssistantVoice] = useState(() => metadata.assistant_voice ?? "mineirinha");
   const [chatTone, setChatTone] = useState(() => metadata.chat_tone ?? "natural");
   const [profileSaving, setProfileSaving] = useState(false);
   const profileDirty =
     displayName.trim() !== (metadata.display_name ?? "") ||
+    assistantName.trim() !== (metadata.assistant_name ?? "Neo") ||
+    assistantVoice !== (metadata.assistant_voice ?? "mineirinha") ||
     chatTone !== (metadata.chat_tone ?? "natural");
 
   const [learningForm, setLearningForm] = useState(initialLearning);
@@ -69,7 +73,12 @@ export default function SettingsPage() {
     if (!profileDirty || !updateUserMetadata) return;
     try {
       setProfileSaving(true);
-      await updateUserMetadata({ display_name: displayName.trim(), chat_tone: chatTone });
+      await updateUserMetadata({
+        display_name: displayName.trim(),
+        assistant_name: assistantName.trim() || "Neo",
+        assistant_voice: assistantVoice,
+        chat_tone: chatTone,
+      });
       toast.success("Perfil atualizado.");
     } catch (error) {
       console.error(error);
@@ -174,6 +183,36 @@ export default function SettingsPage() {
               />
               <span className="mt-1 block text-xs text-gray-400 dark:text-gray-500">
                 O Neo usa esse nome nas conversas e revisoes.
+              </span>
+            </label>
+
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Nome do assistente
+              <input
+                type="text"
+                value={assistantName}
+                onChange={(event) => setAssistantName(event.target.value)}
+                placeholder="Neo, Emma, Coach..."
+                className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-temaSky focus:outline-none focus:ring-2 focus:ring-temaSky/20 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+              />
+              <span className="mt-1 block text-xs text-gray-400 dark:text-gray-500">
+                Esse nome aparece no chatbot e nas mensagens de pratica.
+              </span>
+            </label>
+
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Voz preferida
+              <select
+                value={assistantVoice}
+                onChange={(event) => setAssistantVoice(event.target.value)}
+                className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-temaSky focus:outline-none focus:ring-2 focus:ring-temaSky/20 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+              >
+                <option value="mineirinha">Mineirinha</option>
+                <option value="female">Feminina neutra</option>
+                <option value="male">Masculina neutra</option>
+              </select>
+              <span className="mt-1 block text-xs text-gray-400 dark:text-gray-500">
+                Preparado para integrar com ElevenLabs nas proximas etapas.
               </span>
             </label>
 

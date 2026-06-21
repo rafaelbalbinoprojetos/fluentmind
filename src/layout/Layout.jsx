@@ -19,6 +19,7 @@ const ICON_MAP = {
   library: LibraryIcon,
   insights: InsightsIcon,
   chatbot: ChatbotIcon,
+  conversations: ChatbotIcon,
   neuralUniverse: NeuralUniverseIcon,
   settings: SettingsIcon,
   users: SettingsIcon,

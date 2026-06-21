@@ -19,7 +19,8 @@ function parseBody(req) {
   return req.body;
 }
 
-function buildSystemPrompt(userName, chatTone) {
+function buildSystemPrompt(userName, chatTone, assistantName = "Neo") {
+  const safeAssistantName = String(assistantName || "Neo").trim() || "Neo";
   const nameClause = userName
     ? `O nome do usuário é ${userName}. Chame-o pelo primeiro nome quando soar natural.`
     : "Não temos o nome do usuário cadastrado.";
@@ -30,7 +31,7 @@ function buildSystemPrompt(userName, chatTone) {
     coach: "Use tom de coach de fluência: incentive, corrija com suavidade e traga exemplos práticos.",
   };
 
-  return `Você é Neo, mentor de fluência do FluentMind.
+  return `Você é ${safeAssistantName}, mentor de fluência do FluentMind.
 
 O FluentMind ajuda brasileiros a aprender inglês pensando em MindBlocks: expressões naturais, padrões reutilizáveis, correções e revisão ativa.
 
@@ -86,11 +87,11 @@ export default async function handler(req, res) {
 
   try {
     const body = parseBody(req);
-    const { messages = [], userName = null, chatTone = "natural" } = body;
+    const { messages = [], userName = null, chatTone = "natural", assistantName = "Neo" } = body;
     await requireUser(req);
 
     const conversation = [
-      { role: "system", content: buildSystemPrompt(userName, chatTone) },
+      { role: "system", content: buildSystemPrompt(userName, chatTone, assistantName) },
       ...messages
         .filter((message) => message?.content)
         .slice(-12)

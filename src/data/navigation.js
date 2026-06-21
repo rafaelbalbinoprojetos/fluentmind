@@ -2,7 +2,8 @@ export const NAV_LINKS = [
   { id: "dashboard", to: "/dashboard", label: "Dashboard", shortLabel: "Inicio" },
   { id: "library", to: "/biblioteca", label: "Minha Biblioteca", shortLabel: "Biblioteca" },
   { id: "insights", to: "/insights", label: "Revisao", shortLabel: "Revisao" },
-  { id: "chatbot", to: "/chatbot", label: "Conversas", shortLabel: "Conversas" },
+  { id: "chatbot", to: "/chatbot", label: "Chatbot", shortLabel: "Chat" },
+  { id: "conversations", to: "/conversas", label: "Conversas", shortLabel: "Conversas" },
   { id: "neuralUniverse", to: "/neural-universe", label: "Neural Universe", shortLabel: "Universe" },
   { id: "users", to: "/usuarios", label: "Usuarios", shortLabel: "Usuarios" },
   { id: "landing", to: "/", label: "Descubra", shortLabel: "Descubra" },
@@ -14,6 +15,7 @@ export const MOBILE_NAV_ALLOWED_PATHS = [
   "/biblioteca",
   "/insights",
   "/chatbot",
+  "/conversas",
   "/neural-universe",
   "/configuracoes",
 ];
@@ -23,6 +25,7 @@ export const DEFAULT_MOBILE_NAV_PATHS = [
   "/biblioteca",
   "/insights",
   "/chatbot",
+  "/conversas",
   "/configuracoes",
 ];
 

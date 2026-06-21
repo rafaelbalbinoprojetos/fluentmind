@@ -2801,3 +2801,110 @@ g.is-dimmed .neural-impulse {
     font-size: 10px;
   }
 }
+
+.neo-page-chat-only {
+  display: flex;
+  min-height: calc(100svh - 7.5rem);
+  justify-content: center;
+}
+
+.neo-page-chat-only .neo-chat-shell {
+  width: min(100%, 980px);
+  min-height: calc(100svh - 7.5rem);
+}
+
+.neo-page-chat-only .neo-chat-header {
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border-soft);
+  padding: 0.95rem 1rem;
+}
+
+.neo-header-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 1rem;
+  padding: 0.65rem 0.85rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 800;
+  transition: transform 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+
+.neo-header-link:hover {
+  transform: translateY(-1px);
+  background-color: color-mix(in srgb, var(--surface-muted) 76%, transparent);
+  color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+  .neo-page-chat-only {
+    min-height: calc(100svh - 5.25rem);
+    margin: -0.75rem;
+  }
+
+  .neo-page-chat-only .neo-chat-shell {
+    min-height: calc(100svh - 5.25rem);
+    border-width: 0;
+    border-radius: 0;
+  }
+
+  .neo-page-chat-only .neo-chat-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background-color: color-mix(in srgb, var(--surface-card) 92%, transparent);
+    backdrop-filter: blur(18px);
+  }
+
+  .neo-page-chat-only .neo-header-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .neo-page-chat-only .neo-header-actions button,
+  .neo-page-chat-only .neo-header-link {
+    min-width: 0;
+    padding: 0.62rem 0.5rem;
+    font-size: 0.74rem;
+  }
+
+  .neo-page-chat-only .neo-message-list {
+    padding: 0.85rem 0.75rem 1rem;
+  }
+
+  .neo-page-chat-only .neo-message-stack {
+    max-width: 86%;
+  }
+
+  .neo-page-chat-only .neo-message-row.is-user .neo-message-stack {
+    max-width: 84%;
+  }
+
+  .neo-page-chat-only .neo-message-avatar {
+    height: 2.2rem;
+    width: 2.2rem;
+    border-radius: 0.85rem;
+  }
+
+  .neo-page-chat-only .neo-response-actions {
+    display: none;
+  }
+
+  .neo-page-chat-only .neo-composer {
+    position: sticky;
+    bottom: 0;
+    z-index: 6;
+    background-color: color-mix(in srgb, var(--surface-card) 94%, transparent);
+    padding: 0.75rem;
+    backdrop-filter: blur(18px);
+  }
+
+  .neo-page-chat-only .neo-composer textarea {
+    min-height: 2.65rem;
+    padding: 0.75rem 0.85rem;
+  }
+}

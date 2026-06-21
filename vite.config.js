@@ -5,6 +5,20 @@ import autoprefixer from "autoprefixer";
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ["react", "react-dom", "react-router-dom"],
+          charts: ["echarts", "echarts-for-react"],
+          motion: ["framer-motion"],
+          supabase: ["@supabase/supabase-js"],
+          ui: ["lucide-react"],
+        },
+      },
+    },
+  },
   css: {
     postcss: {
       plugins: [tailwindcss, autoprefixer],

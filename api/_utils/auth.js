@@ -4,9 +4,22 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 
-const supabaseAuth = supabaseUrl && supabaseServiceKey
-  ? createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } })
-  : null;
+function isValidHttpUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function getSupabaseAuthClient() {
+  if (!supabaseUrl || !supabaseServiceKey || !isValidHttpUrl(supabaseUrl)) {
+    return null;
+  }
+
+  return createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
+}
 
 export function getAccessToken(req) {
   const header = req.headers?.authorization || req.headers?.Authorization;
@@ -21,8 +34,12 @@ export function getAccessToken(req) {
 }
 
 export async function requireUser(req) {
+  const supabaseAuth = getSupabaseAuthClient();
+
   if (!supabaseAuth) {
-    const error = new Error("Supabase auth client not configured.");
+    const error = new Error(
+      "Supabase auth client not configured. Check SUPABASE_URL and SUPABASE_SERVICE_KEY in Vercel. SUPABASE_URL must look like https://xxxxx.supabase.co without /rest/v1.",
+    );
     error.statusCode = 500;
     throw error;
   }

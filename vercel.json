@@ -1,7 +1,4 @@
 {
-  "crons": [
-    { "path": "/api/radar/generate-daily", "schedule": "30 22 * * 1-5" }
-  ],
   "routes": [
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/index.html" }

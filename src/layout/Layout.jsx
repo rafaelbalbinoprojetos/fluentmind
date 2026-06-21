@@ -7,11 +7,6 @@ import VoiceRecordingModal from "../components/VoiceRecordingModal.jsx";
 import PremiumPlansModal from "../components/PremiumPlansModal.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import toast, { Toaster } from "react-hot-toast";
-import { listRevenues } from "../services/revenues.js";
-import { listExpenses } from "../services/expenses.js";
-import { listInvestments } from "../services/investments.js";
-import { listOvertime } from "../services/overtime.js";
-import { listCreditCards } from "../services/creditCards.js";
 import { formatCurrency } from "../utils/formatters.js";
 import { minutesToHours } from "../utils/overtime.js";
 import { EXPENSE_CATEGORIES } from "../utils/constants.js";
@@ -841,34 +836,22 @@ export default function Layout() {
       }
 
       try {
-        const [revenuesData, expensesData, investmentsData, overtimeData, cardsData] = await Promise.all([
-          listRevenues({ userId: user.id }),
-          listExpenses({ userId: user.id }),
-          listInvestments({ userId: user.id }),
-          listOvertime({ userId: user.id }),
-          listCreditCards({ userId: user.id }),
-        ]);
-
-        if (ignore) {
-          return;
-        }
-
         const personalized = buildPersonalizedNotifications({
           userId: user.id,
           now: new Date(),
-          revenues: revenuesData ?? [],
-          expenses: expensesData ?? [],
-          investments: investmentsData ?? [],
-          overtime: overtimeData ?? [],
-          cards: cardsData ?? [],
+          revenues: [],
+          expenses: [],
+          investments: [],
+          overtime: [],
+          cards: [],
         });
 
-        setNotifications(personalized);
-      } catch (error) {
-        console.error("Erro ao carregar notificações:", error);
         if (!ignore) {
-          setNotificationsError(error);
+          setNotifications(personalized);
         }
+      } catch (error) {
+        console.error("Erro ao preparar notificações:", error);
+        if (!ignore) setNotificationsError(error);
       } finally {
         if (!ignore) {
           setNotificationsLoading(false);

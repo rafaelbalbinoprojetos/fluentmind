@@ -6,6 +6,7 @@ import {
   Copy,
   Headphones,
   Heart,
+  MessageCircle,
   Mic,
   Plus,
   RotateCcw,

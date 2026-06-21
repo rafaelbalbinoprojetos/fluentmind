@@ -27,11 +27,19 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { useAuth } from "../context/AuthContext.jsx";
 import {
-  LIBRARY_STORAGE_KEY,
-  libraryExpressions,
-  libraryPlaylists,
-} from "../data/libraryMock.js";
+  createMindBlock,
+  deleteMindBlock,
+  listMindBlocks,
+  updateMindBlock,
+} from "../services/mindblocks.js";
+import {
+  addMindBlockToPlaylist,
+  createPlaylist,
+  listPlaylistLinks,
+  listPlaylists,
+} from "../services/playlists.js";
 
 const FILTERS = ["All", "Favorites", "Mastered", "Learning", "Review Due", "Mistakes", "Recently Saved"];
 const STATUSES = ["All statuses", "new", "learning", "mastered", "review_due"];
@@ -65,22 +73,6 @@ const collectionCards = [
   { id: "feelings", title: "Feelings", count: 22, description: "Say what you feel clearly.", icon: Heart, tone: "danger" },
 ];
 
-function loadExpressions() {
-  if (typeof window === "undefined") return libraryExpressions;
-  const stored = window.localStorage.getItem(LIBRARY_STORAGE_KEY);
-  if (!stored) return libraryExpressions;
-  try {
-    const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) ? parsed : libraryExpressions;
-  } catch {
-    return libraryExpressions;
-  }
-}
-
-function saveExpressions(expressions) {
-  window.localStorage.setItem(LIBRARY_STORAGE_KEY, JSON.stringify(expressions));
-}
-
 function normalizeStatus(status) {
   return status === "review_due" ? "Review Due" : status.charAt(0).toUpperCase() + status.slice(1);
 }
@@ -104,7 +96,7 @@ function inferPattern(expression) {
   return `${expression.split(" ").slice(0, 3).join(" ")} + context`;
 }
 
-function buildMindBlock(expression, expressions) {
+function buildMindBlock(expression, expressions, playlists) {
   const sameCategory = expressions.filter((item) => item.id !== expression.id && item.category === expression.category);
   const relatedIds = expression.relatedExpressionIds?.length ? expression.relatedExpressionIds : sameCategory.slice(0, 4).map((item) => item.id);
   const related = relatedIds
@@ -127,14 +119,18 @@ function buildMindBlock(expression, expressions) {
         ],
     commonMistake: expression.commonMistake || expression.mistake || null,
     playlists: (expression.playlistIds || [])
-      .map((playlistId) => libraryPlaylists.find((item) => item.id === playlistId))
+      .map((playlistId) => playlists.find((item) => item.id === playlistId))
       .filter(Boolean),
     related,
   };
 }
 
 export default function LibraryPage() {
-  const [expressions, setExpressions] = useState(loadExpressions);
+  const { user } = useAuth();
+  const [expressions, setExpressions] = useState([]);
+  const [playlists, setPlaylists] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [selectedExpression, setSelectedExpression] = useState(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -150,8 +146,50 @@ export default function LibraryPage() {
   }, [search]);
 
   useEffect(() => {
-    saveExpressions(expressions);
-  }, [expressions]);
+    let ignore = false;
+
+    async function loadMindBlocks() {
+      if (!user?.id) {
+        setExpressions([]);
+        setPlaylists([]);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const [mindBlocksData, playlistsData, playlistLinks] = await Promise.all([
+          listMindBlocks(user.id),
+          listPlaylists(user.id),
+          listPlaylistLinks(user.id),
+        ]);
+        if (ignore) return;
+        const linksByMindBlock = new Map();
+        playlistLinks.forEach((link) => {
+          const current = linksByMindBlock.get(link.mindblock_id) ?? [];
+          current.push(link.playlist_id);
+          linksByMindBlock.set(link.mindblock_id, current);
+        });
+        setExpressions(mindBlocksData.map((item) => ({ ...item, playlistIds: linksByMindBlock.get(item.id) ?? [] })));
+        setPlaylists(playlistsData);
+      } catch (error) {
+        console.error("Erro ao carregar MindBlocks:", error);
+        if (ignore) return;
+        setLoadError(error);
+        setExpressions([]);
+        setPlaylists([]);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+
+    loadMindBlocks();
+
+    return () => {
+      ignore = true;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (!selectedExpression) return;
@@ -161,11 +199,11 @@ export default function LibraryPage() {
 
   const stats = useMemo(() => ({
     expressions: expressions.length,
-    playlists: libraryPlaylists.length,
+    playlists: playlists.length,
     mastered: expressions.filter((item) => item.status === "mastered").length,
     dueToday: expressions.filter((item) => item.isReviewDue || item.status === "review_due").length,
     favorites: expressions.filter((item) => item.isFavorite).length,
-  }), [expressions]);
+  }), [expressions, playlists.length]);
 
   const filteredExpressions = useMemo(() => {
     const query = debouncedSearch.trim().toLowerCase();
@@ -199,8 +237,20 @@ export default function LibraryPage() {
     return result;
   }, [activeFilter, category, debouncedSearch, expressions, sort, status]);
 
-  const updateExpression = (id, patch) => {
+  const updateExpression = async (id, patch) => {
+    const previous = expressions;
     setExpressions((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+
+    try {
+      const updated = await updateMindBlock(id, patch);
+      if (updated) {
+        setExpressions((current) => current.map((item) => (item.id === id ? { ...item, ...updated } : item)));
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar MindBlock:", error);
+      setExpressions(previous);
+      toast.error("Nao foi possivel atualizar este MindBlock.");
+    }
   };
 
   const toggleFavorite = (expression) => {
@@ -225,12 +275,20 @@ export default function LibraryPage() {
     toast.success("Moved to review.");
   };
 
-  const deleteExpression = (expression) => {
+  const deleteExpression = async (expression) => {
     const confirmed = window.confirm(`Delete "${expression.expression}"?`);
     if (!confirmed) return;
+    const previous = expressions;
     setExpressions((current) => current.filter((item) => item.id !== expression.id));
     if (selectedExpression?.id === expression.id) setSelectedExpression(null);
-    toast.success("Expression deleted.");
+    try {
+      await deleteMindBlock(expression.id);
+      toast.success("Expression deleted.");
+    } catch (error) {
+      console.error("Erro ao excluir MindBlock:", error);
+      setExpressions(previous);
+      toast.error("Nao foi possivel excluir este MindBlock.");
+    }
   };
 
   const savePersonalNote = (expression, note) => {
@@ -238,30 +296,51 @@ export default function LibraryPage() {
     toast.success("Personal note saved.");
   };
 
-  const addExpression = (payload, mode) => {
-    const nextExpression = {
-      id: `expr-${Date.now()}`,
-      expression: payload.expression,
-      translation: payload.translation,
-      category: payload.category,
-      playlistIds: payload.playlist ? [payload.playlist] : [],
-      tags: payload.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
-      status: mode === "review" ? "review_due" : "new",
-      mastery: 12,
-      difficulty: payload.difficulty,
-      isFavorite: payload.isFavorite,
-      isReviewDue: mode === "review",
-      lastReviewedAt: "Never",
-      nextReviewAt: mode === "review" ? "Today" : "Tomorrow",
-      createdAt: new Date().toISOString().slice(0, 10),
-      timesReviewed: 0,
-      source: "Manual",
-      notes: payload.notes,
-      examples: payload.notes ? [payload.notes] : [],
-    };
-    setExpressions((current) => [nextExpression, ...current]);
-    setAddModalOpen(false);
-    toast.success(mode === "review" ? "Expression saved and moved to review." : "Expression saved as a new MindBlock.");
+  const ensureDefaultPlaylist = async () => {
+    if (playlists.length > 0) return playlists[0];
+    const playlist = await createPlaylist({
+      userId: user.id,
+      name: "Daily Fluency",
+      description: "Natural phrases for everyday answers.",
+      color: "violet",
+      icon: "message-circle",
+    });
+    setPlaylists((current) => [playlist, ...current]);
+    return playlist;
+  };
+
+  const addExpression = async (payload, mode) => {
+    if (!user?.id) {
+      toast.error("Usuario nao identificado.");
+      return;
+    }
+
+    try {
+      const nextExpression = await createMindBlock(payload, { userId: user.id, mode });
+      let expressionWithPlaylist = nextExpression;
+      let selectedPlaylistId = payload.playlist;
+      if (!selectedPlaylistId) {
+        const defaultPlaylist = await ensureDefaultPlaylist();
+        selectedPlaylistId = defaultPlaylist?.id;
+      }
+      if (selectedPlaylistId) {
+        await addMindBlockToPlaylist({
+          userId: user.id,
+          playlistId: selectedPlaylistId,
+          mindBlockId: nextExpression.id,
+        });
+        expressionWithPlaylist = { ...nextExpression, playlistIds: [selectedPlaylistId] };
+        setPlaylists((current) => current.map((item) => (
+          item.id === selectedPlaylistId ? { ...item, count: (item.count ?? 0) + 1 } : item
+        )));
+      }
+      setExpressions((current) => [expressionWithPlaylist, ...current]);
+      setAddModalOpen(false);
+      toast.success(mode === "review" ? "Expression saved and moved to review." : "Expression saved as a new MindBlock.");
+    } catch (error) {
+      console.error("Erro ao salvar MindBlock:", error);
+      toast.error(error.message || "Nao foi possivel salvar a expressao.");
+    }
   };
 
   return (
@@ -269,7 +348,7 @@ export default function LibraryPage() {
       <LibraryHeader search={search} onSearch={setSearch} onAdd={() => setAddModalOpen(true)} />
       <LibraryHeroCard stats={stats} />
       <QuickCollections />
-      <PlaylistsSection />
+      <PlaylistsSection playlists={playlists} onCreateDefault={ensureDefaultPlaylist} />
 
       <section className="fm-card rounded-[30px] border p-5 shadow-lg backdrop-blur-xl">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -289,7 +368,13 @@ export default function LibraryPage() {
           />
         </div>
 
-        {filteredExpressions.length === 0 ? (
+        {loadError ? (
+          <div className="mt-5 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-100">
+            Nao foi possivel carregar seus MindBlocks agora. Verifique a tabela `mindblocks` e as politicas RLS.
+          </div>
+        ) : loading ? (
+          <LibraryLoadingState />
+        ) : filteredExpressions.length === 0 ? (
           <EmptyLibraryState onAdd={() => setAddModalOpen(true)} />
         ) : (
           <div className="mt-5 grid gap-3">
@@ -313,6 +398,7 @@ export default function LibraryPage() {
         <ExpressionDetailDrawer
           expression={selectedExpression}
           expressions={expressions}
+          playlists={playlists}
           onClose={() => setSelectedExpression(null)}
           onFavorite={() => toggleFavorite(selectedExpression)}
           onMastered={() => markMastered(selectedExpression)}
@@ -323,7 +409,14 @@ export default function LibraryPage() {
         />
       ) : null}
 
-      {addModalOpen ? <AddExpressionModal onClose={() => setAddModalOpen(false)} onSave={addExpression} /> : null}
+      {addModalOpen ? (
+        <AddExpressionModal
+          playlists={playlists}
+          onCreateDefaultPlaylist={ensureDefaultPlaylist}
+          onClose={() => setAddModalOpen(false)}
+          onSave={addExpression}
+        />
+      ) : null}
     </main>
   );
 }
@@ -443,18 +536,34 @@ function CollectionCard({ item }) {
   );
 }
 
-function PlaylistsSection() {
+function PlaylistsSection({ playlists, onCreateDefault }) {
+  const visiblePlaylists = playlists.length > 0 ? playlists : [];
+
   return (
     <section className="fm-card rounded-[30px] border p-5 shadow-lg backdrop-blur-xl">
-      <div>
-        <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Playlists</p>
-        <h2 className="mt-2 text-2xl font-semibold">Organize expressions by situation, goal or emotion.</h2>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Playlists</p>
+          <h2 className="mt-2 text-2xl font-semibold">Organize expressions by situation, goal or emotion.</h2>
+        </div>
+        {visiblePlaylists.length === 0 ? (
+          <button type="button" onClick={onCreateDefault} className="library-ghost-button">
+            <FolderPlus className="h-4 w-4" />
+            Create first playlist
+          </button>
+        ) : null}
       </div>
-      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {libraryPlaylists.map((playlist, index) => (
-          <PlaylistCard key={playlist.id} playlist={playlist} index={index} />
-        ))}
-      </div>
+      {visiblePlaylists.length === 0 ? (
+        <p className="fm-muted mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm">
+          Create a playlist to group your MindBlocks by routine, work, travel or any learning goal.
+        </p>
+      ) : (
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          {visiblePlaylists.map((playlist, index) => (
+            <PlaylistCard key={playlist.id} playlist={playlist} index={index} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -556,6 +665,7 @@ function StatusBadge({ status }) {
 function ExpressionDetailDrawer({
   expression,
   expressions,
+  playlists,
   onClose,
   onFavorite,
   onMastered,
@@ -564,7 +674,7 @@ function ExpressionDetailDrawer({
   onSaveNote,
   onOpenRelated,
 }) {
-  const block = useMemo(() => buildMindBlock(expression, expressions), [expression, expressions]);
+  const block = useMemo(() => buildMindBlock(expression, expressions, playlists), [expression, expressions, playlists]);
   const [note, setNote] = useState(block.personalNotes || block.notes || "");
 
   useEffect(() => {
@@ -769,12 +879,12 @@ function PanelMetric({ label, value }) {
   );
 }
 
-function AddExpressionModal({ onClose, onSave }) {
+function AddExpressionModal({ playlists, onCreateDefaultPlaylist, onClose, onSave }) {
   const [form, setForm] = useState({
     expression: "",
     translation: "",
     category: "Daily Fluency",
-    playlist: "daily-fluency",
+    playlist: playlists[0]?.id ?? "",
     difficulty: "A2",
     notes: "",
     tags: "",
@@ -784,6 +894,12 @@ function AddExpressionModal({ onClose, onSave }) {
   const update = (field, value) => setForm((current) => ({ ...current, [field]: value }));
 
   useEffect(() => {
+    if (!form.playlist && playlists[0]?.id) {
+      setForm((current) => ({ ...current, playlist: playlists[0].id }));
+    }
+  }, [form.playlist, playlists]);
+
+  useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -791,12 +907,23 @@ function AddExpressionModal({ onClose, onSave }) {
     };
   }, []);
 
-  const submit = (mode) => {
+  const submit = async (mode) => {
     if (!form.expression.trim() || !form.translation.trim()) {
       toast.error("Add the English expression and Portuguese translation.");
       return;
     }
-    onSave(form, mode);
+    let payload = form;
+    if (!payload.playlist && onCreateDefaultPlaylist) {
+      try {
+        const playlist = await onCreateDefaultPlaylist();
+        payload = { ...payload, playlist: playlist?.id ?? "" };
+      } catch (error) {
+        console.error("Erro ao criar playlist padrao:", error);
+        toast.error("Nao foi possivel criar a playlist padrao.");
+        return;
+      }
+    }
+    onSave(payload, mode);
   };
 
   return createPortal(
@@ -816,7 +943,12 @@ function AddExpressionModal({ onClose, onSave }) {
           <Input label="English expression" value={form.expression} onChange={(value) => update("expression", value)} />
           <Input label="Portuguese translation" value={form.translation} onChange={(value) => update("translation", value)} />
           <Select label="Category" value={form.category} onChange={(value) => update("category", value)} options={CATEGORIES.filter((item) => item !== "All categories")} />
-          <Select label="Playlist" value={form.playlist} onChange={(value) => update("playlist", value)} options={libraryPlaylists.map((item) => ({ label: item.name, value: item.id }))} />
+          <Select
+            label="Playlist"
+            value={form.playlist}
+            onChange={(value) => update("playlist", value)}
+            options={playlists.length > 0 ? playlists.map((item) => ({ label: item.name, value: item.id })) : [{ label: "Daily Fluency", value: "" }]}
+          />
           <Select label="Difficulty" value={form.difficulty} onChange={(value) => update("difficulty", value)} options={["A1", "A2", "B1", "B2"]} />
           <Input label="Tags" value={form.tags} onChange={(value) => update("tags", value)} placeholder="work, routine, meeting" />
           <label className="sm:col-span-2">
@@ -875,6 +1007,20 @@ function EmptyLibraryState({ onAdd }) {
         <Link to="/chatbot" className="fm-gradient rounded-2xl px-4 py-3 text-sm font-semibold">Start Conversation</Link>
         <button type="button" onClick={onAdd} className="library-ghost-button">Add manually</button>
       </div>
+    </div>
+  );
+}
+
+function LibraryLoadingState() {
+  return (
+    <div className="mt-5 grid gap-3" aria-label="Loading MindBlocks">
+      {[0, 1, 2].map((item) => (
+        <div key={item} className="library-expression-card animate-pulse">
+          <div className="h-5 w-2/5 rounded-full bg-white/10" />
+          <div className="mt-3 h-4 w-1/3 rounded-full bg-white/10" />
+          <div className="mt-5 h-2 w-full rounded-full bg-white/10" />
+        </div>
+      ))}
     </div>
   );
 }

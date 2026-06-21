@@ -1,85 +1,185 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Brain, Check, Eye, RotateCcw, Sparkles, X } from "lucide-react";
-import {
-  LIBRARY_STORAGE_KEY,
-  libraryExpressions,
-} from "../data/libraryMock.js";
+import { useAuth } from "../context/AuthContext.jsx";
+import { listMindBlocks, updateMindBlock } from "../services/mindblocks.js";
+import { createReviewEvent, listReviewEvents } from "../services/reviewEvents.js";
 
-const REVIEW_PROGRESS_KEY = "fluentmind_simple_review_progress";
-
-function loadLibraryExpressions() {
-  if (typeof window === "undefined") return libraryExpressions;
-  const stored = window.localStorage.getItem(LIBRARY_STORAGE_KEY);
-  if (!stored) return libraryExpressions;
-
-  try {
-    const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) && parsed.length ? parsed : libraryExpressions;
-  } catch {
-    return libraryExpressions;
-  }
-}
-
-function loadProgress() {
-  if (typeof window === "undefined") return {};
-  try {
-    return JSON.parse(window.localStorage.getItem(REVIEW_PROGRESS_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
-
-function saveProgress(progress) {
-  window.localStorage.setItem(REVIEW_PROGRESS_KEY, JSON.stringify(progress));
-}
+const REVIEW_SCORES = {
+  again: { masteryDelta: -8, nextDays: 0, correct: false, toast: "No problem. Send it to another round." },
+  hard: { masteryDelta: 2, nextDays: 1, correct: false, toast: "Hard cards are where fluency grows." },
+  good: { masteryDelta: 8, nextDays: 3, correct: true, toast: "Nice. MindBlock strengthened." },
+  easy: { masteryDelta: 14, nextDays: 7, correct: true, toast: "Great. This one is becoming natural." },
+};
 
 function sortReviewDeck(expressions) {
-  const tiredCard = expressions.find((item) => item.id === "expr-tired");
-  const dueCards = expressions.filter((item) => item.id !== "expr-tired" && (item.isReviewDue || item.status === "review_due"));
-  const otherCards = expressions.filter((item) => item.id !== "expr-tired" && !item.isReviewDue && item.status !== "review_due");
-  return [tiredCard, ...dueCards, ...otherCards].filter(Boolean);
+  const dueCards = expressions.filter((item) => item.isReviewDue || item.status === "review_due");
+  const otherCards = expressions.filter((item) => !item.isReviewDue && item.status !== "review_due");
+  return [...dueCards, ...otherCards];
+}
+
+function buildProgress(events) {
+  return events.reduce((acc, event) => {
+    const id = event.mindblock_id;
+    if (!id) return acc;
+    const result = event.result;
+    const isCorrect = result === "good" || result === "easy";
+    const current = acc[id] ?? { reviewed: 0, correct: 0 };
+    acc[id] = {
+      reviewed: current.reviewed + 1,
+      correct: current.correct + (isCorrect ? 1 : 0),
+      lastReviewedAt: event.reviewed_at,
+    };
+    return acc;
+  }, {});
 }
 
 export default function InsightsPage() {
-  const deck = useMemo(() => sortReviewDeck(loadLibraryExpressions()), []);
+  const { user } = useAuth();
+  const [deck, setDeck] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [cardIndex, setCardIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
-  const [progress, setProgress] = useState(loadProgress);
+  const [answerStartedAt, setAnswerStartedAt] = useState(null);
+  const [savingResult, setSavingResult] = useState(false);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadReviewData() {
+      if (!user?.id) {
+        setDeck([]);
+        setEvents([]);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const [mindBlocks, reviewEvents] = await Promise.all([
+          listMindBlocks(user.id),
+          listReviewEvents(user.id),
+        ]);
+        if (ignore) return;
+        setDeck(sortReviewDeck(mindBlocks));
+        setEvents(reviewEvents);
+        setCardIndex(0);
+        setShowAnswer(false);
+        setAnswerStartedAt(null);
+      } catch (error) {
+        console.error("Erro ao carregar revisao:", error);
+        if (!ignore) {
+          setLoadError(error);
+          setDeck([]);
+          setEvents([]);
+        }
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+
+    loadReviewData();
+
+    return () => {
+      ignore = true;
+    };
+  }, [user?.id]);
 
   const currentCard = deck[cardIndex] ?? null;
-  const reviewedCount = Object.values(progress).reduce((sum, item) => sum + (item.reviewed || 0), 0);
-  const correctCount = Object.values(progress).reduce((sum, item) => sum + (item.correct || 0), 0);
+  const progress = useMemo(() => buildProgress(events), [events]);
+  const reviewedCount = events.length;
+  const correctCount = events.filter((event) => event.result === "good" || event.result === "easy").length;
   const accuracy = reviewedCount ? Math.round((correctCount / reviewedCount) * 100) : 0;
-
-  const answerCard = (wasCorrect) => {
-    if (!currentCard) return;
-
-    const nextProgress = {
-      ...progress,
-      [currentCard.id]: {
-        reviewed: (progress[currentCard.id]?.reviewed || 0) + 1,
-        correct: (progress[currentCard.id]?.correct || 0) + (wasCorrect ? 1 : 0),
-        lastReviewedAt: new Date().toISOString(),
-      },
-    };
-
-    setProgress(nextProgress);
-    saveProgress(nextProgress);
-    toast.success(wasCorrect ? "Nice. MindBlock strengthened." : "No problem. Send it to another round.");
-    nextCard();
-  };
 
   const nextCard = () => {
     setShowAnswer(false);
+    setAnswerStartedAt(null);
     setCardIndex((index) => (deck.length ? (index + 1) % deck.length : 0));
+  };
+
+  const answerCard = async (result) => {
+    if (!currentCard || !user?.id || savingResult) return;
+    const score = REVIEW_SCORES[result];
+    const responseTimeMs = answerStartedAt ? Date.now() - answerStartedAt : null;
+    const nextMastery = Math.min(100, Math.max(0, (currentCard.mastery ?? 0) + score.masteryDelta));
+
+    setSavingResult(true);
+    try {
+      const [event] = await Promise.all([
+        createReviewEvent({
+          userId: user.id,
+          mindBlockId: currentCard.id,
+          result,
+          expectedText: currentCard.expression,
+          responseTimeMs,
+        }),
+        updateMindBlock(currentCard.id, {
+          mastery: nextMastery,
+          timesReviewed: (currentCard.timesReviewed ?? 0) + 1,
+          lastReviewedAt: "Today",
+          nextReviewAt: score.nextDays === 0 ? "Today" : `In ${score.nextDays} days`,
+          isReviewDue: score.nextDays === 0,
+          status: score.nextDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : "learning",
+        }),
+      ]);
+
+      setEvents((current) => [event, ...current]);
+      setDeck((current) => current.map((item) => (
+        item.id === currentCard.id
+          ? {
+              ...item,
+              mastery: nextMastery,
+              timesReviewed: (item.timesReviewed ?? 0) + 1,
+              lastReviewedAt: "Today",
+              nextReviewAt: score.nextDays === 0 ? "Today" : `In ${score.nextDays} days`,
+              isReviewDue: score.nextDays === 0,
+              status: score.nextDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : "learning",
+            }
+          : item
+      )));
+      toast.success(score.toast);
+      nextCard();
+    } catch (error) {
+      console.error("Erro ao registrar revisao:", error);
+      toast.error("Nao foi possivel registrar esta revisao.");
+    } finally {
+      setSavingResult(false);
+    }
   };
 
   const restart = () => {
     setCardIndex(0);
     setShowAnswer(false);
+    setAnswerStartedAt(null);
     toast("Review restarted.");
   };
+
+  if (loading) {
+    return (
+      <main className="mx-auto max-w-4xl">
+        <section className="fm-card rounded-[30px] border p-8 text-center shadow-lg">
+          <Brain className="fm-secondary mx-auto h-12 w-12 animate-pulse" />
+          <h1 className="mt-4 text-3xl font-semibold">Revisão</h1>
+          <p className="fm-muted mt-2">Carregando seus MindBlocks...</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <main className="mx-auto max-w-4xl">
+        <section className="fm-card rounded-[30px] border p-8 text-center shadow-lg">
+          <X className="mx-auto h-12 w-12 text-rose-300" />
+          <h1 className="mt-4 text-3xl font-semibold">Revisão indisponível</h1>
+          <p className="fm-muted mt-2">Nao foi possivel carregar `review_events` ou `mindblocks` agora.</p>
+        </section>
+      </main>
+    );
+  }
 
   if (!currentCard) {
     return (
@@ -141,21 +241,39 @@ export default function InsightsPage() {
               <p className="fm-subtle text-xs font-semibold uppercase tracking-[0.14em]">Resposta</p>
               <h3>{currentCard.expression}</h3>
               <p>{currentCard.notes || "Use como um bloco mental completo, sem traduzir palavra por palavra."}</p>
+              {progress[currentCard.id] ? (
+                <p className="mt-2 text-xs">
+                  Reviewed {progress[currentCard.id].reviewed}x · Correct {progress[currentCard.id].correct}x
+                </p>
+              ) : null}
             </div>
           ) : null}
 
           <div className="review-card-actions">
             {!showAnswer ? (
-              <button type="button" onClick={() => setShowAnswer(true)} className="fm-gradient review-primary-button">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAnswer(true);
+                  setAnswerStartedAt(Date.now());
+                }}
+                className="fm-gradient review-primary-button"
+              >
                 <Eye className="h-4 w-4" /> Mostrar resposta
               </button>
             ) : (
               <>
-                <button type="button" onClick={() => answerCard(false)} className="review-answer-button wrong">
-                  <X className="h-4 w-4" /> Errei
+                <button type="button" disabled={savingResult} onClick={() => answerCard("again")} className="review-answer-button wrong">
+                  <X className="h-4 w-4" /> Again
                 </button>
-                <button type="button" onClick={() => answerCard(true)} className="review-answer-button right">
-                  <Check className="h-4 w-4" /> Acertei
+                <button type="button" disabled={savingResult} onClick={() => answerCard("hard")} className="review-answer-button wrong">
+                  Hard
+                </button>
+                <button type="button" disabled={savingResult} onClick={() => answerCard("good")} className="review-answer-button right">
+                  <Check className="h-4 w-4" /> Good
+                </button>
+                <button type="button" disabled={savingResult} onClick={() => answerCard("easy")} className="review-answer-button right">
+                  Easy
                 </button>
               </>
             )}

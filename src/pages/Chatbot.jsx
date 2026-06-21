@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import {
   Archive,
@@ -25,43 +25,23 @@ import {
 } from "lucide-react";
 import { libraryPlaylists } from "../data/libraryMock.js";
 import { useAuth } from "../context/AuthContext.jsx";
+import {
+  createConversationMessage,
+  createConversationSession,
+  listConversationMessages,
+  listConversationSessions,
+} from "../services/conversations.js";
 
 const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
 
-const conversations = [
-  { id: "today-1", title: "Thinking in English", group: "Hoje", active: true, tag: "Conversation" },
-  { id: "today-2", title: "Correct my routine", group: "Hoje", tag: "Corrections" },
-  { id: "yesterday-1", title: "Work English practice", group: "Ontem", tag: "Work" },
-  { id: "week-1", title: "Travel expressions", group: "Esta semana", tag: "Travel" },
-  { id: "fav-1", title: "Favorite MindBlocks", group: "Favoritas", tag: "Saved" },
-];
-
-const initialMessages = [
+const welcomeMessages = [
   {
-    id: "m1",
+    id: "welcome-neo",
     role: "neo",
-    createdAt: "09:24",
+    createdAt: "Agora",
     content:
       "Good morning, Rafael. Today we can strengthen your English without translating word by word.\n\nTell me one sentence you want to say naturally, and I will turn it into a MindBlock.",
     detectedExpression: "I'm getting used to it.",
-  },
-  {
-    id: "m2",
-    role: "user",
-    createdAt: "09:25",
-    content: "Como posso dizer estou me acostumando com isso?",
-  },
-  {
-    id: "m3",
-    role: "neo",
-    createdAt: "09:25",
-    content:
-      "You can say:\n\n**I'm getting used to it.**\n\nMeaning:\nEstou me acostumando com isso.\n\nExamples:\n- I'm getting used to speaking English every day.\n- I'm getting used to my new routine.\n- I'm getting used to thinking before translating.\n\nCommon mistake:\nDon't say: I am used with it.\nSay: I'm getting used to it.\n\nWould you like to save this MindBlock?",
-    detectedExpression: "I'm getting used to it.",
-    correction: {
-      wrong: "I am used with it.",
-      correct: "I'm getting used to it.",
-    },
   },
 ];
 
@@ -74,29 +54,14 @@ const smartContext = {
   gain: "+2.4%",
 };
 
-function createNeoReply(text) {
-  const lower = text.toLowerCase();
-  if (lower.includes("40") || lower.includes("years")) {
-    return {
-      content:
-        "Correction detected:\n\nDon't say:\n**I have 40 years.**\n\nSay:\n**I am 40 years old.**\n\nWhy:\nIn English, age uses **be + years old**, not **have**.\n\nUseful pattern:\nI am + age + years old.\n\nExamples:\n- I am 40 years old.\n- My brother is 28 years old.\n- She is 19 years old.\n\nSave this correction to My Mistakes and Review?",
-      detectedExpression: "I am 40 years old.",
-      correction: { wrong: "I have 40 years.", correct: "I am 40 years old." },
-    };
-  }
-
-  return {
-    content:
-      "You can say:\n\n**I'm a little tired.**\n\nMeaning:\nEstou um pouco cansado.\n\nExamples:\n- I'm a little tired after work.\n- I'm a little tired, but I can practice.\n- I'm a little tired today, so I'll study slowly.\n\nRelated expressions:\n- I'm exhausted.\n- I need some rest.\n- I'm running low on energy.\n\nWould you like to save this MindBlock?",
-    detectedExpression: "I'm a little tired.",
-  };
-}
-
 export default function ChatbotPage() {
   const { user, session } = useAuth();
-  const [messages, setMessages] = useState(initialMessages);
+  const [conversations, setConversations] = useState([]);
+  const [activeSessionId, setActiveSessionId] = useState(null);
+  const [messages, setMessages] = useState(welcomeMessages);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
+  const [loadingConversations, setLoadingConversations] = useState(true);
   const [focusMode, setFocusMode] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
@@ -107,28 +72,117 @@ export default function ChatbotPage() {
     [messages],
   );
 
+  const refreshConversations = useCallback(async (nextActiveSessionId = activeSessionId) => {
+    if (!user?.id) return [];
+    const nextConversations = await listConversationSessions(user.id, nextActiveSessionId);
+    setConversations(nextConversations);
+    return nextConversations;
+  }, [activeSessionId, user?.id]);
+
+  const loadConversationMessages = useCallback(async (sessionId) => {
+    if (!user?.id || !sessionId) return;
+    const nextMessages = await listConversationMessages({ userId: user.id, sessionId });
+    setMessages(nextMessages.length > 0 ? nextMessages : welcomeMessages);
+  }, [user?.id]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadConversations() {
+      if (!user?.id) {
+        setLoadingConversations(false);
+        return;
+      }
+
+      try {
+        setLoadingConversations(true);
+        const nextConversations = await listConversationSessions(user.id);
+        if (!isMounted) return;
+
+        setConversations(nextConversations);
+        const firstSession = nextConversations.find((item) => item.status !== "archived") ?? nextConversations[0];
+
+        if (firstSession) {
+          setActiveSessionId(firstSession.id);
+          const nextMessages = await listConversationMessages({ userId: user.id, sessionId: firstSession.id });
+          if (isMounted) {
+            setMessages(nextMessages.length > 0 ? nextMessages : welcomeMessages);
+            setConversations(nextConversations.map((item) => ({ ...item, active: item.id === firstSession.id })));
+          }
+        } else {
+          setActiveSessionId(null);
+          setMessages(welcomeMessages);
+        }
+      } catch (error) {
+        console.error(error);
+        toast.error("Nao foi possivel carregar suas conversas.");
+      } finally {
+        if (isMounted) setLoadingConversations(false);
+      }
+    }
+
+    loadConversations();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
+
+  const ensureActiveSession = async (firstPrompt) => {
+    if (activeSessionId) return activeSessionId;
+
+    const newSession = await createConversationSession({
+      userId: user.id,
+      firstPrompt,
+      scenario: "Conversation",
+    });
+
+    setActiveSessionId(newSession.id);
+    await refreshConversations(newSession.id);
+    setMessages([]);
+    return newSession.id;
+  };
+
+  const selectConversation = async (conversationId) => {
+    setActiveSessionId(conversationId);
+    setConversations((current) => current.map((item) => ({ ...item, active: item.id === conversationId })));
+    await loadConversationMessages(conversationId);
+  };
+
+  const startNewConversation = () => {
+    setActiveSessionId(null);
+    setMessages(welcomeMessages);
+    setConversations((current) => current.map((item) => ({ ...item, active: false })));
+    toast("Nova conversa pronta.");
+  };
+
   const submitMessage = async (event) => {
     event.preventDefault();
     const text = input.trim();
     if (!text) return;
-    if (!session?.access_token) {
+    if (!session?.access_token || !user?.id) {
       toast.error("Sessão expirada. Faça login novamente.");
       return;
     }
 
-    const userMessage = {
-      id: `m-${Date.now()}-user`,
-      role: "user",
-      content: text,
-      createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-    };
-
-    setMessages((current) => [...current, userMessage]);
     setInput("");
     setTyping(true);
 
     try {
-      const currentMessages = [...messages, userMessage].map((message) => ({
+      const sessionId = await ensureActiveSession(text);
+      const storedUserMessage = await createConversationMessage({
+        userId: user.id,
+        sessionId,
+        role: "user",
+        content: text,
+      });
+
+      const visibleMessages = messages[0]?.id === "welcome-neo" ? [] : messages;
+      setMessages((current) => {
+        const baseMessages = current[0]?.id === "welcome-neo" ? [] : current;
+        return [...baseMessages, storedUserMessage];
+      });
+
+      const currentMessages = [...visibleMessages, storedUserMessage].map((message) => ({
         role: message.role === "neo" ? "assistant" : "user",
         content: message.content,
       }));
@@ -159,16 +213,21 @@ export default function ChatbotPage() {
         content: replyText || "I could not generate a response now. Try asking in another way.",
         detectedExpression: data.detectedExpression || null,
       };
+      const storedAssistantMessage = await createConversationMessage({
+        userId: user.id,
+        sessionId,
+        role: "assistant",
+        content: reply.content,
+      });
 
       setMessages((current) => [
         ...current,
         {
-          id: `m-${Date.now()}-neo`,
-          role: "neo",
-          createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+          ...storedAssistantMessage,
           ...reply,
         },
       ]);
+      await refreshConversations(sessionId);
       if (reply.detectedExpression) {
         setSelectedExpression(reply.detectedExpression);
         toast("Useful expression detected.");
@@ -200,7 +259,12 @@ export default function ChatbotPage() {
   return (
     <main className={`neo-page ${focusMode ? "is-focus" : ""} ${voiceMode ? "is-voice" : ""}`}>
       {!focusMode ? (
-        <NeoConversationSidebar conversations={conversations} />
+        <NeoConversationSidebar
+          conversations={conversations}
+          loading={loadingConversations}
+          onSelect={selectConversation}
+          onNew={startNewConversation}
+        />
       ) : null}
 
       <section className="neo-chat-shell">
@@ -210,8 +274,7 @@ export default function ChatbotPage() {
           onToggleFocus={() => setFocusMode((value) => !value)}
           onToggleVoice={() => setVoiceMode((value) => !value)}
           onClear={() => {
-            setMessages(initialMessages);
-            toast("Conversation cleared.");
+            startNewConversation();
           }}
           onExport={() => mockAction("Export options coming soon.")}
         />
@@ -268,8 +331,8 @@ export default function ChatbotPage() {
   );
 }
 
-function NeoConversationSidebar({ conversations }) {
-  const groups = ["Hoje", "Ontem", "Esta semana", "Favoritas", "Arquivadas"];
+function NeoConversationSidebar({ conversations, loading, onSelect, onNew }) {
+  const groups = ["Hoje", "Ontem", "Esta semana", "Anteriores", "Arquivadas"];
 
   return (
     <aside className="neo-left-sidebar">
@@ -281,7 +344,7 @@ function NeoConversationSidebar({ conversations }) {
         </div>
       </div>
 
-      <button type="button" className="neo-new-button">
+      <button type="button" className="neo-new-button" onClick={onNew}>
         <Plus className="h-4 w-4" /> New Conversation
       </button>
 
@@ -295,25 +358,42 @@ function NeoConversationSidebar({ conversations }) {
       </div>
 
       <div className="neo-conversation-groups">
+        {loading ? (
+          <section>
+            <h3>Carregando</h3>
+            <div className="neo-conversation-item">
+              <span>Loading your conversations...</span>
+              <small>Supabase</small>
+            </div>
+          </section>
+        ) : null}
         {groups.map((group) => (
           <section key={group}>
             <h3>{group}</h3>
             <div className="grid gap-2">
               {conversations.filter((item) => item.group === group).map((item) => (
-                <button key={item.id} type="button" className={`neo-conversation-item ${item.active ? "is-active" : ""}`}>
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`neo-conversation-item ${item.active ? "is-active" : ""}`}
+                  onClick={() => onSelect(item.id)}
+                >
                   <span>{item.title}</span>
                   <small>{item.tag}</small>
                 </button>
               ))}
-              {group === "Arquivadas" ? (
-                <button type="button" className="neo-conversation-item">
-                  <span>Archived practice</span>
-                  <small><Archive className="inline h-3 w-3" /> 3 chats</small>
-                </button>
-              ) : null}
             </div>
           </section>
         ))}
+        {!loading && conversations.length === 0 ? (
+          <section>
+            <h3>Comece aqui</h3>
+            <button type="button" className="neo-conversation-item is-active" onClick={onNew}>
+              <span>First conversation</span>
+              <small><Archive className="inline h-3 w-3" /> Ready</small>
+            </button>
+          </section>
+        ) : null}
       </div>
     </aside>
   );

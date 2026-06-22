@@ -82,11 +82,13 @@ function extractMindBlockSuggestion(reply) {
   if (!reply) return null;
 
   const text = String(reply);
+  const youCanSaySection = text.match(/You can say:\s*([\s\S]*?)(?:\n{2,}|\nMeaning:|\nExamples:|Related expressions:|Common mistake:|Practice:|$)/i)?.[1] ?? "";
+  const listSuggestionMatch = youCanSaySection.match(/(?:^|\n)\s*(?:\d+\.|[-•])\s*["“]?([^"\n”]{2,120})["”]?/);
   const expressionMatch = text.match(/You can say:\s*(?:\n+)?\s*(.+?)(?:\n{2,}|\nMeaning:|\nExamples:|$)/i)
     || text.match(/\*\*([^*\n]{3,120})\*\*/);
   const meaningMatch = text.match(/Meaning:\s*(?:\n+)?\s*(.+?)(?:\n{2,}|\nExamples:|Related expressions:|Common mistake:|Practice:|$)/i);
 
-  const expression = cleanSuggestionLine(expressionMatch?.[1]);
+  const expression = cleanSuggestionLine(listSuggestionMatch?.[1] || expressionMatch?.[1]);
   if (!expression || expression.length < 3 || expression.length > 160) return null;
 
   const translation = cleanSuggestionLine(meaningMatch?.[1]);

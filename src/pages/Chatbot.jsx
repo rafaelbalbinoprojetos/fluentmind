@@ -244,6 +244,7 @@ export default function ChatbotPage() {
         content: replyText || "I could not generate a response now. Try asking in another way.",
         detectedExpression: data.detectedExpression || null,
         suggestedMindBlock: data.suggestedMindBlock || null,
+        suggestedMindBlocks: data.suggestedMindBlocks || [],
       };
       const storedAssistantMessage = await createConversationMessage({
         userId: user.id,
@@ -504,6 +505,7 @@ function NeoMessage({
 }) {
   const isNeo = message.role === "neo";
   const suggestion = normalizeSuggestion(message.suggestedMindBlock ?? message.detectedExpression);
+  const suggestionCount = Array.isArray(message.suggestedMindBlocks) ? message.suggestedMindBlocks.length : 0;
   const hasSuggestion = isNeo && suggestion.expression && !ignored;
 
   return (
@@ -519,7 +521,10 @@ function NeoMessage({
           {hasSuggestion ? (
             <div className="neo-detected-badge">
               <Sparkles className="h-3.5 w-3.5" />
-              <span>MindBlock sugerido: {suggestion.expression}</span>
+              <span>
+                MindBlock sugerido: {suggestion.expression}
+                {suggestionCount > 1 ? ` +${suggestionCount - 1}` : ""}
+              </span>
               {saved ? (
                 <strong>Salvo</strong>
               ) : (

@@ -75,7 +75,33 @@ function cleanSuggestionLine(value) {
   return String(value || "")
     .replace(/\*\*/g, "")
     .replace(/^[-•\s]+/, "")
+    .replace(/^["“]|["”]$/g, "")
     .trim();
+}
+
+function splitExpressionAndTranslation(value) {
+  const clean = cleanSuggestionLine(value);
+  const parts = clean.split(/\s+[–—-]\s+/);
+
+  if (parts.length >= 2) {
+    return {
+      expression: cleanSuggestionLine(parts[0]),
+      translation: cleanSuggestionLine(parts.slice(1).join(" - ")),
+    };
+  }
+
+  const parentheticalMatch = clean.match(/^(.+?)\s*\(([^()]{2,180})\)$/);
+  if (parentheticalMatch) {
+    return {
+      expression: cleanSuggestionLine(parentheticalMatch[1]),
+      translation: cleanSuggestionLine(parentheticalMatch[2]),
+    };
+  }
+
+  return {
+    expression: clean,
+    translation: "",
+  };
 }
 
 function extractMindBlockSuggestion(reply) {
@@ -88,16 +114,38 @@ function extractMindBlockSuggestion(reply) {
     || text.match(/\*\*([^*\n]{3,120})\*\*/);
   const meaningMatch = text.match(/Meaning:\s*(?:\n+)?\s*(.+?)(?:\n{2,}|\nExamples:|Related expressions:|Common mistake:|Practice:|$)/i);
 
-  const expression = cleanSuggestionLine(listSuggestionMatch?.[1] || expressionMatch?.[1]);
+  const { expression, translation: inlineTranslation } = splitExpressionAndTranslation(listSuggestionMatch?.[1] || expressionMatch?.[1]);
   if (!expression || expression.length < 3 || expression.length > 160) return null;
 
   const translation = cleanSuggestionLine(meaningMatch?.[1]);
   return {
     expression,
-    translation: translation || "",
+    translation: inlineTranslation || translation || "",
     category: "Conversation",
     source: "Neo Conversation",
   };
+}
+
+function extractMindBlockSuggestions(reply) {
+  if (!reply) return [];
+
+  const text = String(reply);
+  const youCanSaySection = text.match(/You can say:\s*([\s\S]*?)(?:\n{2,}|\nMeaning:|\nExamples:|Related expressions:|Common mistake:|Practice:|$)/i)?.[1] ?? "";
+  const listMatches = [...youCanSaySection.matchAll(/(?:^|\n)\s*(?:\d+\.|[-•])\s*["“]?([^"\n”]{2,160})["”]?/g)];
+
+  const suggestions = listMatches
+    .map((match) => splitExpressionAndTranslation(match[1]))
+    .filter((item) => item.expression && item.expression.length >= 2 && item.expression.length <= 160)
+    .map((item) => ({
+      ...item,
+      category: "Conversation",
+      source: "Neo Conversation",
+    }));
+
+  if (suggestions.length > 0) return suggestions;
+
+  const single = extractMindBlockSuggestion(reply);
+  return single ? [single] : [];
 }
 
 export default async function handler(req, res) {
@@ -137,12 +185,14 @@ export default async function handler(req, res) {
     });
 
     const reply = completion.choices[0]?.message?.content?.trim();
-    const suggestedMindBlock = extractMindBlockSuggestion(reply);
+    const suggestedMindBlocks = extractMindBlockSuggestions(reply);
+    const suggestedMindBlock = suggestedMindBlocks[0] ?? null;
 
     return res.status(200).json({
       reply: reply || "Não consegui gerar uma resposta agora. Pode tentar reformular?",
       detectedExpression: suggestedMindBlock?.expression ?? null,
       suggestedMindBlock,
+      suggestedMindBlocks,
     });
   } catch (error) {
     console.error("[chat]", error);

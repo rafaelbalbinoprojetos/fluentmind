@@ -13,8 +13,26 @@ function normalizeResponse(payload) {
   };
 }
 
+async function readResponsePayload(response) {
+  const contentType = response.headers.get("content-type") || "";
+  const text = await response.text();
+
+  if (!text) return {};
+  if (contentType.includes("application/json")) {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { error: "Resposta invalida do servidor de audio." };
+    }
+  }
+
+  return {
+    error: text.slice(0, 180),
+  };
+}
+
 async function parseError(response) {
-  const payload = await response.json().catch(() => null);
+  const payload = await readResponsePayload(response);
   return payload?.error || `Erro ${response.status}`;
 }
 
@@ -31,7 +49,7 @@ export async function getMindBlockAudio({ mindblockId, voice = "mineirinha", acc
     throw new Error(await parseError(response));
   }
 
-  return normalizeResponse(await response.json());
+  return normalizeResponse(await readResponsePayload(response));
 }
 
 export async function generateMindBlockAudio({ mindblockId, voice = "mineirinha", accessToken }) {
@@ -49,5 +67,5 @@ export async function generateMindBlockAudio({ mindblockId, voice = "mineirinha"
     throw new Error(await parseError(response));
   }
 
-  return normalizeResponse(await response.json());
+  return normalizeResponse(await readResponsePayload(response));
 }

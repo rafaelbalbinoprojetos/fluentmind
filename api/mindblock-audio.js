@@ -56,6 +56,19 @@ function resolveVoiceId(voice) {
     || "ucTM3xQVJcS7oeyyjEhT";
 }
 
+function buildElevenLabsError(status) {
+  if (status === 401 || status === 403) {
+    return "ElevenLabs recusou a chave API. Confira se ELEVENLABS_API_KEY esta correta na Vercel.";
+  }
+  if (status === 400 || status === 404) {
+    return "Voz do ElevenLabs invalida ou indisponivel. Configure ELEVENLABS_VOICE_MINEIRINHA com um voice_id da sua conta.";
+  }
+  if (status === 429) {
+    return "Limite da ElevenLabs atingido. Tente novamente mais tarde.";
+  }
+  return "Falha ao gerar audio no ElevenLabs.";
+}
+
 async function createSignedAudioUrl(supabaseAdmin, storagePath) {
   const { data, error } = await supabaseAdmin
     .storage
@@ -125,8 +138,9 @@ async function generateElevenLabsAudio({ text, voice }) {
   if (!response.ok) {
     const details = await response.text().catch(() => "");
     console.error("[mindblock-audio:elevenlabs]", response.status, details);
-    const error = new Error("Falha ao gerar audio no ElevenLabs.");
+    const error = new Error(buildElevenLabsError(response.status));
     error.statusCode = 502;
+    error.expose = true;
     throw error;
   }
 
@@ -229,7 +243,7 @@ export default async function handler(req, res) {
     console.error("[mindblock-audio]", error);
     const status = error.statusCode || 500;
     return res.status(status).json({
-      error: status < 500 ? error.message : "Nao foi possivel processar o audio do MindBlock.",
+      error: status < 500 || error.expose ? error.message : "Nao foi possivel processar o audio do MindBlock.",
     });
   }
 }

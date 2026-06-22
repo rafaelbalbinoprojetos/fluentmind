@@ -207,7 +207,6 @@ async function handlePost(req, res, user, supabaseAdmin) {
     provider: "elevenlabs",
     mime_type: "audio/mpeg",
     size_bytes: audioBuffer.length,
-    updated_at: new Date().toISOString(),
   };
 
   const { data, error: upsertError } = await supabaseAdmin

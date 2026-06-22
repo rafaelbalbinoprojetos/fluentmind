@@ -3,17 +3,10 @@ import toast from "react-hot-toast";
 import {
   Brain,
   Check,
-  Copy,
-  Headphones,
-  Heart,
   MessageCircle,
   Mic,
-  Plus,
-  RotateCcw,
   Send,
-  Share2,
   Sparkles,
-  Star,
   Trash2,
   X,
 } from "lucide-react";
@@ -27,7 +20,7 @@ import {
   listConversationMessages,
   listConversationSessions,
 } from "../services/conversations.js";
-import { createMindBlock } from "../services/mindblocks.js";
+import { createMindBlock, listMindBlocks } from "../services/mindblocks.js";
 import { addMindBlockToPlaylist, createPlaylist, listPlaylists } from "../services/playlists.js";
 import { recordDailyActivity } from "../services/learningProgress.js";
 
@@ -48,9 +41,28 @@ function getAssistantName(user) {
   return user?.user_metadata?.assistant_name?.trim() || "Neo";
 }
 
+function normalizeSuggestion(value) {
+  if (typeof value === "string") {
+    return {
+      expression: value,
+      translation: "",
+      category: "Conversation",
+      source: "Neo Conversation",
+    };
+  }
+
+  return {
+    expression: value?.expression ?? "",
+    translation: value?.translation ?? "",
+    category: value?.category ?? "Conversation",
+    source: value?.source ?? "Neo Conversation",
+  };
+}
+
 export default function ChatbotPage() {
   const { user, session } = useAuth();
   const assistantName = getAssistantName(user);
+  const mindBlockSaveMode = user?.user_metadata?.mindblock_save_mode || "ask";
   const [conversations, setConversations] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [messages, setMessages] = useState(welcomeMessages);
@@ -59,9 +71,15 @@ export default function ChatbotPage() {
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [voiceMode, setVoiceMode] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
-  const [selectedExpression, setSelectedExpression] = useState("I'm getting used to it.");
+  const [selectedSuggestion, setSelectedSuggestion] = useState({
+    expression: "I'm getting used to it.",
+    translation: "Estou me acostumando com isso.",
+    category: "Conversation",
+  });
   const [playlists, setPlaylists] = useState([]);
   const [savingMindBlock, setSavingMindBlock] = useState(false);
+  const [ignoredSuggestionIds, setIgnoredSuggestionIds] = useState([]);
+  const [savedSuggestionIds, setSavedSuggestionIds] = useState([]);
 
   const refreshConversations = useCallback(async (nextActiveSessionId = activeSessionId) => {
     if (!user?.id) return [];
@@ -225,6 +243,7 @@ export default function ChatbotPage() {
       const reply = {
         content: replyText || "I could not generate a response now. Try asking in another way.",
         detectedExpression: data.detectedExpression || null,
+        suggestedMindBlock: data.suggestedMindBlock || null,
       };
       const storedAssistantMessage = await createConversationMessage({
         userId: user.id,
@@ -242,8 +261,13 @@ export default function ChatbotPage() {
       ]);
       await refreshConversations(sessionId);
       if (reply.detectedExpression) {
-        setSelectedExpression(reply.detectedExpression);
-        toast("Useful expression detected.");
+        const saveMode = user?.user_metadata?.mindblock_save_mode || "ask";
+        if (saveMode === "auto") {
+          await quickSaveSuggestion(reply.suggestedMindBlock ?? { expression: reply.detectedExpression }, storedAssistantMessage.id);
+        } else if (saveMode === "ask") {
+          setSelectedSuggestion(reply.suggestedMindBlock ?? { expression: reply.detectedExpression });
+          toast("Useful expression detected.");
+        }
       }
     } catch (error) {
       console.error(error);
@@ -262,8 +286,8 @@ export default function ChatbotPage() {
     }
   };
 
-  const openSaveModal = (expression) => {
-    setSelectedExpression(expression || selectedExpression);
+  const openSaveModal = (suggestion) => {
+    setSelectedSuggestion(normalizeSuggestion(suggestion ?? selectedSuggestion));
     setSaveModalOpen(true);
   };
 
@@ -282,7 +306,7 @@ export default function ChatbotPage() {
     return playlist;
   };
 
-  const saveMindBlockFromChat = async (form) => {
+  const saveMindBlockFromChat = async (form, { sourceMessageId = null } = {}) => {
     if (!user?.id) {
       toast.error("Sessao expirada. Faca login novamente.");
       return;
@@ -290,6 +314,23 @@ export default function ChatbotPage() {
 
     try {
       setSavingMindBlock(true);
+      const expression = form.expression?.trim();
+      if (!expression) {
+        toast.error("A expressao nao pode ficar vazia.");
+        return;
+      }
+
+      const existingMindBlocks = await listMindBlocks(user.id);
+      const alreadyExists = existingMindBlocks.some((item) => (
+        item.expression.trim().toLowerCase() === expression.toLowerCase()
+      ));
+      if (alreadyExists) {
+        if (sourceMessageId) setSavedSuggestionIds((current) => [...new Set([...current, sourceMessageId])]);
+        setSaveModalOpen(false);
+        toast("Esse MindBlock ja existe na sua biblioteca.");
+        return;
+      }
+
       let createdDefaultPlaylist = false;
       const targetPlaylist = form.playlist ? playlists.find((item) => item.id === form.playlist) : null;
       let playlist = targetPlaylist;
@@ -298,7 +339,7 @@ export default function ChatbotPage() {
         createdDefaultPlaylist = playlists.length === 0;
       }
       const mindBlock = await createMindBlock({
-        expression: form.expression,
+        expression,
         translation: form.translation,
         category: form.category,
         notes: form.notes,
@@ -326,6 +367,7 @@ export default function ChatbotPage() {
         study_minutes: 1,
       });
 
+      if (sourceMessageId) setSavedSuggestionIds((current) => [...new Set([...current, sourceMessageId])]);
       setSaveModalOpen(false);
       toast.success("MindBlock salvo na sua biblioteca.");
     } catch (error) {
@@ -334,6 +376,23 @@ export default function ChatbotPage() {
     } finally {
       setSavingMindBlock(false);
     }
+  };
+
+  const quickSaveSuggestion = async (suggestion, messageId) => {
+    const normalized = normalizeSuggestion(suggestion);
+    await saveMindBlockFromChat({
+      expression: normalized.expression,
+      translation: normalized.translation,
+      category: normalized.category,
+      playlist: playlists[0]?.id ?? "",
+      notes: `Saved from a conversation with ${assistantName}.`,
+      review: true,
+    }, { sourceMessageId: messageId });
+  };
+
+  const ignoreSuggestion = (messageId) => {
+    setIgnoredSuggestionIds((current) => [...new Set([...current, messageId])]);
+    toast("Sugestao ignorada.");
   };
 
   const mockAction = (message) => toast(message);
@@ -360,7 +419,12 @@ export default function ChatbotPage() {
                 key={message.id}
                 message={message}
                 assistantName={assistantName}
-                onSave={() => openSaveModal(message.detectedExpression)}
+                ignored={mindBlockSaveMode === "never" || ignoredSuggestionIds.includes(message.id)}
+                saved={savedSuggestionIds.includes(message.id)}
+                saving={savingMindBlock}
+                onQuickSave={() => quickSaveSuggestion(message.suggestedMindBlock ?? message.detectedExpression, message.id)}
+                onEdit={() => openSaveModal(message.suggestedMindBlock ?? message.detectedExpression)}
+                onIgnore={() => ignoreSuggestion(message.id)}
                 onMock={mockAction}
               />
             ))}
@@ -386,7 +450,7 @@ export default function ChatbotPage() {
 
       {saveModalOpen ? (
         <SaveMindBlockModal
-          expression={selectedExpression}
+          suggestion={selectedSuggestion}
           playlists={playlists}
           saving={savingMindBlock}
           onClose={() => setSaveModalOpen(false)}
@@ -427,8 +491,20 @@ function NeoChatHeader({ assistantName, voiceMode, onToggleVoice, onClear, activ
   );
 }
 
-function NeoMessage({ message, assistantName, onSave, onMock }) {
+function NeoMessage({
+  message,
+  assistantName,
+  ignored,
+  saved,
+  saving,
+  onQuickSave,
+  onEdit,
+  onIgnore,
+  onMock,
+}) {
   const isNeo = message.role === "neo";
+  const suggestion = normalizeSuggestion(message.suggestedMindBlock ?? message.detectedExpression);
+  const hasSuggestion = isNeo && suggestion.expression && !ignored;
 
   return (
     <article className={`neo-message-row ${isNeo ? "is-neo" : "is-user"}`}>
@@ -440,10 +516,19 @@ function NeoMessage({ message, assistantName, onSave, onMock }) {
         </div>
         <div className="neo-message-bubble">
           <RichMessage content={message.content} />
-          {message.detectedExpression ? (
+          {hasSuggestion ? (
             <div className="neo-detected-badge">
-              <Sparkles className="h-3.5 w-3.5" /> Useful expression detected
-              <button type="button" onClick={onSave}>Save</button>
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>MindBlock sugerido: {suggestion.expression}</span>
+              {saved ? (
+                <strong>Salvo</strong>
+              ) : (
+                <div className="neo-suggestion-actions">
+                  <button type="button" onClick={onQuickSave} disabled={saving}>Salvar</button>
+                  <button type="button" onClick={onEdit} disabled={saving}>Editar</button>
+                  <button type="button" onClick={onIgnore} disabled={saving}>Ignorar</button>
+                </div>
+              )}
             </div>
           ) : null}
           {message.correction ? (
@@ -455,7 +540,6 @@ function NeoMessage({ message, assistantName, onSave, onMock }) {
             </div>
           ) : null}
         </div>
-        {isNeo ? <NeoResponseActions onSave={onSave} onMock={onMock} /> : null}
       </div>
     </article>
   );
@@ -472,33 +556,6 @@ function RichMessage({ content }) {
           return <p key={index}><strong>{clean}</strong></p>;
         }
         return <p key={index}>{line}</p>;
-      })}
-    </div>
-  );
-}
-
-function NeoResponseActions({ onSave, onMock }) {
-  const actions = [
-    { label: "Save MindBlock", icon: Star, action: onSave },
-    { label: "Generate Audio", icon: Headphones, action: () => onMock("Audio available.") },
-    { label: "Practice Pronunciation", icon: Mic, action: () => onMock("Pronunciation practice coming soon.") },
-    { label: "Add to Neural Universe", icon: Brain, action: () => onMock("Added to Neural Universe.") },
-    { label: "Add to Playlist", icon: Plus, action: () => onMock("Playlist picker coming soon.") },
-    { label: "Add to Review", icon: RotateCcw, action: () => onMock("Added to Review.") },
-    { label: "Favorite", icon: Heart, action: () => onMock("Favorited.") },
-    { label: "Copy", icon: Copy, action: () => onMock("Copied.") },
-    { label: "Share", icon: Share2, action: () => onMock("Share link coming soon.") },
-  ];
-
-  return (
-    <div className="neo-response-actions">
-      {actions.map((item) => {
-        const Icon = item.icon;
-        return (
-          <button key={item.label} type="button" onClick={item.action}>
-            <Icon className="h-3.5 w-3.5" /> {item.label}
-          </button>
-        );
       })}
     </div>
   );
@@ -530,11 +587,12 @@ function VoiceModePanel({ assistantName, onClose }) {
   );
 }
 
-function SaveMindBlockModal({ expression, playlists, saving, onClose, onSave }) {
+function SaveMindBlockModal({ suggestion, playlists, saving, onClose, onSave }) {
+  const normalizedSuggestion = normalizeSuggestion(suggestion);
   const [form, setForm] = useState({
-    expression,
-    translation: expression === "I'm looking forward to it." ? "Estou ansioso por isso." : "Estou me acostumando com isso.",
-    category: "Daily Fluency",
+    expression: normalizedSuggestion.expression,
+    translation: normalizedSuggestion.translation,
+    category: normalizedSuggestion.category,
     playlist: playlists[0]?.id ?? "",
     difficulty: "B1",
     tags: "conversation, natural",

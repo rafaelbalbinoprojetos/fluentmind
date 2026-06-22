@@ -71,6 +71,33 @@ Practice:
 Data atual: ${new Date().toISOString()}`;
 }
 
+function cleanSuggestionLine(value) {
+  return String(value || "")
+    .replace(/\*\*/g, "")
+    .replace(/^[-•\s]+/, "")
+    .trim();
+}
+
+function extractMindBlockSuggestion(reply) {
+  if (!reply) return null;
+
+  const text = String(reply);
+  const expressionMatch = text.match(/You can say:\s*(?:\n+)?\s*(.+?)(?:\n{2,}|\nMeaning:|\nExamples:|$)/i)
+    || text.match(/\*\*([^*\n]{3,120})\*\*/);
+  const meaningMatch = text.match(/Meaning:\s*(?:\n+)?\s*(.+?)(?:\n{2,}|\nExamples:|Related expressions:|Common mistake:|Practice:|$)/i);
+
+  const expression = cleanSuggestionLine(expressionMatch?.[1]);
+  if (!expression || expression.length < 3 || expression.length > 160) return null;
+
+  const translation = cleanSuggestionLine(meaningMatch?.[1]);
+  return {
+    expression,
+    translation: translation || "",
+    category: "Conversation",
+    source: "Neo Conversation",
+  };
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -108,8 +135,12 @@ export default async function handler(req, res) {
     });
 
     const reply = completion.choices[0]?.message?.content?.trim();
+    const suggestedMindBlock = extractMindBlockSuggestion(reply);
+
     return res.status(200).json({
       reply: reply || "Não consegui gerar uma resposta agora. Pode tentar reformular?",
+      detectedExpression: suggestedMindBlock?.expression ?? null,
+      suggestedMindBlock,
     });
   } catch (error) {
     console.error("[chat]", error);

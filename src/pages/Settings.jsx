@@ -43,11 +43,13 @@ export default function SettingsPage() {
   const [assistantName, setAssistantName] = useState(() => metadata.assistant_name ?? "Neo");
   const [assistantVoice, setAssistantVoice] = useState(() => metadata.assistant_voice ?? "mineirinha");
   const [chatTone, setChatTone] = useState(() => metadata.chat_tone ?? "natural");
+  const [mindBlockSaveMode, setMindBlockSaveMode] = useState(() => metadata.mindblock_save_mode ?? "ask");
   const [profileSaving, setProfileSaving] = useState(false);
   const profileDirty =
     displayName.trim() !== (metadata.display_name ?? "") ||
     assistantName.trim() !== (metadata.assistant_name ?? "Neo") ||
     assistantVoice !== (metadata.assistant_voice ?? "mineirinha") ||
+    mindBlockSaveMode !== (metadata.mindblock_save_mode ?? "ask") ||
     chatTone !== (metadata.chat_tone ?? "natural");
 
   const [learningForm, setLearningForm] = useState(initialLearning);
@@ -77,6 +79,7 @@ export default function SettingsPage() {
         display_name: displayName.trim(),
         assistant_name: assistantName.trim() || "Neo",
         assistant_voice: assistantVoice,
+        mindblock_save_mode: mindBlockSaveMode,
         chat_tone: chatTone,
       });
       toast.success("Perfil atualizado.");
@@ -238,6 +241,39 @@ export default function SettingsPage() {
                       value={option.value}
                       checked={chatTone === option.value}
                       onChange={() => setChatTone(option.value)}
+                      className="mt-0.5 accent-temaSky dark:accent-temaEmerald"
+                    />
+                    <span>
+                      <span className="block font-medium text-gray-900 dark:text-gray-100">{option.label}</span>
+                      <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">{option.description}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Salvar MindBlocks pelo chatbot</p>
+              <div className="grid gap-2">
+                {[
+                  { value: "ask", label: "Perguntar antes de salvar", description: "Mostra Salvar, Editar e Ignorar em cada sugestao." },
+                  { value: "auto", label: "Salvar automaticamente", description: "Salva expressoes detectadas sem abrir modal." },
+                  { value: "never", label: "Nunca sugerir salvamento", description: "Mantem o chat limpo e nao exibe sugestoes." },
+                ].map((option) => (
+                  <label
+                    key={option.value}
+                    className={`flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 text-sm transition ${
+                      mindBlockSaveMode === option.value
+                        ? "border-temaSky bg-temaSky/5 dark:border-temaEmerald dark:bg-temaEmerald/10"
+                        : "border-gray-200 bg-gray-50 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800/50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="mindBlockSaveMode"
+                      value={option.value}
+                      checked={mindBlockSaveMode === option.value}
+                      onChange={() => setMindBlockSaveMode(option.value)}
                       className="mt-0.5 accent-temaSky dark:accent-temaEmerald"
                     />
                     <span>

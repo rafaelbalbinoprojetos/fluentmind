@@ -1907,6 +1907,26 @@ a:hover {
   color: var(--text-primary);
 }
 
+.neo-suggestion-actions {
+  margin-left: auto;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.neo-detected-badge .neo-suggestion-actions button {
+  margin-left: 0;
+}
+
+.neo-detected-badge strong {
+  margin-left: auto;
+  border-radius: 9999px;
+  background-color: rgb(var(--color-secondary-primary) / 0.16);
+  padding: 0.25rem 0.65rem;
+  color: rgb(var(--color-secondary-light) / 1);
+  font-size: 0.72rem;
+}
+
 .neo-correction-card {
   display: grid;
   gap: 0.35rem;

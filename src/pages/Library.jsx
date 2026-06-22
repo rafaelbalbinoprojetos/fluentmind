@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -34,6 +34,7 @@ import {
   listMindBlocks,
   updateMindBlock,
 } from "../services/mindblocks.js";
+import { generateMindBlockAudio, getMindBlockAudio } from "../services/mindblockAudio.js";
 import {
   addMindBlockToPlaylist,
   createPlaylist,
@@ -127,11 +128,14 @@ function buildMindBlock(expression, expressions, playlists) {
 }
 
 export default function LibraryPage() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [expressions, setExpressions] = useState([]);
   const [playlists, setPlaylists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
+  const audioRef = useRef(null);
+  const [audioByMindBlock, setAudioByMindBlock] = useState({});
+  const [audioLoadingId, setAudioLoadingId] = useState(null);
   const [selectedExpression, setSelectedExpression] = useState(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -297,6 +301,53 @@ export default function LibraryPage() {
     toast.success("Personal note saved.");
   };
 
+  const playMindBlockAudio = async (expression) => {
+    if (!expression?.id) return;
+    if (!session?.access_token) {
+      toast.error("Sessao expirada. Entre novamente para ouvir este MindBlock.");
+      return;
+    }
+
+    const cached = audioByMindBlock[expression.id];
+    const voice = user?.user_metadata?.assistant_voice || "mineirinha";
+
+    try {
+      setAudioLoadingId(expression.id);
+      let audioData = cached;
+
+      if (!audioData?.signedUrl) {
+        audioData = await getMindBlockAudio({
+          mindblockId: expression.id,
+          voice,
+          accessToken: session.access_token,
+        });
+      }
+
+      if (!audioData?.signedUrl) {
+        audioData = await generateMindBlockAudio({
+          mindblockId: expression.id,
+          voice,
+          accessToken: session.access_token,
+        });
+        toast.success("Audio gerado e salvo no Supabase.");
+      }
+
+      setAudioByMindBlock((current) => ({ ...current, [expression.id]: audioData }));
+
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      const nextAudio = new Audio(audioData.signedUrl);
+      audioRef.current = nextAudio;
+      await nextAudio.play();
+    } catch (error) {
+      console.error("Erro ao gerar/tocar audio do MindBlock:", error);
+      toast.error(error.message || "Nao foi possivel tocar este audio.");
+    } finally {
+      setAudioLoadingId(null);
+    }
+  };
+
   const ensureDefaultPlaylist = async () => {
     if (playlists.length > 0) return playlists[0];
     const playlist = await createPlaylist({
@@ -391,6 +442,9 @@ export default function LibraryPage() {
                 expression={expression}
                 index={index}
                 onOpen={() => setSelectedExpression(expression)}
+                onAudio={() => playMindBlockAudio(expression)}
+                audioLoading={audioLoadingId === expression.id}
+                hasAudio={Boolean(audioByMindBlock[expression.id]?.signedUrl)}
                 onFavorite={() => toggleFavorite(expression)}
                 onMastered={() => markMastered(expression)}
                 onReview={() => moveToReview(expression)}
@@ -411,6 +465,9 @@ export default function LibraryPage() {
           onMastered={() => markMastered(selectedExpression)}
           onReview={() => moveToReview(selectedExpression)}
           onDelete={() => deleteExpression(selectedExpression)}
+          onAudio={() => playMindBlockAudio(selectedExpression)}
+          audioLoading={audioLoadingId === selectedExpression.id}
+          hasAudio={Boolean(audioByMindBlock[selectedExpression.id]?.signedUrl)}
           onSaveNote={(note) => savePersonalNote(selectedExpression, note)}
           onOpenRelated={(nextExpression) => setSelectedExpression(nextExpression)}
         />
@@ -612,7 +669,8 @@ function LibraryFilters({ activeFilter, setActiveFilter, category, setCategory, 
   );
 }
 
-function SelectControl({ icon: Icon, value, onChange, options, ariaLabel }) {
+function SelectControl({ icon, value, onChange, options, ariaLabel }) {
+  const Icon = icon;
   return (
     <label className="fm-input flex min-h-11 items-center gap-2 rounded-2xl border px-3">
       <Icon className="fm-subtle h-4 w-4" />
@@ -623,7 +681,18 @@ function SelectControl({ icon: Icon, value, onChange, options, ariaLabel }) {
   );
 }
 
-function ExpressionCard({ expression, index, onOpen, onFavorite, onMastered, onReview, onDelete }) {
+function ExpressionCard({
+  expression,
+  index,
+  onOpen,
+  onAudio,
+  audioLoading,
+  hasAudio,
+  onFavorite,
+  onMastered,
+  onReview,
+  onDelete,
+}) {
   return (
     <article className="library-expression-card" style={{ animationDelay: `${index * 35}ms` }}>
       <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
@@ -652,7 +721,16 @@ function ExpressionCard({ expression, index, onOpen, onFavorite, onMastered, onR
           </div>
         </div>
         <div className="flex justify-end gap-2">
-          <button type="button" className="library-action-button" aria-label="Listen"><Play className="h-4 w-4 fill-current" /></button>
+          <button
+            type="button"
+            onClick={onAudio}
+            disabled={audioLoading}
+            className={`library-action-button ${hasAudio ? "is-active" : ""}`}
+            aria-label={hasAudio ? "Listen saved audio" : "Generate audio"}
+            title={hasAudio ? "Listen saved audio" : "Generate audio"}
+          >
+            {audioLoading ? <Sparkles className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
+          </button>
           <button type="button" className="library-action-button" aria-label="Practice"><MessageCircle className="h-4 w-4" /></button>
           <button type="button" onClick={onReview} className="library-action-button" aria-label="Review"><RotateCcw className="h-4 w-4" /></button>
           <button type="button" onClick={onFavorite} className={`library-action-button ${expression.isFavorite ? "is-favorite" : ""}`} aria-label="Favorite"><Star className="h-4 w-4" /></button>
@@ -674,6 +752,9 @@ function ExpressionDetailDrawer({
   expressions,
   playlists,
   onClose,
+  onAudio,
+  audioLoading,
+  hasAudio,
   onFavorite,
   onMastered,
   onReview,
@@ -744,8 +825,9 @@ function ExpressionDetailDrawer({
         </section>
 
         <div className="mindblock-action-grid">
-          <button type="button" className="library-panel-action" onClick={() => toast("Audio preview coming soon.")}>
-            <Headphones className="h-4 w-4" /> Listen
+          <button type="button" className="library-panel-action" onClick={onAudio} disabled={audioLoading}>
+            {audioLoading ? <Sparkles className="h-4 w-4 animate-spin" /> : <Headphones className="h-4 w-4" />}
+            {audioLoading ? "Generating..." : hasAudio ? "Listen" : "Generate audio"}
           </button>
           <button type="button" className="library-panel-action" onClick={() => toast("Pronunciation practice coming soon.")}>
             <Zap className="h-4 w-4" /> Repeat

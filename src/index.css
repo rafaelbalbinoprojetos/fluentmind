@@ -1960,18 +1960,52 @@ a:hover {
 }
 
 .neo-detected-badge {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
+  display: grid;
+  gap: 0.6rem;
   color: rgb(var(--color-accent-light) / 1);
   font-size: 0.78rem;
   font-weight: 850;
 }
 
+.neo-detected-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.neo-suggestion-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.neo-suggestion-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid rgb(var(--color-accent-primary) / 0.2);
+  border-radius: 0.85rem;
+  background-color: rgb(255 255 255 / 0.035);
+  padding: 0.6rem;
+}
+
+.neo-suggestion-item strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.86rem;
+  line-height: 1.25;
+}
+
+.neo-suggestion-item small {
+  display: block;
+  margin-top: 0.18rem;
+  color: var(--text-secondary);
+  font-size: 0.73rem;
+  font-weight: 700;
+}
+
 .neo-detected-badge button,
 .neo-correction-card button {
-  margin-left: auto;
   border-radius: 9999px;
   background-color: rgb(var(--color-accent-primary) / 0.2);
   padding: 0.25rem 0.55rem;
@@ -1979,9 +2013,9 @@ a:hover {
 }
 
 .neo-suggestion-actions {
-  margin-left: auto;
   display: inline-flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.35rem;
 }
 
@@ -1989,8 +2023,9 @@ a:hover {
   margin-left: 0;
 }
 
-.neo-detected-badge strong {
-  margin-left: auto;
+.neo-saved-pill {
+  display: inline-flex;
+  justify-self: end;
   border-radius: 9999px;
   background-color: rgb(var(--color-secondary-primary) / 0.16);
   padding: 0.25rem 0.65rem;

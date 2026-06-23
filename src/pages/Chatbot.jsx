@@ -73,6 +73,28 @@ function getPrimarySuggestion(message) {
     || null;
 }
 
+function getMessageSuggestions(message) {
+  const suggestions = Array.isArray(message?.suggestedMindBlocks) && message.suggestedMindBlocks.length
+    ? message.suggestedMindBlocks
+    : [getPrimarySuggestion(message)].filter(Boolean);
+
+  const unique = new Map();
+  suggestions
+    .map((item) => normalizeSuggestion(item))
+    .filter((item) => item.expression?.trim())
+    .forEach((item) => {
+      const key = item.expression.trim().toLowerCase();
+      if (!unique.has(key)) unique.set(key, item);
+    });
+
+  return [...unique.values()];
+}
+
+function getSuggestionKey(messageId, suggestion) {
+  const normalized = normalizeSuggestion(suggestion);
+  return `${messageId || "message"}::${normalized.expression.trim().toLowerCase()}`;
+}
+
 function buildMindBlockMeta(form, assistantName) {
   return {
     usage: form.usage || form.notes || "",
@@ -296,14 +318,16 @@ export default function ChatbotPage() {
         },
       ]);
       await refreshConversations(sessionId);
-      const primarySuggestion = getPrimarySuggestion(reply);
-      if (primarySuggestion) {
+      const suggestions = getMessageSuggestions(reply);
+      if (suggestions.length > 0) {
         const saveMode = user?.user_metadata?.mindblock_save_mode || "ask";
         if (saveMode === "auto") {
-          await quickSaveSuggestion(primarySuggestion, storedAssistantMessage.id);
+          await Promise.allSettled(
+            suggestions.map((suggestion) => quickSaveSuggestion(suggestion, storedAssistantMessage.id)),
+          );
         } else if (saveMode === "ask") {
-          setSelectedSuggestion(primarySuggestion);
-          toast("Useful expression detected.");
+          setSelectedSuggestion(suggestions[0]);
+          toast(`${suggestions.length} MindBlock${suggestions.length > 1 ? "s" : ""} detected.`);
         }
       }
     } catch (error) {
@@ -343,7 +367,7 @@ export default function ChatbotPage() {
     return playlist;
   };
 
-  const saveMindBlockFromChat = async (form, { sourceMessageId = null } = {}) => {
+  const saveMindBlockFromChat = async (form, { sourceMessageId = null, suggestionKey = null } = {}) => {
     if (!user?.id) {
       toast.error("Sessao expirada. Faca login novamente.");
       return;
@@ -362,7 +386,8 @@ export default function ChatbotPage() {
         item.expression.trim().toLowerCase() === expression.toLowerCase()
       ));
       if (alreadyExists) {
-        if (sourceMessageId) setSavedSuggestionIds((current) => [...new Set([...current, sourceMessageId])]);
+        const savedKey = suggestionKey || (sourceMessageId ? getSuggestionKey(sourceMessageId, form) : null);
+        if (savedKey) setSavedSuggestionIds((current) => [...new Set([...current, savedKey])]);
         setSaveModalOpen(false);
         toast("Esse MindBlock ja existe na sua biblioteca.");
         return;
@@ -406,7 +431,8 @@ export default function ChatbotPage() {
         study_minutes: 1,
       });
 
-      if (sourceMessageId) setSavedSuggestionIds((current) => [...new Set([...current, sourceMessageId])]);
+      const savedKey = suggestionKey || (sourceMessageId ? getSuggestionKey(sourceMessageId, form) : null);
+      if (savedKey) setSavedSuggestionIds((current) => [...new Set([...current, savedKey])]);
       setSaveModalOpen(false);
       toast.success("MindBlock salvo na sua biblioteca.");
     } catch (error) {
@@ -434,11 +460,12 @@ export default function ChatbotPage() {
       patternExplanation: normalized.patternExplanation,
       favorite: true,
       review: true,
-    }, { sourceMessageId: messageId });
+    }, { sourceMessageId: messageId, suggestionKey: getSuggestionKey(messageId, normalized) });
   };
 
-  const ignoreSuggestion = (messageId) => {
-    setIgnoredSuggestionIds((current) => [...new Set([...current, messageId])]);
+  const ignoreSuggestion = (messageId, suggestion = null) => {
+    const ignoredKey = suggestion ? getSuggestionKey(messageId, suggestion) : messageId;
+    setIgnoredSuggestionIds((current) => [...new Set([...current, ignoredKey])]);
     toast("Sugestao ignorada.");
   };
 
@@ -466,12 +493,13 @@ export default function ChatbotPage() {
                 key={message.id}
                 message={message}
                 assistantName={assistantName}
-                ignored={mindBlockSaveMode === "never" || ignoredSuggestionIds.includes(message.id)}
-                saved={savedSuggestionIds.includes(message.id)}
+                ignoredSuggestionIds={ignoredSuggestionIds}
+                savedSuggestionIds={savedSuggestionIds}
+                suggestionsDisabled={mindBlockSaveMode === "never"}
                 saving={savingMindBlock}
-                onQuickSave={() => quickSaveSuggestion(getPrimarySuggestion(message), message.id)}
-                onEdit={() => openSaveModal(getPrimarySuggestion(message))}
-                onIgnore={() => ignoreSuggestion(message.id)}
+                onQuickSave={(suggestion) => quickSaveSuggestion(suggestion, message.id)}
+                onEdit={(suggestion) => openSaveModal(suggestion)}
+                onIgnore={(suggestion) => ignoreSuggestion(message.id, suggestion)}
                 onMock={mockAction}
               />
             ))}
@@ -541,8 +569,9 @@ function NeoChatHeader({ assistantName, voiceMode, onToggleVoice, onClear, activ
 function NeoMessage({
   message,
   assistantName,
-  ignored,
-  saved,
+  ignoredSuggestionIds,
+  savedSuggestionIds,
+  suggestionsDisabled,
   saving,
   onQuickSave,
   onEdit,
@@ -550,9 +579,13 @@ function NeoMessage({
   onMock,
 }) {
   const isNeo = message.role === "neo";
-  const suggestion = normalizeSuggestion(getPrimarySuggestion(message));
-  const suggestionCount = Array.isArray(message.suggestedMindBlocks) ? message.suggestedMindBlocks.length : 0;
-  const hasSuggestion = isNeo && suggestion.expression && !ignored;
+  const suggestions = getMessageSuggestions(message)
+    .map((suggestion) => ({
+      ...suggestion,
+      key: getSuggestionKey(message.id, suggestion),
+    }))
+    .filter((suggestion) => !ignoredSuggestionIds.includes(suggestion.key));
+  const hasSuggestion = isNeo && !suggestionsDisabled && suggestions.length > 0;
 
   return (
     <article className={`neo-message-row ${isNeo ? "is-neo" : "is-user"}`}>
@@ -566,20 +599,32 @@ function NeoMessage({
           <RichMessage content={message.content} />
           {hasSuggestion ? (
             <div className="neo-detected-badge">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>
-                MindBlock sugerido: {suggestion.expression}
-                {suggestionCount > 1 ? ` +${suggestionCount - 1}` : ""}
-              </span>
-              {saved ? (
-                <strong>Salvo</strong>
-              ) : (
-                <div className="neo-suggestion-actions">
-                  <button type="button" onClick={onQuickSave} disabled={saving}>Salvar</button>
-                  <button type="button" onClick={onEdit} disabled={saving}>Editar</button>
-                  <button type="button" onClick={onIgnore} disabled={saving}>Ignorar</button>
-                </div>
-              )}
+              <div className="neo-detected-heading">
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>{suggestions.length} MindBlock{suggestions.length > 1 ? "s" : ""} detected</span>
+              </div>
+              <div className="neo-suggestion-list">
+                {suggestions.map((suggestion) => {
+                  const saved = savedSuggestionIds.includes(suggestion.key);
+                  return (
+                    <div key={suggestion.key} className="neo-suggestion-item">
+                      <div>
+                        <strong>{suggestion.expression}</strong>
+                        {suggestion.translation ? <small>{suggestion.translation}</small> : null}
+                      </div>
+                      {saved ? (
+                        <span className="neo-saved-pill">Salvo</span>
+                      ) : (
+                        <div className="neo-suggestion-actions">
+                          <button type="button" onClick={() => onQuickSave(suggestion)} disabled={saving}>Salvar</button>
+                          <button type="button" onClick={() => onEdit(suggestion)} disabled={saving}>Editar</button>
+                          <button type="button" onClick={() => onIgnore(suggestion)} disabled={saving}>Ignorar</button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ) : null}
           {message.correction ? (

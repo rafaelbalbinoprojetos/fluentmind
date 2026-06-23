@@ -1,6 +1,7 @@
 import { supabase, supabaseConfigured } from "../lib/supabase.js";
 
 const TABLE = "mindblocks";
+const META_PREFIX = "FM_META::";
 
 function ensureSupabase() {
   if (!supabaseConfigured || !supabase) {
@@ -45,10 +46,37 @@ function statusFromRow(row) {
   return "new";
 }
 
+function parseMindBlockNotes(notes) {
+  const raw = notes ?? "";
+  if (!raw.startsWith(META_PREFIX)) {
+    return { personalNotes: raw, meta: null };
+  }
+
+  try {
+    const meta = JSON.parse(raw.slice(META_PREFIX.length));
+    return {
+      personalNotes: meta.personalNotes || "",
+      meta,
+    };
+  } catch {
+    return { personalNotes: raw, meta: null };
+  }
+}
+
+function serializeMindBlockNotes(payload) {
+  if (!payload.meta) return payload.notes?.trim() || null;
+
+  return `${META_PREFIX}${JSON.stringify({
+    ...payload.meta,
+    personalNotes: payload.notes?.trim() || payload.meta.personalNotes || "",
+  })}`;
+}
+
 export function mapMindBlockRow(row, playlistIds = []) {
   const status = statusFromRow(row);
   const mastery = normalizeMastery(row.mastery_level);
-  const notes = row.notes ?? "";
+  const { personalNotes, meta } = parseMindBlockNotes(row.notes);
+  const notes = meta?.usage || personalNotes || "";
 
   return {
     id: row.id,
@@ -68,9 +96,15 @@ export function mapMindBlockRow(row, playlistIds = []) {
     timesReviewed: Number(row.times_reviewed) || 0,
     source: row.source || "Manual",
     notes,
-    personalNotes: notes,
-    examples: row.context ? [row.context] : [],
+    personalNotes,
+    examples: Array.isArray(meta?.examples) && meta.examples.length ? meta.examples : (row.context ? [row.context] : []),
     context: row.context ?? "",
+    pattern: meta?.pattern || null,
+    patternExplanation: meta?.patternExplanation || meta?.practice || null,
+    variations: Array.isArray(meta?.variations) ? meta.variations : [],
+    relatedExpressions: Array.isArray(meta?.relatedExpressions) ? meta.relatedExpressions : [],
+    commonMistake: meta?.commonMistake || null,
+    practice: meta?.practice || "",
   };
 }
 
@@ -84,7 +118,7 @@ function toMindBlockInsert(payload, userId, mode = "save") {
     context: payload.context?.trim() || payload.notes?.trim() || null,
     category: payload.category || "Daily Fluency",
     source: payload.source || "Manual",
-    notes: payload.notes?.trim() || null,
+    notes: serializeMindBlockNotes(payload),
     mastery_level: mode === "review" ? 10 : 0,
     times_reviewed: 0,
     next_review_at: mode === "review" ? new Date().toISOString() : tomorrow,

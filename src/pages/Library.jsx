@@ -98,27 +98,32 @@ function inferPattern(expression) {
   return `${expression.split(" ").slice(0, 3).join(" ")} + context`;
 }
 
+function uniqueValues(values) {
+  return [...new Set((values || []).map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
 function buildMindBlock(expression, expressions, playlists) {
   const sameCategory = expressions.filter((item) => item.id !== expression.id && item.category === expression.category);
   const relatedIds = expression.relatedExpressionIds?.length ? expression.relatedExpressionIds : sameCategory.slice(0, 4).map((item) => item.id);
-  const related = relatedIds
+  const relatedFromIds = relatedIds
     .map((id) => expressions.find((item) => item.id === id))
-    .filter(Boolean)
-    .slice(0, 4);
+    .filter(Boolean);
+  const relatedFromAi = (expression.relatedExpressions || []).map((item) => ({
+    id: `${expression.id}-${item.expression}`,
+    expression: item.expression,
+    translation: item.translation || "",
+    isExternalSuggestion: true,
+  }));
+  const related = (relatedFromAi.length ? relatedFromAi : relatedFromIds).slice(0, 4);
+  const variations = uniqueValues(expression.variations?.length ? expression.variations : []);
 
   return {
     ...expression,
     pronunciation: expression.pronunciation || mockPronunciation(expression.expression),
     strength: expression.strength || masteryStrength(expression.mastery),
     pattern: expression.pattern || inferPattern(expression.expression),
-    patternExplanation: expression.patternExplanation || "Save the structure as a reusable mental block, then swap only the context.",
-    variations: expression.variations?.length
-      ? expression.variations
-      : [
-          expression.expression.replace("it", "this situation"),
-          expression.expression.replace("it", "speaking English"),
-          expression.expression,
-        ],
+    patternExplanation: expression.patternExplanation || expression.practice || "Save the structure as a reusable mental block, then swap only the context.",
+    variations,
     commonMistake: expression.commonMistake || expression.mistake || null,
     playlists: (expression.playlistIds || [])
       .map((playlistId) => playlists.find((item) => item.id === playlistId))
@@ -877,18 +882,25 @@ function ExpressionDetailDrawer({
           <h3>MindBlock Pattern</h3>
           <div className="mindblock-pattern">{block.pattern}</div>
           <p>{block.patternExplanation}</p>
-          <div className="mt-3 grid gap-2">
-            {block.variations.map((variation) => (
-              <span key={variation} className="mindblock-example">{variation}</span>
-            ))}
-          </div>
+          {block.variations.length ? (
+            <div className="mt-3 grid gap-2">
+              {block.variations.map((variation) => (
+                <span key={variation} className="mindblock-example">{variation}</span>
+              ))}
+            </div>
+          ) : null}
         </section>
 
         <section className="mindblock-section">
           <h3>Related Expressions</h3>
           <div className="mindblock-related-grid">
             {block.related.length ? block.related.map((related) => (
-              <button key={related.id} type="button" className="mindblock-related-card" onClick={() => onOpenRelated(related)}>
+              <button
+                key={related.id}
+                type="button"
+                className="mindblock-related-card"
+                onClick={() => (related.isExternalSuggestion ? toast("Salve esta expressao pelo chat para abrir como MindBlock.") : onOpenRelated(related))}
+              >
                 <span>{related.expression}</span>
                 <small>{related.translation}</small>
               </button>

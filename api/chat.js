@@ -1,4 +1,4 @@
-/* eslint-env node */
+/* global process */
 import { OpenAI } from "openai";
 import { requireUser } from "./_utils/auth.js";
 
@@ -104,11 +104,83 @@ function splitExpressionAndTranslation(value) {
   };
 }
 
+function extractSection(text, startLabel, endLabels = []) {
+  const escapedStart = startLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escapedEnds = endLabels.map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const headingPrefix = "(?:#{1,6}\\s*)?";
+  const endPattern = escapedEnds.length ? `(?:\\n\\s*${headingPrefix}(?:${escapedEnds.join("|")}):|$)` : "$";
+  const match = String(text || "").match(new RegExp(`${headingPrefix}${escapedStart}:\\s*([\\s\\S]*?)${endPattern}`, "i"));
+  return match?.[1]?.trim() || "";
+}
+
+function cleanListItem(value) {
+  return cleanSuggestionLine(value)
+    .replace(/^\d+\.\s*/, "")
+    .replace(/^Para\s+[^:]+:\s*/i, "")
+    .replace(/^\*\*|\*\*$/g, "")
+    .trim();
+}
+
+function isTranslationOnly(value) {
+  const clean = cleanListItem(value);
+  return /^\([^()]{2,180}\)$/.test(clean);
+}
+
+function extractList(section) {
+  return String(section || "")
+    .split("\n")
+    .map((line) => cleanListItem(line.replace(/\*\*/g, "")))
+    .filter((line) => line && !/^#+\s*/.test(line))
+    .slice(0, 8);
+}
+
+function extractCommonMistake(section) {
+  const text = cleanSuggestionLine(section).replace(/\n+/g, " ");
+  if (!text) return null;
+
+  const wrong = text.match(/(?:Wrong|Errado):\s*([^.;]+)/i)?.[1]?.trim() || "";
+  const correct = text.match(/(?:Correct|Correto|Forma correta):\s*([^.;]+)/i)?.[1]?.trim() || "";
+
+  if (wrong || correct) {
+    return {
+      wrong,
+      correct,
+      explanation: text,
+    };
+  }
+
+  return {
+    wrong: "",
+    correct: "",
+    explanation: text,
+  };
+}
+
+function buildSuggestionMetadata(reply) {
+  const labels = ["You can say", "Meaning", "Examples", "Related expressions", "Common mistake", "Practice"];
+  const meaning = extractSection(reply, "Meaning", labels.filter((label) => label !== "Meaning"));
+  const examples = extractList(extractSection(reply, "Examples", labels.filter((label) => label !== "Examples")));
+  const related = extractList(extractSection(reply, "Related expressions", labels.filter((label) => label !== "Related expressions")))
+    .map((item) => splitExpressionAndTranslation(item))
+    .filter((item) => item.expression);
+  const commonMistake = extractCommonMistake(extractSection(reply, "Common mistake", labels.filter((label) => label !== "Common mistake")));
+  const practice = extractSection(reply, "Practice", labels.filter((label) => label !== "Practice"));
+
+  return {
+    usage: cleanSuggestionLine(meaning).replace(/\n+/g, " "),
+    examples,
+    relatedExpressions: related,
+    commonMistake,
+    practice: cleanSuggestionLine(practice).replace(/\n+/g, " "),
+  };
+}
+
 function extractMindBlockSuggestion(reply) {
   if (!reply) return null;
 
   const text = String(reply);
-  const youCanSaySection = text.match(/You can say:\s*([\s\S]*?)(?:\n{2,}|\nMeaning:|\nExamples:|Related expressions:|Common mistake:|Practice:|$)/i)?.[1] ?? "";
+  const labels = ["You can say", "Meaning", "Examples", "Related expressions", "Common mistake", "Practice"];
+  const youCanSaySection = extractSection(text, "You can say", labels.filter((label) => label !== "You can say"));
   const listSuggestionMatch = youCanSaySection.match(/(?:^|\n)\s*(?:\d+\.|[-•])\s*["“]?([^"\n”]{2,120})["”]?/);
   const expressionMatch = text.match(/You can say:\s*(?:\n+)?\s*(.+?)(?:\n{2,}|\nMeaning:|\nExamples:|$)/i)
     || text.match(/\*\*([^*\n]{3,120})\*\*/);
@@ -118,11 +190,13 @@ function extractMindBlockSuggestion(reply) {
   if (!expression || expression.length < 3 || expression.length > 160) return null;
 
   const translation = cleanSuggestionLine(meaningMatch?.[1]);
+  const metadata = buildSuggestionMetadata(reply);
   return {
     expression,
     translation: inlineTranslation || translation || "",
     category: "Conversation",
     source: "Neo Conversation",
+    ...metadata,
   };
 }
 
@@ -130,16 +204,35 @@ function extractMindBlockSuggestions(reply) {
   if (!reply) return [];
 
   const text = String(reply);
-  const youCanSaySection = text.match(/You can say:\s*([\s\S]*?)(?:\n{2,}|\nMeaning:|\nExamples:|Related expressions:|Common mistake:|Practice:|$)/i)?.[1] ?? "";
-  const listMatches = [...youCanSaySection.matchAll(/(?:^|\n)\s*(?:\d+\.|[-•])\s*["“]?([^"\n”]{2,160})["”]?/g)];
+  const labels = ["You can say", "Meaning", "Examples", "Related expressions", "Common mistake", "Practice"];
+  const youCanSaySection = extractSection(text, "You can say", labels.filter((label) => label !== "You can say"));
+  const listLines = youCanSaySection
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
 
-  const suggestions = listMatches
-    .map((match) => splitExpressionAndTranslation(match[1]))
+  const metadata = buildSuggestionMetadata(reply);
+  const suggestions = listLines
+    .map((line, index) => {
+      const match = line.match(/^(?:\d+\.|[-•])\s*["“]?([^"\n”]{2,160})["”]?/);
+      if (!match || isTranslationOnly(match[1])) return null;
+
+      const suggestion = splitExpressionAndTranslation(match[1]);
+      const nextLine = listLines[index + 1] || "";
+      const translationOnly = nextLine.match(/^[-•]?\s*\(([^()]{2,180})\)$/);
+      if (!suggestion.translation && translationOnly) {
+        suggestion.translation = cleanSuggestionLine(translationOnly[1]);
+      }
+
+      return suggestion;
+    })
+    .filter(Boolean)
     .filter((item) => item.expression && item.expression.length >= 2 && item.expression.length <= 160)
     .map((item) => ({
       ...item,
       category: "Conversation",
       source: "Neo Conversation",
+      ...metadata,
     }));
 
   if (suggestions.length > 0) return suggestions;

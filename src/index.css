@@ -1805,7 +1805,9 @@ a:hover {
 
 .neo-message-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 1rem;
 }
 
@@ -2824,19 +2826,33 @@ g.is-dimmed .neural-impulse {
 
 .neo-page-chat-only {
   display: flex;
-  min-height: calc(100svh - 7.5rem);
+  height: calc(100svh - 7.5rem);
+  min-height: 0;
+  overflow: hidden;
   justify-content: center;
 }
 
 .neo-page-chat-only .neo-chat-shell {
   width: min(100%, 980px);
-  min-height: calc(100svh - 7.5rem);
+  height: 100%;
+  min-height: 0;
 }
 
 .neo-page-chat-only .neo-chat-header {
+  flex-shrink: 0;
   flex-wrap: wrap;
   border-bottom: 1px solid var(--border-soft);
   padding: 0.95rem 1rem;
+}
+
+.neo-page-chat-only .neo-message-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.neo-page-chat-only .neo-composer {
+  flex-shrink: 0;
 }
 
 .neo-header-link {
@@ -2861,20 +2877,23 @@ g.is-dimmed .neural-impulse {
 
 @media (max-width: 768px) {
   .neo-page-chat-only {
-    min-height: calc(100svh - 5.25rem);
+    height: calc(100svh - 5.25rem);
+    min-height: 0;
+    overflow: hidden;
     margin: -0.75rem;
   }
 
   .neo-page-chat-only .neo-chat-shell {
-    min-height: calc(100svh - 5.25rem);
+    height: 100%;
+    min-height: 0;
     border-width: 0;
     border-radius: 0;
   }
 
   .neo-page-chat-only .neo-chat-header {
-    position: sticky;
-    top: 0;
+    position: relative;
     z-index: 5;
+    flex-shrink: 0;
     background-color: color-mix(in srgb, var(--surface-card) 92%, transparent);
     backdrop-filter: blur(18px);
   }
@@ -2893,6 +2912,9 @@ g.is-dimmed .neural-impulse {
   }
 
   .neo-page-chat-only .neo-message-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
     padding: 0.85rem 0.75rem 1rem;
   }
 
@@ -2915,9 +2937,9 @@ g.is-dimmed .neural-impulse {
   }
 
   .neo-page-chat-only .neo-composer {
-    position: sticky;
-    bottom: 0;
+    position: relative;
     z-index: 6;
+    flex-shrink: 0;
     background-color: color-mix(in srgb, var(--surface-card) 94%, transparent);
     padding: 0.75rem;
     backdrop-filter: blur(18px);

@@ -919,6 +919,12 @@ a:hover {
   min-height: 190px;
   border-radius: 1.5rem;
   padding: 1.25rem;
+  text-align: left;
+}
+
+.library-collection-card.is-active {
+  border-color: rgb(var(--color-accent-primary) / 0.58);
+  box-shadow: 0 20px 55px rgb(var(--color-accent-primary) / 0.2);
 }
 
 .library-card-icon {

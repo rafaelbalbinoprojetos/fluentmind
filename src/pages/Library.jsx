@@ -62,17 +62,17 @@ const CATEGORIES = [
   "Movies",
 ];
 
-const collectionCards = [
-  { id: "favorites", title: "Favorites", count: 34, description: "Your most useful phrases.", icon: Star, tone: "favorite" },
-  { id: "recent", title: "Recently Saved", count: 18, description: "Fresh MindBlocks from this week.", icon: Clock3, tone: "accent" },
-  { id: "review", title: "Review Due", count: 12, description: "Ready to strengthen today.", icon: RotateCcw, tone: "warning" },
-  { id: "mastered", title: "Mastered", count: 86, description: "Expressions becoming natural.", icon: Check, tone: "success" },
-  { id: "mistakes", title: "My Mistakes", count: 18, description: "Turn errors into fluency.", icon: Zap, tone: "danger" },
-  { id: "daily", title: "Daily Fluency", count: 42, description: "Speak naturally every day.", icon: MessageCircle, tone: "accent" },
-  { id: "work", title: "Work English", count: 31, description: "Meetings, shifts and reports.", icon: BookOpen, tone: "success" },
-  { id: "travel", title: "Travel", count: 19, description: "Move through the world.", icon: Sparkles, tone: "favorite" },
-  { id: "programming", title: "Programming", count: 28, description: "Docs, SaaS and developer talk.", icon: Brain, tone: "accent" },
-  { id: "feelings", title: "Feelings", count: 22, description: "Say what you feel clearly.", icon: Heart, tone: "danger" },
+const collectionTemplates = [
+  { id: "favorites", title: "Favorites", description: "Your most useful phrases.", icon: Star, tone: "favorite", filter: "Favorites" },
+  { id: "recent", title: "Recently Saved", description: "Fresh MindBlocks from this week.", icon: Clock3, tone: "accent", filter: "Recently Saved" },
+  { id: "review", title: "Review Due", description: "Ready to strengthen today.", icon: RotateCcw, tone: "warning", filter: "Review Due" },
+  { id: "mastered", title: "Mastered", description: "Expressions becoming natural.", icon: Check, tone: "success", filter: "Mastered" },
+  { id: "mistakes", title: "My Mistakes", description: "Turn errors into fluency.", icon: Zap, tone: "danger", filter: "Mistakes" },
+  { id: "daily", title: "Daily Fluency", description: "Speak naturally every day.", icon: MessageCircle, tone: "accent", category: "Daily Fluency" },
+  { id: "work", title: "Work English", description: "Meetings, shifts and reports.", icon: BookOpen, tone: "success", category: "Work" },
+  { id: "travel", title: "Travel", description: "Move through the world.", icon: Sparkles, tone: "favorite", category: "Travel" },
+  { id: "programming", title: "Programming", description: "Docs, SaaS and developer talk.", icon: Brain, tone: "accent", category: "Programming" },
+  { id: "feelings", title: "Feelings", description: "Say what you feel clearly.", icon: Heart, tone: "danger", category: "Feelings" },
 ];
 
 function normalizeStatus(status) {
@@ -100,6 +100,23 @@ function inferPattern(expression) {
 
 function uniqueValues(values) {
   return [...new Set((values || []).map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
+function isRecentlySaved(item) {
+  if (!item.createdAt) return false;
+  const createdAt = new Date(item.createdAt);
+  if (Number.isNaN(createdAt.getTime())) return false;
+  return Date.now() - createdAt.getTime() <= 7 * 24 * 60 * 60 * 1000;
+}
+
+function matchesCollection(item, template) {
+  if (template.filter === "Favorites") return item.isFavorite;
+  if (template.filter === "Recently Saved") return isRecentlySaved(item);
+  if (template.filter === "Review Due") return item.isReviewDue || item.status === "review_due";
+  if (template.filter === "Mastered") return item.status === "mastered";
+  if (template.filter === "Mistakes") return Boolean(item.mistake || item.commonMistake);
+  if (template.category) return item.category === template.category || item.category?.includes(template.category);
+  return false;
 }
 
 function buildMindBlock(expression, expressions, playlists) {
@@ -231,8 +248,8 @@ export default function LibraryPage() {
         || (activeFilter === "Mastered" && item.status === "mastered")
         || (activeFilter === "Learning" && item.status === "learning")
         || (activeFilter === "Review Due" && (item.isReviewDue || item.status === "review_due"))
-        || (activeFilter === "Mistakes" && item.mistake)
-        || (activeFilter === "Recently Saved" && new Date(item.createdAt) >= new Date("2026-06-10"));
+        || (activeFilter === "Mistakes" && (item.mistake || item.commonMistake))
+        || (activeFilter === "Recently Saved" && isRecentlySaved(item));
       return matchesSearch && matchesCategory && matchesStatus && matchesFilter;
     });
 
@@ -246,6 +263,25 @@ export default function LibraryPage() {
 
     return result;
   }, [activeFilter, category, debouncedSearch, expressions, sort, status]);
+
+  const collections = useMemo(() => (
+    collectionTemplates.map((template) => ({
+      ...template,
+      count: expressions.filter((item) => matchesCollection(item, template)).length,
+    }))
+  ), [expressions]);
+
+  const selectCollection = (template) => {
+    setSearch("");
+    setStatus("All statuses");
+    if (template.category) {
+      setActiveFilter("All");
+      setCategory(template.category);
+    } else {
+      setCategory("All categories");
+      setActiveFilter(template.filter || "All");
+    }
+  };
 
   const updateExpression = async (id, patch) => {
     const previous = expressions;
@@ -410,7 +446,7 @@ export default function LibraryPage() {
     <main className="space-y-6">
       <LibraryHeader search={search} onSearch={setSearch} onAdd={() => setAddModalOpen(true)} />
       <LibraryHeroCard stats={stats} />
-      <QuickCollections />
+      <QuickCollections collections={collections} activeFilter={activeFilter} category={category} onSelect={selectCollection} />
       <PlaylistsSection playlists={playlists} onCreateDefault={ensureDefaultPlaylist} />
 
       <section className="fm-card rounded-[30px] border p-5 shadow-lg backdrop-blur-xl">
@@ -571,7 +607,7 @@ function LibraryHeroCard({ stats }) {
   );
 }
 
-function QuickCollections() {
+function QuickCollections({ collections, activeFilter, category, onSelect }) {
   return (
     <section>
       <div className="mb-4 flex items-end justify-between gap-4">
@@ -581,17 +617,22 @@ function QuickCollections() {
         </div>
       </div>
       <div className="library-scroll-row">
-        {collectionCards.map((item) => (
-          <CollectionCard key={item.id} item={item} />
+        {collections.map((item) => (
+          <CollectionCard
+            key={item.id}
+            item={item}
+            active={item.category ? category === item.category : activeFilter === item.filter}
+            onSelect={() => onSelect(item)}
+          />
         ))}
       </div>
     </section>
   );
 }
 
-function CollectionCard({ item }) {
+function CollectionCard({ item, active, onSelect }) {
   return (
-    <article className={`library-collection-card library-tone-${item.tone}`}>
+    <button type="button" onClick={onSelect} className={`library-collection-card library-tone-${item.tone} ${active ? "is-active" : ""}`}>
       <div className="flex items-start justify-between gap-3">
         <span className="library-card-icon"><item.icon className="h-5 w-5" /></span>
         <span className="fm-chip rounded-full border px-2 py-1 text-[11px] font-semibold">{item.count}</span>
@@ -599,9 +640,9 @@ function CollectionCard({ item }) {
       <h3 className="mt-5 text-lg font-semibold">{item.title}</h3>
       <p className="fm-muted mt-1 text-sm">{item.description}</p>
       <div className="fm-progress-track mt-4 h-2 overflow-hidden rounded-full">
-        <div className="fm-progress-fill h-full rounded-full" style={{ width: `${Math.min(96, item.count + 35)}%` }} />
+        <div className="fm-progress-fill h-full rounded-full" style={{ width: `${item.count > 0 ? Math.min(96, Math.max(12, item.count * 12)) : 0}%` }} />
       </div>
-    </article>
+    </button>
   );
 }
 

@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { Brain, Check, Eye, RotateCcw, Sparkles, X } from "lucide-react";
+import { Brain, Check, Eye, Headphones, RotateCcw, Sparkles, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
 import { listMindBlocks, updateMindBlock } from "../services/mindblocks.js";
+import { generateMindBlockAudio, getMindBlockAudio } from "../services/mindblockAudio.js";
 import { createReviewEvent, listReviewEvents } from "../services/reviewEvents.js";
 import { recordDailyActivity } from "../services/learningProgress.js";
 
@@ -15,8 +16,8 @@ const REVIEW_SCORES = {
 
 function sortReviewDeck(expressions) {
   const dueCards = expressions.filter((item) => item.isReviewDue || item.status === "review_due");
-  const otherCards = expressions.filter((item) => !item.isReviewDue && item.status !== "review_due");
-  return [...dueCards, ...otherCards];
+  if (dueCards.length > 0) return dueCards;
+  return expressions;
 }
 
 function buildProgress(events) {
@@ -36,7 +37,7 @@ function buildProgress(events) {
 }
 
 export default function InsightsPage() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [deck, setDeck] = useState([]);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +45,12 @@ export default function InsightsPage() {
   const [cardIndex, setCardIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [answerStartedAt, setAnswerStartedAt] = useState(null);
+  const [typedAnswer, setTypedAnswer] = useState("");
   const [savingResult, setSavingResult] = useState(false);
+  const audioRef = useRef(null);
+  const [audioByMindBlock, setAudioByMindBlock] = useState({});
+  const [audioLoadingId, setAudioLoadingId] = useState(null);
+  const [sessionStats, setSessionStats] = useState({ reviewed: 0, correct: 0, again: 0, hard: 0, good: 0, easy: 0 });
 
   useEffect(() => {
     let ignore = false;
@@ -70,6 +76,8 @@ export default function InsightsPage() {
         setCardIndex(0);
         setShowAnswer(false);
         setAnswerStartedAt(null);
+        setTypedAnswer("");
+        setSessionStats({ reviewed: 0, correct: 0, again: 0, hard: 0, good: 0, easy: 0 });
       } catch (error) {
         console.error("Erro ao carregar revisao:", error);
         if (!ignore) {
@@ -91,14 +99,72 @@ export default function InsightsPage() {
 
   const currentCard = deck[cardIndex] ?? null;
   const progress = useMemo(() => buildProgress(events), [events]);
-  const reviewedCount = events.length;
-  const correctCount = events.filter((event) => event.result === "good" || event.result === "easy").length;
-  const accuracy = reviewedCount ? Math.round((correctCount / reviewedCount) * 100) : 0;
+  const reviewedCount = sessionStats.reviewed;
+  const accuracy = sessionStats.reviewed ? Math.round((sessionStats.correct / sessionStats.reviewed) * 100) : 0;
 
   const nextCard = () => {
     setShowAnswer(false);
     setAnswerStartedAt(null);
+    setTypedAnswer("");
     setCardIndex((index) => (deck.length ? (index + 1) % deck.length : 0));
+  };
+
+  const updateDeckAfterAnswer = (updatedCard, result) => {
+    setDeck((current) => {
+      const withoutCurrent = current.filter((item) => item.id !== updatedCard.id);
+      if (result === "again") return [...withoutCurrent, updatedCard];
+      return withoutCurrent;
+    });
+    setCardIndex(0);
+    setShowAnswer(false);
+    setAnswerStartedAt(null);
+    setTypedAnswer("");
+  };
+
+  const playCardAudio = async (card) => {
+    if (!card?.id) return;
+    if (!session?.access_token) {
+      toast.error("Sessao expirada. Entre novamente para ouvir este MindBlock.");
+      return;
+    }
+
+    const voice = user?.user_metadata?.assistant_voice || "mineirinha";
+
+    try {
+      setAudioLoadingId(card.id);
+      let audioData = audioByMindBlock[card.id];
+
+      if (!audioData?.signedUrl) {
+        audioData = await getMindBlockAudio({
+          mindblockId: card.id,
+          voice,
+          accessToken: session.access_token,
+        });
+      }
+
+      if (!audioData?.signedUrl) {
+        audioData = await generateMindBlockAudio({
+          mindblockId: card.id,
+          voice,
+          accessToken: session.access_token,
+        });
+        toast.success("Audio gerado para revisao.");
+      }
+
+      setAudioByMindBlock((current) => ({ ...current, [card.id]: audioData }));
+
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      const nextAudio = new Audio(audioData.signedUrl);
+      audioRef.current = nextAudio;
+      await nextAudio.play();
+    } catch (error) {
+      console.error("Erro ao tocar audio da revisao:", error);
+      toast.error(error.message || "Nao foi possivel tocar este audio.");
+    } finally {
+      setAudioLoadingId(null);
+    }
   };
 
   const answerCard = async (result) => {
@@ -114,6 +180,7 @@ export default function InsightsPage() {
           userId: user.id,
           mindBlockId: currentCard.id,
           result,
+          answerText: typedAnswer.trim() || null,
           expectedText: currentCard.expression,
           responseTimeMs,
         }),
@@ -133,21 +200,23 @@ export default function InsightsPage() {
       ]);
 
       setEvents((current) => [event, ...current]);
-      setDeck((current) => current.map((item) => (
-        item.id === currentCard.id
-          ? {
-              ...item,
-              mastery: nextMastery,
-              timesReviewed: (item.timesReviewed ?? 0) + 1,
-              lastReviewedAt: "Today",
-              nextReviewAt: score.nextDays === 0 ? "Today" : `In ${score.nextDays} days`,
-              isReviewDue: score.nextDays === 0,
-              status: score.nextDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : "learning",
-            }
-          : item
-      )));
+      const updatedCard = {
+        ...currentCard,
+        mastery: nextMastery,
+        timesReviewed: (currentCard.timesReviewed ?? 0) + 1,
+        lastReviewedAt: "Today",
+        nextReviewAt: score.nextDays === 0 ? "Today" : `In ${score.nextDays} days`,
+        isReviewDue: score.nextDays === 0,
+        status: score.nextDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : "learning",
+      };
+      setSessionStats((current) => ({
+        ...current,
+        reviewed: current.reviewed + 1,
+        correct: current.correct + (score.correct ? 1 : 0),
+        [result]: current[result] + 1,
+      }));
       toast.success(score.toast);
-      nextCard();
+      updateDeckAfterAnswer(updatedCard, result);
     } catch (error) {
       console.error("Erro ao registrar revisao:", error);
       toast.error("Nao foi possivel registrar esta revisao.");
@@ -160,6 +229,8 @@ export default function InsightsPage() {
     setCardIndex(0);
     setShowAnswer(false);
     setAnswerStartedAt(null);
+    setTypedAnswer("");
+    setSessionStats({ reviewed: 0, correct: 0, again: 0, hard: 0, good: 0, easy: 0 });
     toast("Review restarted.");
   };
 
@@ -192,8 +263,20 @@ export default function InsightsPage() {
       <main className="mx-auto max-w-4xl">
         <section className="fm-card rounded-[30px] border p-8 text-center shadow-lg">
           <Brain className="fm-secondary mx-auto h-12 w-12" />
-          <h1 className="mt-4 text-3xl font-semibold">Revisão</h1>
-          <p className="fm-muted mt-2">Nenhuma expressão disponível para revisar agora.</p>
+          <h1 className="mt-4 text-3xl font-semibold">{sessionStats.reviewed ? "Sessão concluída" : "Revisão"}</h1>
+          <p className="fm-muted mt-2">
+            {sessionStats.reviewed
+              ? "Você fortaleceu seus MindBlocks de hoje."
+              : "Nenhuma expressão disponível para revisar agora."}
+          </p>
+          {sessionStats.reviewed ? (
+            <div className="mt-6 grid gap-3 sm:grid-cols-4">
+              <ReviewMetric label="Feitos" value={sessionStats.reviewed} />
+              <ReviewMetric label="Acerto" value={`${accuracy}%`} />
+              <ReviewMetric label="Good/Easy" value={sessionStats.good + sessionStats.easy} />
+              <ReviewMetric label="Again/Hard" value={sessionStats.again + sessionStats.hard} />
+            </div>
+          ) : null}
         </section>
       </main>
     );
@@ -239,18 +322,42 @@ export default function InsightsPage() {
             </div>
             <p className="fm-subtle text-xs font-semibold uppercase tracking-[0.16em]">Como dizer em inglês?</p>
             <h2>“{currentCard.translation.replace(/\.$/, "").toLowerCase()}”</h2>
-            <p className="fm-muted text-sm">Responda em voz alta ou mentalmente antes de revelar.</p>
+            <p className="fm-muted text-sm">Digite, fale em voz alta ou responda mentalmente antes de revelar.</p>
+            {!showAnswer ? (
+              <label className="review-typed-answer">
+                <span>Sua resposta</span>
+                <textarea
+                  value={typedAnswer}
+                  onChange={(event) => setTypedAnswer(event.target.value)}
+                  rows={2}
+                  placeholder="Type your answer in English..."
+                />
+              </label>
+            ) : null}
           </div>
 
           {showAnswer ? (
             <div className="review-answer-box">
               <p className="fm-subtle text-xs font-semibold uppercase tracking-[0.14em]">Resposta</p>
               <h3>{currentCard.expression}</h3>
+              {typedAnswer.trim() ? (
+                <div className="review-comparison">
+                  <span>You answered</span>
+                  <strong>{typedAnswer.trim()}</strong>
+                </div>
+              ) : null}
               <p>{currentCard.notes || "Use como um bloco mental completo, sem traduzir palavra por palavra."}</p>
               {progress[currentCard.id] ? (
                 <p className="mt-2 text-xs">
-                  Reviewed {progress[currentCard.id].reviewed}x · Correct {progress[currentCard.id].correct}x
+                  Histórico: {progress[currentCard.id].reviewed} revisão(ões) · {progress[currentCard.id].correct} acerto(s)
                 </p>
+              ) : null}
+              {currentCard.examples?.length ? (
+                <div className="mt-3 grid gap-2">
+                  {currentCard.examples.slice(0, 2).map((example) => (
+                    <p key={example} className="mindblock-example">{example}</p>
+                  ))}
+                </div>
               ) : null}
             </div>
           ) : null}
@@ -269,6 +376,15 @@ export default function InsightsPage() {
               </button>
             ) : (
               <>
+                <button
+                  type="button"
+                  disabled={audioLoadingId === currentCard.id}
+                  onClick={() => playCardAudio(currentCard)}
+                  className="review-answer-button"
+                >
+                  {audioLoadingId === currentCard.id ? <Sparkles className="h-4 w-4 animate-spin" /> : <Headphones className="h-4 w-4" />}
+                  Listen
+                </button>
                 <button type="button" disabled={savingResult} onClick={() => answerCard("again")} className="review-answer-button wrong">
                   <X className="h-4 w-4" /> Again
                 </button>

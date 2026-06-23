@@ -1446,6 +1446,41 @@ a:hover {
   line-height: 1.02;
 }
 
+.review-typed-answer {
+  display: grid;
+  width: min(100%, 620px);
+  gap: 0.45rem;
+  text-align: left;
+}
+
+.review-typed-answer span {
+  color: var(--text-subtle);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.review-typed-answer textarea {
+  min-height: 5rem;
+  resize: vertical;
+  border: 1px solid var(--border-soft);
+  border-radius: 1.15rem;
+  background-color: color-mix(in srgb, var(--surface-muted) 68%, transparent);
+  color: var(--text-primary);
+  outline: none;
+  padding: 0.85rem 1rem;
+}
+
+.review-typed-answer textarea:focus {
+  border-color: rgb(var(--color-secondary-primary) / 0.7);
+  box-shadow: 0 0 0 4px rgb(var(--color-secondary-primary) / 0.12);
+}
+
+.review-typed-answer textarea::placeholder {
+  color: var(--text-subtle);
+}
+
 .review-answer-box {
   position: relative;
   z-index: 1;
@@ -1465,6 +1500,29 @@ a:hover {
   margin-top: 0.45rem;
   color: var(--text-secondary);
   font-size: 0.92rem;
+}
+
+.review-comparison {
+  margin-top: 0.85rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 1rem;
+  background-color: color-mix(in srgb, var(--surface-muted) 70%, transparent);
+  padding: 0.75rem 0.85rem;
+}
+
+.review-comparison span {
+  color: var(--text-subtle);
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.review-comparison strong {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--text-primary);
+  font-size: 0.95rem;
 }
 
 .review-card-actions {

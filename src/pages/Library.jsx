@@ -127,6 +127,12 @@ function buildMindBlock(expression, expressions, playlists) {
     .map((id) => expressions.find((item) => item.id === id))
     .filter(Boolean);
   const relatedFromAi = (expression.relatedExpressions || []).map((item) => ({
+    saved: expressions.find((savedItem) => (
+      savedItem.id !== expression.id
+      && savedItem.expression.trim().toLowerCase() === String(item.expression || "").trim().toLowerCase()
+    )),
+    item,
+  })).map(({ saved, item }) => (saved || {
     id: `${expression.id}-${item.expression}`,
     expression: item.expression,
     translation: item.translation || "",

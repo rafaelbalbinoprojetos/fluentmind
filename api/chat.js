@@ -81,7 +81,8 @@ function cleanSuggestionLine(value) {
 
 function splitExpressionAndTranslation(value) {
   const clean = cleanSuggestionLine(value);
-  const parts = clean.split(/\s+[–—-]\s+/);
+  const boldSafe = clean.replace(/\*\*/g, "");
+  const parts = boldSafe.split(/\s+[–—-]\s+/);
 
   if (parts.length >= 2) {
     return {
@@ -99,7 +100,7 @@ function splitExpressionAndTranslation(value) {
   }
 
   return {
-    expression: clean,
+    expression: boldSafe,
     translation: "",
   };
 }
@@ -132,6 +133,76 @@ function extractList(section) {
     .map((line) => cleanListItem(line.replace(/\*\*/g, "")))
     .filter((line) => line && !/^#+\s*/.test(line))
     .slice(0, 8);
+}
+
+function looksLikeEnglishExpression(value) {
+  const clean = cleanSuggestionLine(value);
+  if (!clean || clean.length < 2 || clean.length > 180) return false;
+  if (/[áàâãéêíóôõúç]/i.test(clean)) return false;
+  if (!/[a-z]/i.test(clean)) return false;
+  if (!/\b(?:i|you|we|they|he|she|it|my|your|is|are|am|do|does|did|have|has|can|could|would|should|like|love|enjoy|want|need|interested|favorite|weather|today|hello|hi|good|what|where|when|how)\b/i.test(clean)) {
+    return false;
+  }
+  return true;
+}
+
+function parseExpressionCandidate(value) {
+  const clean = cleanListItem(String(value || "")
+    .replace(/^["“]|["”]$/g, "")
+    .replace(/^#+\s*/, ""));
+  if (!clean) return null;
+
+  const parentheticalTranslation = clean.match(/^(.+?)\s*\(([^()]*[áàâãéêíóôõúç][^()]*)\)\.?$/i);
+  if (parentheticalTranslation) {
+    const expression = cleanSuggestionLine(parentheticalTranslation[1]);
+    if (!looksLikeEnglishExpression(expression)) return null;
+    return {
+      expression,
+      translation: cleanSuggestionLine(parentheticalTranslation[2]),
+    };
+  }
+
+  const split = splitExpressionAndTranslation(clean);
+  if (!looksLikeEnglishExpression(split.expression)) return null;
+  return split;
+}
+
+function extractExpressionCandidatesFromText(text) {
+  const candidates = [];
+  const lines = String(text || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  lines.forEach((line, index) => {
+    const bullet = line.match(/^(?:\d+\.|[-•])\s+(.+)$/);
+    if (!bullet) return;
+
+    const parsed = parseExpressionCandidate(bullet[1]);
+    if (!parsed) return;
+
+    const nextLine = lines[index + 1] || "";
+    const translationOnly = nextLine.match(/^[-•]?\s*\(([^()]{2,180})\)\.?$/);
+    if (!parsed.translation && translationOnly) {
+      parsed.translation = cleanSuggestionLine(translationOnly[1]);
+    }
+
+    candidates.push(parsed);
+  });
+
+  const boldMatches = [...String(text || "").matchAll(/\*\*([^*\n]{2,180})\*\*/g)];
+  boldMatches.forEach((match) => {
+    const parsed = parseExpressionCandidate(match[1]);
+    if (parsed) candidates.push(parsed);
+  });
+
+  const unique = new Map();
+  candidates.forEach((item) => {
+    const key = item.expression.trim().toLowerCase();
+    if (!unique.has(key)) unique.set(key, item);
+  });
+
+  return [...unique.values()].slice(0, 12);
 }
 
 function extractCommonMistake(section) {
@@ -175,6 +246,35 @@ function buildSuggestionMetadata(reply) {
   };
 }
 
+function buildMetadataForCandidate(reply, candidate) {
+  const base = buildSuggestionMetadata(reply);
+  const text = String(reply || "");
+  const expressionIndex = text.toLowerCase().indexOf(candidate.expression.toLowerCase());
+  const nearbyText = expressionIndex >= 0
+    ? text.slice(Math.max(0, expressionIndex - 320), expressionIndex + 520)
+    : text;
+
+  const localCandidates = extractExpressionCandidatesFromText(nearbyText)
+    .filter((item) => item.expression.toLowerCase() !== candidate.expression.toLowerCase())
+    .slice(0, 4);
+
+  return {
+    ...base,
+    usage: candidate.translation || base.usage || "Saved from a structured Neo lesson.",
+    examples: uniqueValues([
+      candidate.expression,
+      ...base.examples.filter((example) => example.toLowerCase().includes(candidate.expression.split(" ")[0]?.toLowerCase() || "")),
+    ]).slice(0, 4),
+    relatedExpressions: localCandidates.length ? localCandidates : base.relatedExpressions,
+    pattern: `${candidate.expression.split(" ").slice(0, 4).join(" ")} + context`,
+    patternExplanation: base.practice || "Use this expression as a reusable MindBlock in similar situations.",
+  };
+}
+
+function uniqueValues(values) {
+  return [...new Set((values || []).map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
 function extractMindBlockSuggestion(reply) {
   if (!reply) return null;
 
@@ -212,12 +312,13 @@ function extractMindBlockSuggestions(reply) {
     .filter(Boolean);
 
   const metadata = buildSuggestionMetadata(reply);
-  const suggestions = listLines
+  const sectionSuggestions = listLines
     .map((line, index) => {
       const match = line.match(/^(?:\d+\.|[-•])\s*["“]?([^"\n”]{2,160})["”]?/);
       if (!match || isTranslationOnly(match[1])) return null;
 
-      const suggestion = splitExpressionAndTranslation(match[1]);
+      const suggestion = parseExpressionCandidate(match[1]);
+      if (!suggestion) return null;
       const nextLine = listLines[index + 1] || "";
       const translationOnly = nextLine.match(/^[-•]?\s*\(([^()]{2,180})\)$/);
       if (!suggestion.translation && translationOnly) {
@@ -235,6 +336,20 @@ function extractMindBlockSuggestions(reply) {
       ...metadata,
     }));
 
+  const broadSuggestions = extractExpressionCandidatesFromText(text).map((item) => ({
+    ...item,
+    category: "Conversation",
+    source: "Neo Conversation",
+    ...buildMetadataForCandidate(reply, item),
+  }));
+
+  const unique = new Map();
+  [...sectionSuggestions, ...broadSuggestions].forEach((item) => {
+    const key = item.expression.trim().toLowerCase();
+    if (!unique.has(key)) unique.set(key, item);
+  });
+
+  const suggestions = [...unique.values()].slice(0, 12);
   if (suggestions.length > 0) return suggestions;
 
   const single = extractMindBlockSuggestion(reply);

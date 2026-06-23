@@ -1481,6 +1481,27 @@ a:hover {
   color: var(--text-subtle);
 }
 
+.review-listen-before {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid rgb(var(--color-info-primary) / 0.34);
+  border-radius: 9999px;
+  background-color: rgb(var(--color-info-primary) / 0.12);
+  padding: 0.7rem 1rem;
+  color: rgb(var(--color-info-light) / 1);
+  font-size: 0.85rem;
+  font-weight: 850;
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.review-listen-before:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
 .review-answer-box {
   position: relative;
   z-index: 1;
@@ -1563,6 +1584,12 @@ a:hover {
   border-color: rgb(251 113 133 / 0.32);
   background-color: rgb(244 114 182 / 0.1);
   color: rgb(251 113 133 / 1);
+}
+
+.review-answer-button.hard {
+  border-color: rgb(251 146 60 / 0.34);
+  background-color: rgb(251 146 60 / 0.12);
+  color: rgb(253 186 116 / 1);
 }
 
 .review-answer-button.right {

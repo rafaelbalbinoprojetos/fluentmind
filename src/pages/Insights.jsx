@@ -8,16 +8,65 @@ import { createReviewEvent, listReviewEvents } from "../services/reviewEvents.js
 import { recordDailyActivity } from "../services/learningProgress.js";
 
 const REVIEW_SCORES = {
-  again: { masteryDelta: -8, nextDays: 0, correct: false, toast: "No problem. Send it to another round." },
-  hard: { masteryDelta: 2, nextDays: 1, correct: false, toast: "Hard cards are where fluency grows." },
-  good: { masteryDelta: 8, nextDays: 3, correct: true, toast: "Nice. MindBlock strengthened." },
-  easy: { masteryDelta: 14, nextDays: 7, correct: true, toast: "Great. This one is becoming natural." },
+  again: { masteryDelta: -10, correct: false, toast: "No problem. Send it to another round." },
+  hard: { masteryDelta: 3, correct: false, toast: "Hard cards are where fluency grows." },
+  good: { masteryDelta: 9, correct: true, toast: "Nice. MindBlock strengthened." },
+  easy: { masteryDelta: 16, correct: true, toast: "Great. This one is becoming natural." },
 };
 
 function sortReviewDeck(expressions) {
-  const dueCards = expressions.filter((item) => item.isReviewDue || item.status === "review_due");
-  if (dueCards.length > 0) return dueCards;
-  return expressions;
+  const now = Date.now();
+  return [...expressions].sort((a, b) => {
+    const aDue = a.nextReviewAtRaw ? new Date(a.nextReviewAtRaw).getTime() : now;
+    const bDue = b.nextReviewAtRaw ? new Date(b.nextReviewAtRaw).getTime() : now;
+    const aIsDue = a.isReviewDue || a.status === "review_due" || aDue <= now;
+    const bIsDue = b.isReviewDue || b.status === "review_due" || bDue <= now;
+    if (aIsDue !== bIsDue) return aIsDue ? -1 : 1;
+    if (aDue !== bDue) return aDue - bDue;
+    if ((a.mastery ?? 0) !== (b.mastery ?? 0)) return (a.mastery ?? 0) - (b.mastery ?? 0);
+    return (a.timesReviewed ?? 0) - (b.timesReviewed ?? 0);
+  });
+}
+
+function calculateNextReview({ result, mastery, timesReviewed }) {
+  if (result === "again") return 0;
+  if (result === "hard") return Math.max(1, Math.min(3, Math.ceil((timesReviewed + 1) / 2)));
+  if (result === "good") {
+    if (mastery >= 80) return 10;
+    if (mastery >= 55) return 5;
+    return 2;
+  }
+  if (mastery >= 85) return 21;
+  if (mastery >= 65) return 14;
+  return 7;
+}
+
+function formatReviewInterval(days) {
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  return `In ${days} days`;
+}
+
+function normalizeForCompare(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s']/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function answerSimilarity(answer, expected) {
+  const normalizedAnswer = normalizeForCompare(answer);
+  const normalizedExpected = normalizeForCompare(expected);
+  if (!normalizedAnswer || !normalizedExpected) return null;
+  if (normalizedAnswer === normalizedExpected) return 100;
+
+  const answerWords = new Set(normalizedAnswer.split(" ").filter(Boolean));
+  const expectedWords = new Set(normalizedExpected.split(" ").filter(Boolean));
+  const overlap = [...answerWords].filter((word) => expectedWords.has(word)).length;
+  return Math.round((overlap / Math.max(1, expectedWords.size)) * 100);
 }
 
 function buildProgress(events) {
@@ -101,6 +150,20 @@ export default function InsightsPage() {
   const progress = useMemo(() => buildProgress(events), [events]);
   const reviewedCount = sessionStats.reviewed;
   const accuracy = sessionStats.reviewed ? Math.round((sessionStats.correct / sessionStats.reviewed) * 100) : 0;
+  const currentCardId = currentCard?.id;
+  const dueCount = useMemo(() => {
+    const now = Date.now();
+    return deck.filter((item) => {
+      const dueTime = item.nextReviewAtRaw ? new Date(item.nextReviewAtRaw).getTime() : now;
+      return item.isReviewDue || item.status === "review_due" || dueTime <= now;
+    }).length;
+  }, [deck]);
+  const typedSimilarity = currentCard ? answerSimilarity(typedAnswer, currentCard.expression) : null;
+
+  useEffect(() => {
+    if (!currentCardId) return;
+    setAnswerStartedAt(Date.now());
+  }, [currentCardId]);
 
   const nextCard = () => {
     setShowAnswer(false);
@@ -172,6 +235,12 @@ export default function InsightsPage() {
     const score = REVIEW_SCORES[result];
     const responseTimeMs = answerStartedAt ? Date.now() - answerStartedAt : null;
     const nextMastery = Math.min(100, Math.max(0, (currentCard.mastery ?? 0) + score.masteryDelta));
+    const nextDays = calculateNextReview({
+      result,
+      mastery: nextMastery,
+      timesReviewed: currentCard.timesReviewed ?? 0,
+    });
+    const nextReviewAt = formatReviewInterval(nextDays);
 
     setSavingResult(true);
     try {
@@ -188,9 +257,9 @@ export default function InsightsPage() {
           mastery: nextMastery,
           timesReviewed: (currentCard.timesReviewed ?? 0) + 1,
           lastReviewedAt: "Today",
-          nextReviewAt: score.nextDays === 0 ? "Today" : `In ${score.nextDays} days`,
-          isReviewDue: score.nextDays === 0,
-          status: score.nextDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : "learning",
+          nextReviewAt,
+          isReviewDue: nextDays === 0,
+          status: nextDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : "learning",
         }),
         recordDailyActivity(user.id, {
           expressions_reviewed: 1,
@@ -205,9 +274,9 @@ export default function InsightsPage() {
         mastery: nextMastery,
         timesReviewed: (currentCard.timesReviewed ?? 0) + 1,
         lastReviewedAt: "Today",
-        nextReviewAt: score.nextDays === 0 ? "Today" : `In ${score.nextDays} days`,
-        isReviewDue: score.nextDays === 0,
-        status: score.nextDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : "learning",
+        nextReviewAt,
+        isReviewDue: nextDays === 0,
+        status: nextDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : "learning",
       };
       setSessionStats((current) => ({
         ...current,
@@ -287,14 +356,15 @@ export default function InsightsPage() {
       <header className="fm-card overflow-hidden rounded-[32px] border p-6 shadow-lg">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Simple Review</p>
-            <h1 className="mt-2 text-3xl font-semibold md:text-4xl">Revisão por flashcards</h1>
+            <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Smart Review</p>
+            <h1 className="mt-2 text-3xl font-semibold md:text-4xl">Revisão inteligente</h1>
             <p className="fm-muted mt-2 max-w-2xl text-sm">
-              Treine tradução ativa: veja a pergunta em português, tente responder em inglês e revele a resposta.
+              Cards vencidos aparecem primeiro. Sua resposta, áudio e nota atualizam mastery e próxima revisão.
             </p>
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="grid grid-cols-4 gap-2 text-center">
             <ReviewMetric label="Cards" value={deck.length} />
+            <ReviewMetric label="Vencidos" value={dueCount} />
             <ReviewMetric label="Feitos" value={reviewedCount} />
             <ReviewMetric label="Acerto" value={`${accuracy}%`} />
           </div>
@@ -334,6 +404,17 @@ export default function InsightsPage() {
                 />
               </label>
             ) : null}
+            {!showAnswer ? (
+              <button
+                type="button"
+                disabled={audioLoadingId === currentCard.id}
+                onClick={() => playCardAudio(currentCard)}
+                className="review-listen-before"
+              >
+                {audioLoadingId === currentCard.id ? <Sparkles className="h-4 w-4 animate-spin" /> : <Headphones className="h-4 w-4" />}
+                Ouvir antes de revelar
+              </button>
+            ) : null}
           </div>
 
           {showAnswer ? (
@@ -342,7 +423,7 @@ export default function InsightsPage() {
               <h3>{currentCard.expression}</h3>
               {typedAnswer.trim() ? (
                 <div className="review-comparison">
-                  <span>You answered</span>
+                  <span>You answered {typedSimilarity !== null ? `· ${typedSimilarity}% match` : ""}</span>
                   <strong>{typedAnswer.trim()}</strong>
                 </div>
               ) : null}
@@ -388,7 +469,7 @@ export default function InsightsPage() {
                 <button type="button" disabled={savingResult} onClick={() => answerCard("again")} className="review-answer-button wrong">
                   <X className="h-4 w-4" /> Again
                 </button>
-                <button type="button" disabled={savingResult} onClick={() => answerCard("hard")} className="review-answer-button wrong">
+                <button type="button" disabled={savingResult} onClick={() => answerCard("hard")} className="review-answer-button hard">
                   Hard
                 </button>
                 <button type="button" disabled={savingResult} onClick={() => answerCard("good")} className="review-answer-button right">

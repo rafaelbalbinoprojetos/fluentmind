@@ -92,6 +92,8 @@ export function mapMindBlockRow(row, playlistIds = []) {
     isReviewDue: status === "review_due",
     lastReviewedAt: formatRelativeReviewDate(row.last_reviewed_at),
     nextReviewAt: formatRelativeReviewDate(row.next_review_at),
+    lastReviewedAtRaw: row.last_reviewed_at ?? null,
+    nextReviewAtRaw: row.next_review_at ?? null,
     createdAt: row.created_at ? row.created_at.slice(0, 10) : "",
     timesReviewed: Number(row.times_reviewed) || 0,
     source: row.source || "Manual",

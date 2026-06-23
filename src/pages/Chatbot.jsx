@@ -381,6 +381,7 @@ export default function ChatbotPage() {
         category: form.category,
         notes: form.notes,
         context: form.usage || form.notes,
+        isFavorite: Boolean(form.favorite),
         source: "Neo Conversation",
         meta: buildMindBlockMeta({ ...form, expression }, assistantName),
       }, {
@@ -431,6 +432,7 @@ export default function ChatbotPage() {
       practice: normalized.practice,
       pattern: normalized.pattern,
       patternExplanation: normalized.patternExplanation,
+      favorite: true,
       review: true,
     }, { sourceMessageId: messageId });
   };

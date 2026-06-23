@@ -88,7 +88,7 @@ export function mapMindBlockRow(row, playlistIds = []) {
     status,
     mastery,
     difficulty: "A2",
-    isFavorite: false,
+    isFavorite: Boolean(row.is_favorite),
     isReviewDue: status === "review_due",
     lastReviewedAt: formatRelativeReviewDate(row.last_reviewed_at),
     nextReviewAt: formatRelativeReviewDate(row.next_review_at),
@@ -111,7 +111,7 @@ export function mapMindBlockRow(row, playlistIds = []) {
 function toMindBlockInsert(payload, userId, mode = "save") {
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
-  return {
+  const next = {
     user_id: userId,
     expression_en: payload.expression.trim(),
     meaning_pt: payload.translation.trim(),
@@ -123,6 +123,12 @@ function toMindBlockInsert(payload, userId, mode = "save") {
     times_reviewed: 0,
     next_review_at: mode === "review" ? new Date().toISOString() : tomorrow,
   };
+
+  if (payload.isFavorite) {
+    next.is_favorite = true;
+  }
+
+  return next;
 }
 
 function toMindBlockPatch(patch) {
@@ -132,6 +138,7 @@ function toMindBlockPatch(patch) {
   if (patch.translation !== undefined) next.meaning_pt = patch.translation;
   if (patch.category !== undefined) next.category = patch.category;
   if (patch.source !== undefined) next.source = patch.source;
+  if (patch.isFavorite !== undefined) next.is_favorite = Boolean(patch.isFavorite);
   if (patch.notes !== undefined || patch.personalNotes !== undefined) next.notes = patch.notes ?? patch.personalNotes;
   if (patch.mastery !== undefined) next.mastery_level = normalizeMastery(patch.mastery);
   if (patch.timesReviewed !== undefined) next.times_reviewed = Math.max(0, Number(patch.timesReviewed) || 0);

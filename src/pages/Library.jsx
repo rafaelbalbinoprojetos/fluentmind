@@ -40,6 +40,7 @@ import {
   createPlaylist,
   listPlaylistLinks,
   listPlaylists,
+  removeMindBlockFromPlaylist,
 } from "../services/playlists.js";
 import { recordDailyActivity } from "../services/learningProgress.js";
 
@@ -164,6 +165,7 @@ export default function LibraryPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
   const [category, setCategory] = useState("All categories");
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState("");
   const [status, setStatus] = useState("All statuses");
   const [sort, setSort] = useState("Recently saved");
 
@@ -241,6 +243,7 @@ export default function LibraryPage() {
         || item.category.toLowerCase().includes(query)
         || item.tags.some((tag) => tag.toLowerCase().includes(query));
       const matchesCategory = category === "All categories" || item.category.includes(category);
+      const matchesPlaylist = !selectedPlaylistId || item.playlistIds?.includes(selectedPlaylistId);
       const matchesStatus = status === "All statuses" || item.status === status;
       const matchesFilter =
         activeFilter === "All"
@@ -250,7 +253,7 @@ export default function LibraryPage() {
         || (activeFilter === "Review Due" && (item.isReviewDue || item.status === "review_due"))
         || (activeFilter === "Mistakes" && (item.mistake || item.commonMistake))
         || (activeFilter === "Recently Saved" && isRecentlySaved(item));
-      return matchesSearch && matchesCategory && matchesStatus && matchesFilter;
+      return matchesSearch && matchesCategory && matchesPlaylist && matchesStatus && matchesFilter;
     });
 
     result = [...result].sort((a, b) => {
@@ -262,7 +265,7 @@ export default function LibraryPage() {
     });
 
     return result;
-  }, [activeFilter, category, debouncedSearch, expressions, sort, status]);
+  }, [activeFilter, category, debouncedSearch, expressions, selectedPlaylistId, sort, status]);
 
   const collections = useMemo(() => (
     collectionTemplates.map((template) => ({
@@ -274,6 +277,7 @@ export default function LibraryPage() {
   const selectCollection = (template) => {
     setSearch("");
     setStatus("All statuses");
+    setSelectedPlaylistId("");
     if (template.category) {
       setActiveFilter("All");
       setCategory(template.category);
@@ -281,6 +285,14 @@ export default function LibraryPage() {
       setCategory("All categories");
       setActiveFilter(template.filter || "All");
     }
+  };
+
+  const selectPlaylist = (playlistId) => {
+    setSearch("");
+    setActiveFilter("All");
+    setCategory("All categories");
+    setStatus("All statuses");
+    setSelectedPlaylistId((current) => (current === playlistId ? "" : playlistId));
   };
 
   const updateExpression = async (id, patch) => {
@@ -340,6 +352,61 @@ export default function LibraryPage() {
   const savePersonalNote = (expression, note) => {
     updateExpression(expression.id, { personalNotes: note, notes: note });
     toast.success("Personal note saved.");
+  };
+
+  const addExpressionToPlaylist = async (expression, playlistId) => {
+    if (!user?.id || !expression?.id || !playlistId) return;
+    if (expression.playlistIds?.includes(playlistId)) {
+      toast("Este MindBlock ja esta nessa playlist.");
+      return;
+    }
+
+    try {
+      await addMindBlockToPlaylist({
+        userId: user.id,
+        playlistId,
+        mindBlockId: expression.id,
+      });
+      setExpressions((current) => current.map((item) => (
+        item.id === expression.id
+          ? { ...item, playlistIds: [...(item.playlistIds || []), playlistId] }
+          : item
+      )));
+      setPlaylists((current) => current.map((item) => (
+        item.id === playlistId ? { ...item, count: (item.count ?? 0) + 1, minutes: Math.max(3, Math.ceil(((item.count ?? 0) + 1) * 0.75)) } : item
+      )));
+      toast.success("MindBlock adicionado a playlist.");
+    } catch (error) {
+      console.error("Erro ao adicionar a playlist:", error);
+      toast.error("Nao foi possivel adicionar a playlist.");
+    }
+  };
+
+  const removeExpressionFromPlaylist = async (expression, playlistId) => {
+    if (!user?.id || !expression?.id || !playlistId) return;
+
+    try {
+      await removeMindBlockFromPlaylist({
+        userId: user.id,
+        playlistId,
+        mindBlockId: expression.id,
+      });
+      setExpressions((current) => current.map((item) => (
+        item.id === expression.id
+          ? { ...item, playlistIds: (item.playlistIds || []).filter((id) => id !== playlistId) }
+          : item
+      )));
+      setPlaylists((current) => current.map((item) => (
+        item.id === playlistId ? { ...item, count: Math.max(0, (item.count ?? 0) - 1), minutes: Math.max(3, Math.ceil(Math.max(0, (item.count ?? 0) - 1) * 0.75)) } : item
+      )));
+      if (selectedPlaylistId === playlistId) {
+        setSelectedExpression(null);
+      }
+      toast.success("MindBlock removido da playlist.");
+    } catch (error) {
+      console.error("Erro ao remover da playlist:", error);
+      toast.error("Nao foi possivel remover da playlist.");
+    }
   };
 
   const playMindBlockAudio = async (expression) => {
@@ -447,13 +514,25 @@ export default function LibraryPage() {
       <LibraryHeader search={search} onSearch={setSearch} onAdd={() => setAddModalOpen(true)} />
       <LibraryHeroCard stats={stats} />
       <QuickCollections collections={collections} activeFilter={activeFilter} category={category} onSelect={selectCollection} />
-      <PlaylistsSection playlists={playlists} onCreateDefault={ensureDefaultPlaylist} />
+      <PlaylistsSection
+        playlists={playlists}
+        selectedPlaylistId={selectedPlaylistId}
+        onCreateDefault={ensureDefaultPlaylist}
+        onSelect={selectPlaylist}
+      />
 
       <section className="fm-card rounded-[30px] border p-5 shadow-lg backdrop-blur-xl">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">All Expressions</p>
-            <h2 className="mt-2 text-2xl font-semibold">Your saved MindBlocks</h2>
+            <h2 className="mt-2 text-2xl font-semibold">
+              {selectedPlaylistId ? playlists.find((item) => item.id === selectedPlaylistId)?.name || "Selected playlist" : "Your saved MindBlocks"}
+            </h2>
+            {selectedPlaylistId ? (
+              <button type="button" onClick={() => setSelectedPlaylistId("")} className="fm-muted mt-2 text-sm font-semibold underline-offset-4 hover:underline">
+                Clear playlist filter
+              </button>
+            ) : null}
           </div>
           <LibraryFilters
             activeFilter={activeFilter}
@@ -506,6 +585,8 @@ export default function LibraryPage() {
           onMastered={() => markMastered(selectedExpression)}
           onReview={() => moveToReview(selectedExpression)}
           onDelete={() => deleteExpression(selectedExpression)}
+          onAddToPlaylist={(playlistId) => addExpressionToPlaylist(selectedExpression, playlistId)}
+          onRemoveFromPlaylist={(playlistId) => removeExpressionFromPlaylist(selectedExpression, playlistId)}
           onAudio={() => playMindBlockAudio(selectedExpression)}
           audioLoading={audioLoadingId === selectedExpression.id}
           hasAudio={Boolean(audioByMindBlock[selectedExpression.id]?.signedUrl)}
@@ -646,7 +727,7 @@ function CollectionCard({ item, active, onSelect }) {
   );
 }
 
-function PlaylistsSection({ playlists, onCreateDefault }) {
+function PlaylistsSection({ playlists, selectedPlaylistId, onCreateDefault, onSelect }) {
   const visiblePlaylists = playlists.length > 0 ? playlists : [];
 
   return (
@@ -670,7 +751,13 @@ function PlaylistsSection({ playlists, onCreateDefault }) {
       ) : (
         <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           {visiblePlaylists.map((playlist, index) => (
-            <PlaylistCard key={playlist.id} playlist={playlist} index={index} />
+            <PlaylistCard
+              key={playlist.id}
+              playlist={playlist}
+              index={index}
+              active={playlist.id === selectedPlaylistId}
+              onSelect={() => onSelect(playlist.id)}
+            />
           ))}
         </div>
       )}
@@ -678,18 +765,20 @@ function PlaylistsSection({ playlists, onCreateDefault }) {
   );
 }
 
-function PlaylistCard({ playlist, index }) {
+function PlaylistCard({ playlist, index, active, onSelect }) {
   return (
-    <article className="library-playlist-card" style={{ "--playlist-index": index }}>
-      <div className="library-playlist-cover">
-        <Headphones className="h-7 w-7" />
-      </div>
-      <h3 className="mt-4 text-base font-semibold">{playlist.name}</h3>
-      <p className="fm-subtle mt-1 text-xs">{playlist.description}</p>
-      <div className="fm-muted mt-3 text-xs font-semibold">{playlist.count} expressions • {playlist.minutes} min</div>
+    <article className={`library-playlist-card ${active ? "is-active" : ""}`} style={{ "--playlist-index": index }}>
+      <button type="button" onClick={onSelect} className="block w-full text-left" aria-pressed={active}>
+        <div className="library-playlist-cover">
+          <Headphones className="h-7 w-7" />
+        </div>
+        <h3 className="mt-4 text-base font-semibold">{playlist.name}</h3>
+        <p className="fm-subtle mt-1 text-xs">{playlist.description}</p>
+        <div className="fm-muted mt-3 text-xs font-semibold">{playlist.count} expressions • {playlist.minutes} min</div>
+      </button>
       <div className="mt-4 flex gap-2">
-        <button type="button" className="library-mini-button" aria-label={`Play ${playlist.name}`}><Play className="h-3.5 w-3.5 fill-current" /></button>
-        <button type="button" className="library-mini-button" aria-label={`Review ${playlist.name}`}><RotateCcw className="h-3.5 w-3.5" /></button>
+        <button type="button" onClick={onSelect} className="library-mini-button" aria-label={`Open ${playlist.name}`}><Play className="h-3.5 w-3.5 fill-current" /></button>
+        <button type="button" onClick={onSelect} className="library-mini-button" aria-label={`Review ${playlist.name}`}><RotateCcw className="h-3.5 w-3.5" /></button>
         <button type="button" className="library-mini-button" aria-label={`More ${playlist.name}`}><MoreHorizontal className="h-3.5 w-3.5" /></button>
       </div>
     </article>
@@ -805,6 +894,8 @@ function ExpressionDetailDrawer({
   onMastered,
   onReview,
   onDelete,
+  onAddToPlaylist,
+  onRemoveFromPlaylist,
   onSaveNote,
   onOpenRelated,
 }) {
@@ -966,11 +1057,35 @@ function ExpressionDetailDrawer({
         <section className="mindblock-section">
           <h3 className="text-sm font-semibold">Saved in playlists</h3>
           <div className="mt-3 flex flex-wrap gap-2">
-            {block.playlists.map((playlist) => <span key={playlist.id} className="library-badge">{playlist.name}</span>)}
-            <button type="button" className="library-badge accent" onClick={() => toast("Playlist picker coming soon.")}>
-              <FolderPlus className="h-3.5 w-3.5" /> Add to playlist
-            </button>
+            {block.playlists.map((playlist) => (
+              <button
+                key={playlist.id}
+                type="button"
+                className="library-badge"
+                onClick={() => onRemoveFromPlaylist(playlist.id)}
+                title={`Remove from ${playlist.name}`}
+              >
+                {playlist.name}
+                <X className="h-3 w-3" />
+              </button>
+            ))}
           </div>
+          <label className="fm-input mt-3 flex min-h-11 items-center gap-2 rounded-2xl border px-3">
+            <FolderPlus className="fm-subtle h-4 w-4" />
+            <select
+              value=""
+              onChange={(event) => {
+                if (event.target.value) onAddToPlaylist(event.target.value);
+              }}
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+              aria-label="Add MindBlock to playlist"
+            >
+              <option value="">Add to playlist...</option>
+              {playlists
+                .filter((playlist) => !block.playlists.some((saved) => saved.id === playlist.id))
+                .map((playlist) => <option key={playlist.id} value={playlist.id}>{playlist.name}</option>)}
+            </select>
+          </label>
         </section>
 
         <section className="mindblock-section">

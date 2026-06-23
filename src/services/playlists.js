@@ -92,6 +92,20 @@ export async function addMindBlockToPlaylist({ userId, playlistId, mindBlockId }
   return data;
 }
 
+export async function removeMindBlockFromPlaylist({ userId, playlistId, mindBlockId }) {
+  ensureSupabase();
+  if (!userId || !playlistId || !mindBlockId) return;
+
+  const { error } = await supabase
+    .from(PLAYLIST_MIND_BLOCKS_TABLE)
+    .delete()
+    .eq("user_id", userId)
+    .eq("playlist_id", playlistId)
+    .eq("mindblock_id", mindBlockId);
+
+  if (error) throw error;
+}
+
 export async function listPlaylistLinks(userId) {
   ensureSupabase();
   if (!userId) return [];

@@ -33,30 +33,6 @@ import { listPlaylists } from "../../services/playlists.js";
 import { listReviewEvents } from "../../services/reviewEvents.js";
 import { buildActivityByDate, getOrCreateLearningProfile, listDailyActivity } from "../../services/learningProgress.js";
 
-const recentExpressions = [
-  {
-    phrase: "I am getting used to it.",
-    translation: "Estou me acostumando com isso.",
-    category: "Daily fluency",
-    difficulty: "B1",
-    mastery: 82,
-  },
-  {
-    phrase: "That makes sense.",
-    translation: "Isso faz sentido.",
-    category: "Natural response",
-    difficulty: "A2",
-    mastery: 91,
-  },
-  {
-    phrase: "Let me think it through.",
-    translation: "Deixe-me pensar melhor sobre isso.",
-    category: "Conversation",
-    difficulty: "B2",
-    mastery: 64,
-  },
-];
-
 const progressBars = [
   { day: "Mon", value: 54 },
   { day: "Tue", value: 72 },
@@ -73,7 +49,7 @@ const quickActions = [
   { label: "New Conversation", shortcut: "N", description: "Practice with AI", icon: MessageCircle, to: "/chatbot" },
   { label: "Save Expression", shortcut: "S", description: "Capture a useful phrase", icon: Plus, to: "/biblioteca" },
   { label: "Start Review", shortcut: "R", description: "Recall saved MindBlocks", icon: RotateCcw, to: "/insights" },
-  { label: "Random Practice", shortcut: "P", description: "Fast surprise drill", icon: Shuffle, to: "/gestor" },
+  { label: "Random Practice", shortcut: "P", description: "Fast surprise drill", icon: Shuffle, to: "/chatbot" },
   { label: "Listening Drill", shortcut: "L", description: "Train rhythm and meaning", icon: Headphones, to: "/biblioteca" },
   { label: "Pronunciation", shortcut: "M", description: "Speak and compare", icon: Mic2, to: "/chatbot" },
 ];
@@ -150,6 +126,46 @@ function getAdaptiveDashboardMessage(context) {
   return { title: "☀️ Let's make today count.", subtitle: motivationalMessages[getDayIndex(motivationalMessages.length)], brainState: "idle" };
 }
 
+function getDisplayName(user, profile) {
+  return profile?.display_name
+    || user?.user_metadata?.display_name
+    || user?.email?.split("@")[0]
+    || "there";
+}
+
+function hasActivity(row) {
+  return [
+    "expressions_saved",
+    "expressions_reviewed",
+    "conversations_started",
+    "messages_sent",
+    "study_minutes",
+    "mindblocks_created",
+  ].some((field) => Number(row?.[field]) > 0);
+}
+
+function calculateActivityStreak(activity) {
+  const rows = [...(activity ?? [])].reverse();
+  let streak = 0;
+
+  for (const row of rows) {
+    if (hasActivity(row)) {
+      streak += 1;
+    } else if (streak > 0) {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+function calculateDaysInactive(activity) {
+  const rows = [...(activity ?? [])].reverse();
+  const inactive = rows.findIndex((row) => hasActivity(row));
+  if (inactive === -1) return rows.length || 0;
+  return inactive;
+}
+
 function buildUserContext({ profile, mindBlocks, reviewEvents, activity }) {
   const today = activity?.[activity.length - 1] ?? {};
   const weeklyStudyMinutes = (activity ?? []).reduce((total, row) => total + (Number(row.study_minutes) || 0), 0);
@@ -164,7 +180,7 @@ function buildUserContext({ profile, mindBlocks, reviewEvents, activity }) {
   const goalDone = todaySaved + todayReviewed + reviewedFallback;
 
   return {
-    streakDays: Number(profile?.streak_days) || 0,
+    streakDays: Number(profile?.streak_days) || calculateActivityStreak(activity),
     goalProgress: Math.min(100, Math.round((goalDone / dailyGoal) * 100)),
     goalDone,
     dailyGoal,
@@ -173,7 +189,7 @@ function buildUserContext({ profile, mindBlocks, reviewEvents, activity }) {
     weeklyStudyMinutes,
     weeklyReviewed,
     brainLevel: Math.max(1, Math.floor((Number(profile?.fluentmind_score) || mindBlocks?.length || 1) / 10)),
-    daysInactive: 0,
+    daysInactive: calculateDaysInactive(activity),
     fluentmindScore: Number(profile?.fluentmind_score) || Math.min(100, Math.round((mindBlocks?.length || 0) * 2 + weeklyReviewed)),
   };
 }
@@ -190,34 +206,47 @@ function buildStats({ mindBlocks, playlists }, context) {
 }
 
 function buildRecentExpressions(mindBlocks) {
-  const mapped = (mindBlocks ?? []).slice(0, 3).map((item) => ({
+  return (mindBlocks ?? []).slice(0, 3).map((item) => ({
     phrase: item.expression,
     translation: item.translation,
     category: item.category,
     difficulty: item.difficulty || "A2",
     mastery: item.mastery || 0,
   }));
+}
 
-  return mapped.length > 0 ? mapped : recentExpressions;
+function buildTodayExpression(mindBlocks) {
+  const due = (mindBlocks ?? []).find((item) => item.isReviewDue || item.status === "review_due");
+  const recent = (mindBlocks ?? [])[0];
+  const source = due || recent;
+
+  if (source?.expression) {
+    return {
+      phrase: source.expression,
+      translation: source.translation,
+      category: source.isReviewDue || source.status === "review_due" ? "Review Due" : source.category,
+      sourceMindBlockId: source.id,
+    };
+  }
+
+  return dailyExpressions[getDayIndex(dailyExpressions.length)];
 }
 
 function buildWeeklyProgress(activity) {
   if (!activity?.length) return progressBars;
 
-  const maxValue = Math.max(1, ...activity.map((row) => (
+  const rawValues = activity.map((row) => (
     (Number(row.study_minutes) || 0)
     + (Number(row.expressions_saved) || 0) * 3
     + (Number(row.expressions_reviewed) || 0) * 2
-  )));
+  ));
+  const maxValue = Math.max(0, ...rawValues);
 
   return activity.map((row, index) => {
-    const rawValue = (Number(row.study_minutes) || 0)
-      + (Number(row.expressions_saved) || 0) * 3
-      + (Number(row.expressions_reviewed) || 0) * 2;
-
+    const rawValue = rawValues[index] ?? 0;
     return {
       day: dayLabels[index] ?? row.activity_date?.slice(5),
-      value: Math.max(8, Math.round((rawValue / maxValue) * 100)),
+      value: maxValue > 0 ? Math.max(8, Math.round((rawValue / maxValue) * 100)) : 0,
     };
   });
 }
@@ -239,7 +268,8 @@ export default function FluentMindDashboard() {
     return window.localStorage.getItem(FIRST_DASHBOARD_EXPERIENCE_KEY) === "true";
   });
   const greeting = useMemo(() => getGreeting(), []);
-  const dailyExpression = useMemo(() => dailyExpressions[getDayIndex(dailyExpressions.length)], []);
+  const displayName = useMemo(() => getDisplayName(user, dashboardData.profile), [dashboardData.profile, user]);
+  const dailyExpression = useMemo(() => buildTodayExpression(dashboardData.mindBlocks), [dashboardData.mindBlocks]);
   const userContext = useMemo(() => buildUserContext(dashboardData), [dashboardData]);
   const adaptiveMessage = useMemo(() => getAdaptiveDashboardMessage(userContext), [userContext]);
   const stats = useMemo(() => buildStats(dashboardData, userContext), [dashboardData, userContext]);
@@ -290,9 +320,9 @@ export default function FluentMindDashboard() {
       <AnimatedBackground />
 
       <div className="relative z-10 space-y-6">
-        <DashboardHeader greeting={greeting} adaptiveMessage={adaptiveMessage} />
+        <DashboardHeader greeting={greeting} displayName={displayName} adaptiveMessage={adaptiveMessage} />
 
-        {showFirstExperience ? <FirstLearningExperience onComplete={completeFirstExperience} /> : null}
+        {showFirstExperience ? <FirstLearningExperience displayName={displayName} onComplete={completeFirstExperience} /> : null}
 
         <TodayExpression expression={dailyExpression} />
 
@@ -331,14 +361,14 @@ export default function FluentMindDashboard() {
   );
 }
 
-function FirstLearningExperience({ onComplete }) {
+function FirstLearningExperience({ displayName, onComplete }) {
   return (
     <article className="fm-first-experience fm-card relative overflow-hidden rounded-[30px] border p-6 shadow-lg backdrop-blur-xl">
       <div className="fm-card-glow absolute inset-y-0 right-0 w-1/2" />
       <div className="relative grid gap-6 lg:grid-cols-[1fr,auto] lg:items-center">
         <div>
           <p className="fm-chip inline-flex rounded-full border px-3 py-1 text-xs font-semibold">Your journey starts today</p>
-          <h2 className="mt-4 text-2xl font-semibold tracking-tight">👋 Welcome, Rafael.</h2>
+          <h2 className="mt-4 text-2xl font-semibold tracking-tight">👋 Welcome, {displayName}.</h2>
           <p className="fm-muted mt-2 text-sm">Before exploring menus, build your first useful MindBlock.</p>
 
           <div className="fm-inner mt-5 rounded-2xl border p-5">
@@ -376,8 +406,7 @@ function AnimatedBackground() {
       <div className="fm-neural-line bottom-[20%] left-[34%] w-48 rotate-6" />
       {Array.from({ length: 14 }).map((_, index) => (
         <span
-          // eslint-disable-next-line react/no-array-index-key
-          key={index}
+          key={`particle-${index}`}
           className="fm-particle"
           style={{
             left: `${8 + ((index * 17) % 86)}%`,
@@ -390,7 +419,7 @@ function AnimatedBackground() {
   );
 }
 
-function DashboardHeader({ greeting, adaptiveMessage }) {
+function DashboardHeader({ greeting, displayName, adaptiveMessage }) {
   return (
     <header className="grid gap-5 lg:grid-cols-[1fr,420px] lg:items-center">
       <div>
@@ -399,7 +428,7 @@ function DashboardHeader({ greeting, adaptiveMessage }) {
           MindBlocks Method
         </div>
         <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
-          {greeting}, Rafael! <span className="inline-block">👋</span>
+          {greeting}, {displayName}! <span className="inline-block">👋</span>
         </h1>
         <p className="fm-muted mt-2 text-sm sm:text-base">{adaptiveMessage.title}</p>
         <p className="fm-subtle mt-1 text-sm">{adaptiveMessage.subtitle}</p>
@@ -429,6 +458,8 @@ function TodayExpression({ expression }) {
     );
   };
 
+  const primaryAction = expression.sourceMindBlockId ? "/insights" : "/chatbot";
+
   return (
     <article className="fm-card rounded-[30px] border p-5 shadow-md backdrop-blur-xl">
       <div className="grid gap-5 lg:grid-cols-[1fr,auto] lg:items-center">
@@ -442,7 +473,7 @@ function TodayExpression({ expression }) {
         </div>
 
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:justify-end">
-          <button type="button" className="fm-live-action">
+          <button type="button" className="fm-live-action" onClick={() => saveExpressionContext(REPEAT_CONTEXT_KEY)}>
             <Play className="h-4 w-4 fill-current" />
             Listen
           </button>
@@ -454,9 +485,9 @@ function TodayExpression({ expression }) {
             <Mic2 className="h-4 w-4" />
             Repeat
           </button>
-          <Link to="/chatbot" className="fm-live-action fm-live-action-primary" onClick={() => saveExpressionContext(NEO_CONTEXT_KEY)}>
+          <Link to={primaryAction} className="fm-live-action fm-live-action-primary" onClick={() => saveExpressionContext(NEO_CONTEXT_KEY)}>
             <MessageCircle className="h-4 w-4" />
-            Neo
+            {expression.sourceMindBlockId ? "Review" : "Neo"}
           </Link>
         </div>
       </div>
@@ -464,7 +495,7 @@ function TodayExpression({ expression }) {
   );
 }
 
-function StatCard({ label, value, change, icon: Icon, tone, index }) {
+function StatCard({ label, value, change, icon, tone, index }) {
   return (
     <article
       className="fm-card group rounded-3xl border p-5 shadow-md backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:shadow-lg"
@@ -476,7 +507,7 @@ function StatCard({ label, value, change, icon: Icon, tone, index }) {
           <p className="mt-3 text-3xl font-semibold tracking-tight">{value}</p>
         </div>
         <span className={`flex h-11 w-11 items-center justify-center rounded-2xl ${tone === "warning" ? "fm-warning-chip" : "fm-gradient"} shadow-md transition group-hover:scale-105`}>
-          <Icon className="h-5 w-5" />
+          {React.createElement(icon, { className: "h-5 w-5" })}
         </span>
       </div>
       <p className="fm-subtle mt-4 text-xs font-medium">{change}</p>
@@ -598,7 +629,7 @@ function RecentExpressionList({ expressions }) {
         </Link>
       </div>
       <div className="mt-5 space-y-3">
-        {expressions.map((item) => (
+        {expressions.length ? expressions.map((item) => (
           <div
             key={item.phrase}
             className="fm-inner group grid gap-4 rounded-2xl border p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-sm sm:grid-cols-[1fr,auto] sm:items-center"
@@ -626,7 +657,15 @@ function RecentExpressionList({ expressions }) {
               </button>
             </div>
           </div>
-        ))}
+        )) : (
+          <div className="fm-inner rounded-2xl border p-5">
+            <p className="text-sm font-semibold">Nenhum MindBlock salvo ainda.</p>
+            <p className="fm-muted mt-1 text-xs">Converse com Neo ou salve sua primeira expressão para alimentar sua biblioteca.</p>
+            <Link to="/chatbot" className="fm-secondary mt-3 inline-flex items-center gap-1 text-xs font-semibold">
+              Start with Neo <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        )}
       </div>
     </article>
   );
@@ -667,10 +706,10 @@ function ProgressCard({ progressBars, context }) {
   );
 }
 
-function ProgressPill({ icon: Icon, label, value }) {
+function ProgressPill({ icon, label, value }) {
   return (
     <div className="fm-inner rounded-2xl border p-4">
-      <Icon className="fm-secondary h-4 w-4" />
+      {React.createElement(icon, { className: "fm-secondary h-4 w-4" })}
       <p className="mt-3 text-xl font-semibold">{value}</p>
       <p className="fm-subtle mt-1 text-xs">{label}</p>
     </div>

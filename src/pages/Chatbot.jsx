@@ -226,7 +226,6 @@ export default function ChatbotPage() {
   const [voiceMode, setVoiceMode] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [learningPanelOpen, setLearningPanelOpen] = useState(false);
-  const [mobileSheet, setMobileSheet] = useState(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [selectedMode, setSelectedMode] = useState("conversation");
   const [neoMood, setNeoMood] = useState("curious");
@@ -886,28 +885,6 @@ export default function ChatbotPage() {
         />
       ) : null}
 
-      <NeoMobileNav onOpen={setMobileSheet} onEndSession={endSession} />
-
-      {mobileSheet ? (
-        <NeoBottomSheet
-          type={mobileSheet}
-          modes={neoModes}
-          selectedMode={selectedMode}
-          conversations={conversations}
-          memoryEntries={memoryEntries}
-          summary={sessionSummary}
-          expressions={detectedExpressions}
-          corrections={detectedCorrections}
-          onEndSession={endSession}
-          onClose={() => setMobileSheet(null)}
-          onSelectMode={(mode) => {
-            chooseNeoMode(mode);
-            setMobileSheet(null);
-          }}
-          onEditMemory={editMemory}
-        />
-      ) : null}
-
       {summaryOpen ? (
         <NeoSessionSummary
           summary={sessionSummary}
@@ -1188,129 +1165,6 @@ function LearningPanel({
         </div>
       </section>
     </aside>
-  );
-}
-
-function NeoMobileNav({ onOpen, onEndSession }) {
-  return (
-    <nav className="neo-mobile-nav-v3" aria-label="Neo mobile tools">
-      <button type="button" className="neo-mobile-tools-trigger" onClick={() => onOpen("tools")}>
-        <PanelRight className="h-4 w-4" />
-        <span>Neo tools</span>
-      </button>
-      <button type="button" className="neo-mobile-practice-trigger" onClick={() => onOpen("practice")}>
-        <Sparkles className="h-4 w-4" />
-        <span>Practice</span>
-      </button>
-      <button type="button" className="neo-mobile-end-trigger" onClick={onEndSession} aria-label="End session">
-        <Check className="h-4 w-4" />
-      </button>
-    </nav>
-  );
-}
-
-function NeoBottomSheet({
-  type,
-  modes,
-  selectedMode,
-  conversations,
-  memoryEntries,
-  summary,
-  expressions,
-  corrections,
-  onEndSession,
-  onClose,
-  onSelectMode,
-  onEditMemory,
-}) {
-  const title = {
-    tools: "Learning tools",
-    practice: "Practice",
-    session: "Current Session",
-    memory: "Things I remember",
-    history: "History",
-  }[type] || "Learning tools";
-
-  return (
-    <div className="neo-sheet-backdrop" role="dialog" aria-modal="true">
-      <button type="button" className="neo-sheet-dismiss" onClick={onClose} aria-label="Close sheet" />
-      <section className="neo-bottom-sheet">
-        <div className="neo-sheet-handle" />
-        <header>
-          <h2>{title}</h2>
-          <button type="button" onClick={onClose}><X className="h-4 w-4" /></button>
-        </header>
-
-        {type === "tools" ? (
-          <div className="neo-sheet-tools">
-            <button type="button" onClick={() => onSelectMode(modes.find((mode) => mode.id === "conversation") || modes[0])}>
-              <MessageCircle className="h-4 w-4" />
-              <span><strong>New practice</strong><small>Choose a conversation path</small></span>
-            </button>
-            <button type="button" onClick={() => onSelectMode(modes.find((mode) => mode.id === "review") || modes[0])}>
-              <RotateCcw className="h-4 w-4" />
-              <span><strong>Review due</strong><small>Strengthen saved expressions</small></span>
-            </button>
-            <button type="button" onClick={() => onSelectMode(modes.find((mode) => mode.id === "correction") || modes[0])}>
-              <Check className="h-4 w-4" />
-              <span><strong>Correct my English</strong><small>Send a phrase and Neo corrects it</small></span>
-            </button>
-            <Link to="/biblioteca">
-              <BookOpen className="h-4 w-4" />
-              <span><strong>Open library</strong><small>See saved MindBlocks</small></span>
-            </Link>
-            <Link to="/neural-universe">
-              <Brain className="h-4 w-4" />
-              <span><strong>Neural Universe</strong><small>View your learning map</small></span>
-            </Link>
-            <button type="button" onClick={onEndSession}>
-              <Check className="h-4 w-4" />
-              <span><strong>End session</strong><small>Show summary and XP</small></span>
-            </button>
-          </div>
-        ) : null}
-
-        {type === "practice" ? (
-          <div className="neo-sheet-grid">
-            {modes.map((mode) => (
-              <button key={mode.id} type="button" onClick={() => onSelectMode(mode)} className={selectedMode === mode.id ? "is-active" : ""}>
-                <strong>{mode.title}</strong>
-                <small>{mode.description}</small>
-              </button>
-            ))}
-          </div>
-        ) : null}
-
-        {type === "session" ? (
-          <div className="neo-sheet-stats">
-            <span>Messages <strong>{summary.messages}</strong></span>
-            <span>Expressions <strong>{expressions.length}</strong></span>
-            <span>Corrections <strong>{corrections.length}</strong></span>
-            <span>Session XP <strong>{summary.xp}</strong></span>
-            <span>Neural Growth <strong>{summary.progress}%</strong></span>
-          </div>
-        ) : null}
-
-        {type === "memory" ? (
-          <div className="neo-sheet-memory">
-            {memoryEntries.map((entry) => <p key={entry}>{entry}</p>)}
-            <button type="button" onClick={onEditMemory}>Edit Memory</button>
-          </div>
-        ) : null}
-
-        {type === "history" ? (
-          <div className="neo-sheet-history">
-            {(conversations || []).slice(0, 8).map((conversation) => (
-              <div key={conversation.id}>
-                <strong>{conversation.title || conversation.name || "Neo conversation"}</strong>
-                <small>{conversation.scenario || "Conversation"}</small>
-              </div>
-            ))}
-            {(!conversations || conversations.length === 0) ? <p>No saved conversations yet.</p> : null}
-          </div>
-        ) : null}
-      </section>
-    </div>
   );
 }
 

@@ -4052,16 +4052,12 @@ g.is-dimmed .neural-impulse {
 
 @media (max-width: 768px) {
   .neo-experience-v2 {
-    --mobile-tools-height: 3.15rem;
+    --mobile-nav-height: 4.25rem;
     display: flex;
     height: 100svh;
     min-height: 0;
     margin: -1.25rem -0.75rem 0;
     overflow: hidden;
-  }
-
-  body:has(.neo-experience-v2) .fm-header {
-    display: none;
   }
 
   .neo-experience-v2 .neo-left-sidebar {
@@ -4117,9 +4113,9 @@ g.is-dimmed .neural-impulse {
 
   .neo-experience-v2 .neo-composer {
     position: relative;
-    z-index: 75;
+    z-index: 20;
     flex-shrink: 0;
-    margin-bottom: calc(var(--mobile-tools-height) + 0.75rem + env(safe-area-inset-bottom));
+    margin-bottom: calc(var(--mobile-nav-height) + 0.35rem + env(safe-area-inset-bottom));
     background-color: color-mix(in srgb, var(--surface-card) 94%, transparent);
     padding: 0.55rem 0.75rem calc(0.65rem + env(safe-area-inset-bottom));
     backdrop-filter: blur(18px);
@@ -4147,7 +4143,7 @@ g.is-dimmed .neural-impulse {
 
   .neo-experience-v2 .neo-learning-panel {
     right: 0.75rem;
-    bottom: calc(var(--mobile-tools-height) + 0.75rem);
+    bottom: calc(var(--mobile-nav-height) + 0.75rem);
     width: calc(100vw - 1.5rem);
     height: min(72svh, 620px);
     border-radius: 1.5rem;

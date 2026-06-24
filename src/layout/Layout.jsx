@@ -20,6 +20,7 @@ const ICON_MAP = {
   insights: InsightsIcon,
   chatbot: ChatbotIcon,
   conversations: ChatbotIcon,
+  mistakes: InsightsIcon,
   neuralUniverse: NeuralUniverseIcon,
   settings: SettingsIcon,
   users: SettingsIcon,

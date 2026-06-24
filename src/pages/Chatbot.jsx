@@ -23,6 +23,7 @@ import {
 import { createMindBlock, listMindBlocks } from "../services/mindblocks.js";
 import { addMindBlockToPlaylist, createPlaylist, listPlaylists } from "../services/playlists.js";
 import { recordDailyActivity } from "../services/learningProgress.js";
+import { createCorrectedMistake } from "../services/correctedMistakes.js";
 import { normalizeMindBlockExpressionText } from "../utils/mindblockText.js";
 
 const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
@@ -134,6 +135,7 @@ export default function ChatbotPage() {
   const [savingMindBlock, setSavingMindBlock] = useState(false);
   const [ignoredSuggestionIds, setIgnoredSuggestionIds] = useState([]);
   const [savedSuggestionIds, setSavedSuggestionIds] = useState([]);
+  const [savedCorrectionIds, setSavedCorrectionIds] = useState([]);
 
   const refreshConversations = useCallback(async (nextActiveSessionId = activeSessionId) => {
     if (!user?.id) return [];
@@ -305,12 +307,14 @@ export default function ChatbotPage() {
         detectedExpression: data.detectedExpression || null,
         suggestedMindBlock: data.suggestedMindBlock || null,
         suggestedMindBlocks: data.suggestedMindBlocks || [],
+        correction: data.correction || null,
       };
       const storedAssistantMessage = await createConversationMessage({
         userId: user.id,
         sessionId,
         role: "assistant",
         content: reply.content,
+        correction: reply.correction,
       });
 
       setMessages((current) => [
@@ -332,6 +336,9 @@ export default function ChatbotPage() {
           setSelectedSuggestion(suggestions[0]);
           toast(`${suggestions.length} MindBlock${suggestions.length > 1 ? "s" : ""} detected.`);
         }
+      }
+      if (reply.correction?.wrong && reply.correction?.correct) {
+        toast("Correction detected. Save it in Meus Erros when useful.");
       }
     } catch (error) {
       console.error(error);
@@ -472,7 +479,37 @@ export default function ChatbotPage() {
     toast("Sugestao ignorada.");
   };
 
-  const mockAction = (message) => toast(message);
+  const saveCorrection = async (correction, messageId) => {
+    if (!user?.id) {
+      toast.error("Sessao expirada. Faca login novamente.");
+      return;
+    }
+    if (!correction?.wrong || !correction?.correct) {
+      toast.error("Correcao incompleta.");
+      return;
+    }
+
+    try {
+      await createCorrectedMistake({
+        conversationId: activeSessionId,
+        messageId,
+        originalText: correction.wrong,
+        correctedText: correction.correct,
+        explanation: correction.explanation,
+        category: correction.category || "Conversation",
+        level: user?.user_metadata?.learning_preferences?.currentLevel || "A2",
+      }, { userId: user.id });
+      await recordDailyActivity(user.id, {
+        expressions_reviewed: 1,
+        study_minutes: 1,
+      });
+      setSavedCorrectionIds((current) => [...new Set([...current, messageId])]);
+      toast.success("Correcao salva em Meus Erros.");
+    } catch (error) {
+      console.error("Erro ao salvar correcao:", error);
+      toast.error(error.message || "Nao foi possivel salvar a correcao.");
+    }
+  };
 
   return (
     <main className={`neo-page neo-page-chat-only ${voiceMode ? "is-voice" : ""}`}>
@@ -503,7 +540,8 @@ export default function ChatbotPage() {
                 onQuickSave={(suggestion) => quickSaveSuggestion(suggestion, message.id)}
                 onEdit={(suggestion) => openSaveModal(suggestion)}
                 onIgnore={(suggestion) => ignoreSuggestion(message.id, suggestion)}
-                onMock={mockAction}
+                correctionSaved={savedCorrectionIds.includes(message.id)}
+                onSaveCorrection={(correction) => saveCorrection(correction, message.id)}
               />
             ))}
             {typing ? <NeoTypingIndicator /> : null}
@@ -579,7 +617,8 @@ function NeoMessage({
   onQuickSave,
   onEdit,
   onIgnore,
-  onMock,
+  correctionSaved,
+  onSaveCorrection,
 }) {
   const isNeo = message.role === "neo";
   const suggestions = getMessageSuggestions(message)
@@ -635,7 +674,10 @@ function NeoMessage({
               <p>Correction</p>
               <span>Wrong: {message.correction.wrong}</span>
               <strong>Correct: {message.correction.correct}</strong>
-              <button type="button" onClick={() => onMock("Correction saved to My Mistakes and Review.")}>Save correction</button>
+              {message.correction.explanation ? <small>{message.correction.explanation}</small> : null}
+              <button type="button" onClick={() => onSaveCorrection(message.correction)} disabled={correctionSaved}>
+                {correctionSaved ? "Saved in Meus Erros" : "Save correction"}
+              </button>
             </div>
           ) : null}
         </div>

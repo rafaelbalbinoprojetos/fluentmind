@@ -359,6 +359,20 @@ function extractMindBlockSuggestions(reply) {
   return single ? [single] : [];
 }
 
+function extractCorrection(reply) {
+  const labels = ["You can say", "Meaning", "Examples", "Related expressions", "Common mistake", "Practice"];
+  const commonMistake = extractCommonMistake(extractSection(reply, "Common mistake", labels.filter((label) => label !== "Common mistake")));
+  if (!commonMistake?.explanation) return null;
+  if (!commonMistake.wrong && !commonMistake.correct) return null;
+
+  return {
+    wrong: commonMistake.wrong || "",
+    correct: commonMistake.correct || "",
+    explanation: commonMistake.explanation,
+    category: "Conversation",
+  };
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -405,12 +419,14 @@ export default async function handler(req, res) {
     const reply = completion.choices[0]?.message?.content?.trim();
     const suggestedMindBlocks = extractMindBlockSuggestions(reply);
     const suggestedMindBlock = suggestedMindBlocks[0] ?? null;
+    const correction = extractCorrection(reply);
 
     return res.status(200).json({
       reply: reply || "Não consegui gerar uma resposta agora. Pode tentar reformular?",
       detectedExpression: suggestedMindBlock?.expression ?? null,
       suggestedMindBlock,
       suggestedMindBlocks,
+      correction,
     });
   } catch (error) {
     console.error("[chat]", error);

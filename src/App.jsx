@@ -5,6 +5,7 @@ import LibraryPage from "./pages/Library.jsx";
 import InsightsPage from "./pages/Insights.jsx";
 import ChatbotPage from "./pages/Chatbot.jsx";
 import ConversationsPage from "./pages/Conversations.jsx";
+import MistakesPage from "./pages/Mistakes.jsx";
 import NeuralUniversePage from "./pages/NeuralUniverse.jsx";
 import SettingsPage from "./pages/Settings.jsx";
 import LoginPage from "./pages/auth/Login.jsx";
@@ -35,6 +36,7 @@ function App() {
             <Route path="insights" element={<InsightsPage />} />
             <Route path="chatbot" element={<ChatbotPage />} />
             <Route path="conversas" element={<ConversationsPage />} />
+            <Route path="meus-erros" element={<MistakesPage />} />
             <Route path="neural-universe" element={<NeuralUniversePage />} />
             <Route path="acesso-ultra/confirmar" element={<UltraAccessConfirmPage />} />
             <Route path="configuracoes" element={<SettingsPage />} />

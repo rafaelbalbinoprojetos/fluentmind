@@ -4,6 +4,7 @@ export const NAV_LINKS = [
   { id: "insights", to: "/insights", label: "Revisao", shortLabel: "Revisao" },
   { id: "chatbot", to: "/chatbot", label: "Chatbot", shortLabel: "Chat" },
   { id: "conversations", to: "/conversas", label: "Conversas", shortLabel: "Conversas" },
+  { id: "mistakes", to: "/meus-erros", label: "Meus Erros", shortLabel: "Erros" },
   { id: "neuralUniverse", to: "/neural-universe", label: "Neural Universe", shortLabel: "Universe" },
   { id: "users", to: "/usuarios", label: "Usuarios", shortLabel: "Usuarios" },
   { id: "landing", to: "/", label: "Descubra", shortLabel: "Descubra" },
@@ -16,6 +17,7 @@ export const MOBILE_NAV_ALLOWED_PATHS = [
   "/insights",
   "/chatbot",
   "/conversas",
+  "/meus-erros",
   "/neural-universe",
   "/configuracoes",
 ];
@@ -26,6 +28,7 @@ export const DEFAULT_MOBILE_NAV_PATHS = [
   "/insights",
   "/chatbot",
   "/conversas",
+  "/meus-erros",
   "/configuracoes",
 ];
 

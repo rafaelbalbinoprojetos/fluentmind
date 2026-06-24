@@ -284,6 +284,8 @@ export default function ChatbotPage() {
           userName: user?.user_metadata?.display_name?.trim() || user?.email?.split("@")[0] || null,
           assistantName,
           chatTone: user?.user_metadata?.chat_tone || "natural",
+          currentLevel: user?.user_metadata?.learning_preferences?.currentLevel || "A2",
+          targetLanguage: user?.user_metadata?.learning_preferences?.targetLanguage || "en",
           assistantVoice: user?.user_metadata?.assistant_voice || "mineirinha",
         }),
       });

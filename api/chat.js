@@ -19,7 +19,7 @@ function parseBody(req) {
   return req.body;
 }
 
-function buildSystemPrompt(userName, chatTone, assistantName = "Neo") {
+function buildSystemPrompt(userName, chatTone, assistantName = "Neo", currentLevel = "A2", targetLanguage = "en") {
   const safeAssistantName = String(assistantName || "Neo").trim() || "Neo";
   const nameClause = userName
     ? `O nome do usuário é ${userName}. Chame-o pelo primeiro nome quando soar natural.`
@@ -37,6 +37,8 @@ O FluentMind ajuda brasileiros a aprender inglês pensando em MindBlocks: expres
 
 ${nameClause}
 ${toneMap[chatTone] || toneMap.natural}
+Nível atual informado: ${currentLevel || "A2"}.
+Idioma alvo informado: ${targetLanguage || "en"}. Se o idioma alvo for inglês, responda com foco em inglês natural para brasileiros.
 
 Regras:
 - Responda como mentor de fluência, não como chatbot genérico.
@@ -372,11 +374,18 @@ export default async function handler(req, res) {
 
   try {
     const body = parseBody(req);
-    const { messages = [], userName = null, chatTone = "natural", assistantName = "Neo" } = body;
+    const {
+      messages = [],
+      userName = null,
+      chatTone = "natural",
+      assistantName = "Neo",
+      currentLevel = "A2",
+      targetLanguage = "en",
+    } = body;
     await requireUser(req);
 
     const conversation = [
-      { role: "system", content: buildSystemPrompt(userName, chatTone, assistantName) },
+      { role: "system", content: buildSystemPrompt(userName, chatTone, assistantName, currentLevel, targetLanguage) },
       ...messages
         .filter((message) => message?.content)
         .slice(-12)

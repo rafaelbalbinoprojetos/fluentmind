@@ -51,6 +51,36 @@ export async function getOrCreateLearningProfile(user) {
   return data;
 }
 
+export async function updateLearningProfile(userId, patch = {}) {
+  ensureSupabase();
+  if (!userId) throw new Error("Usuario nao identificado.");
+
+  const allowedFields = [
+    "display_name",
+    "native_language",
+    "target_language",
+    "current_level",
+    "daily_expression_goal",
+    "last_active_date",
+  ];
+  const next = {
+    user_id: userId,
+  };
+
+  allowedFields.forEach((field) => {
+    if (patch[field] !== undefined) next[field] = patch[field];
+  });
+
+  const { data, error } = await supabase
+    .from(PROFILE_TABLE)
+    .upsert(next, { onConflict: "user_id" })
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function listDailyActivity(userId, { days = 7 } = {}) {
   ensureSupabase();
   if (!userId) return [];

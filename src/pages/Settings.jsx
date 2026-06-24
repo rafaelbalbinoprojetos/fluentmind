@@ -6,12 +6,15 @@ import {
   MOBILE_NAV_LINKS,
   sanitizeMobileNavSelection,
 } from "../data/navigation.js";
+import { getOrCreateLearningProfile, updateLearningProfile } from "../services/learningProgress.js";
 
 const PRACTICE_GOAL_OPTIONS = [
   { value: "expressions", label: "Salvar expressoes", description: "Priorize novos MindBlocks durante conversas." },
   { value: "review", label: "Revisar todos os dias", description: "Mantenha a memoria ativa com revisoes curtas." },
   { value: "conversation", label: "Conversar com IA", description: "Treine respostas naturais em contextos reais." },
 ];
+
+const LEVEL_OPTIONS = ["A1", "A2", "B1", "B2", "C1", "C2"];
 
 export default function SettingsPage() {
   const { user, updateUserMetadata, subscription } = useAuth();
@@ -22,13 +25,17 @@ export default function SettingsPage() {
     return sanitized.length > 0 ? sanitized : DEFAULT_MOBILE_NAV_PATHS;
   }, [metadata]);
   const learningMetadata = useMemo(() => metadata.learning_preferences ?? {}, [metadata]);
+  const [learningProfile, setLearningProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(true);
   const initialLearning = useMemo(
     () => ({
-      dailyGoal: String(learningMetadata.dailyGoal ?? 30),
+      dailyGoal: String(learningProfile?.daily_expression_goal ?? learningMetadata.dailyGoal ?? 30),
+      currentLevel: learningProfile?.current_level ?? learningMetadata.currentLevel ?? "A2",
+      targetLanguage: learningProfile?.target_language ?? learningMetadata.targetLanguage ?? "en",
       practiceFocus: learningMetadata.practiceFocus ?? "expressions",
       showToasts: learningMetadata.showToasts !== false,
     }),
-    [learningMetadata],
+    [learningMetadata, learningProfile],
   );
 
   const [mobileNavSelection, setMobileNavSelection] = useState(storedMobileNav);
@@ -57,10 +64,39 @@ export default function SettingsPage() {
   const learningDirty = useMemo(
     () =>
       learningForm.dailyGoal !== initialLearning.dailyGoal ||
+      learningForm.currentLevel !== initialLearning.currentLevel ||
+      learningForm.targetLanguage !== initialLearning.targetLanguage ||
       learningForm.practiceFocus !== initialLearning.practiceFocus ||
       learningForm.showToasts !== initialLearning.showToasts,
     [learningForm, initialLearning],
   );
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadLearningProfile() {
+      if (!user?.id) {
+        setProfileLoading(false);
+        return;
+      }
+
+      try {
+        setProfileLoading(true);
+        const profile = await getOrCreateLearningProfile(user);
+        if (!ignore) setLearningProfile(profile);
+      } catch (error) {
+        console.error("Erro ao carregar perfil de aprendizado:", error);
+        toast.error("Nao foi possivel carregar o perfil de aprendizado.");
+      } finally {
+        if (!ignore) setProfileLoading(false);
+      }
+    }
+
+    loadLearningProfile();
+    return () => {
+      ignore = true;
+    };
+  }, [user]);
 
   useEffect(() => {
     setMobileNavSelection(storedMobileNav);
@@ -82,6 +118,12 @@ export default function SettingsPage() {
         mindblock_save_mode: mindBlockSaveMode,
         chat_tone: chatTone,
       });
+      if (user?.id) {
+        const updatedProfile = await updateLearningProfile(user.id, {
+          display_name: displayName.trim(),
+        });
+        setLearningProfile(updatedProfile);
+      }
       toast.success("Perfil atualizado.");
     } catch (error) {
       console.error(error);
@@ -142,10 +184,22 @@ export default function SettingsPage() {
       await updateUserMetadata({
         learning_preferences: {
           dailyGoal,
+          currentLevel: learningForm.currentLevel,
+          targetLanguage: learningForm.targetLanguage,
           practiceFocus: learningForm.practiceFocus,
           showToasts: learningForm.showToasts,
         },
       });
+      if (user?.id) {
+        const updatedProfile = await updateLearningProfile(user.id, {
+          display_name: displayName.trim() || metadata.display_name || user.email?.split("@")[0] || null,
+          current_level: learningForm.currentLevel,
+          target_language: learningForm.targetLanguage,
+          daily_expression_goal: dailyGoal,
+          last_active_date: new Date().toISOString().slice(0, 10),
+        });
+        setLearningProfile(updatedProfile);
+      }
       toast.success("Preferencias de estudo atualizadas.");
     } catch (error) {
       console.error("Erro ao salvar preferencias de estudo:", error);
@@ -165,6 +219,7 @@ export default function SettingsPage() {
         <p className="text-xs text-gray-400 dark:text-gray-500">
           Plano atual: {hasLifetimeAccess ? "Ultra vitalicio" : effectivePlan === "premium" ? "Premium" : "Gratuito"}.
           {isMasterUser ? " Conta administradora." : ""}
+          {profileLoading ? " Carregando perfil de aprendizado..." : ""}
         </p>
       </header>
 
@@ -312,6 +367,40 @@ export default function SettingsPage() {
                 className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-temaSky focus:outline-none focus:ring-2 focus:ring-temaSky/20 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
               />
             </label>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Nivel atual
+                <select
+                  value={learningForm.currentLevel}
+                  onChange={(event) => setLearningForm((prev) => ({ ...prev, currentLevel: event.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-temaSky focus:outline-none focus:ring-2 focus:ring-temaSky/20 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                >
+                  {LEVEL_OPTIONS.map((level) => <option key={level} value={level}>{level}</option>)}
+                </select>
+                <span className="mt-1 block text-xs text-gray-400 dark:text-gray-500">
+                  Usado para calibrar revisoes, respostas e dificuldade.
+                </span>
+              </label>
+
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Idioma alvo
+                <select
+                  value={learningForm.targetLanguage}
+                  onChange={(event) => setLearningForm((prev) => ({ ...prev, targetLanguage: event.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-temaSky focus:outline-none focus:ring-2 focus:ring-temaSky/20 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
+                >
+                  <option value="en">Inglês</option>
+                  <option value="es">Espanhol</option>
+                  <option value="fr">Francês</option>
+                  <option value="de">Alemão</option>
+                  <option value="it">Italiano</option>
+                </select>
+                <span className="mt-1 block text-xs text-gray-400 dark:text-gray-500">
+                  A base atual está otimizada para inglês.
+                </span>
+              </label>
+            </div>
 
             <div>
               <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Foco principal</p>

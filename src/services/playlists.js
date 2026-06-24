@@ -71,6 +71,53 @@ export async function createPlaylist({ userId, name, description = "", color = n
   return mapPlaylistRow(data, 0);
 }
 
+export async function updatePlaylist(id, patch = {}) {
+  ensureSupabase();
+  if (!id) throw new Error("Playlist nao identificada.");
+
+  const next = {};
+  if (patch.name !== undefined) {
+    if (!patch.name?.trim()) throw new Error("Informe o nome da playlist.");
+    next.name = patch.name.trim();
+  }
+  if (patch.description !== undefined) next.description = patch.description?.trim() || null;
+  if (patch.color !== undefined) next.color = patch.color;
+  if (patch.icon !== undefined) next.icon = patch.icon;
+
+  if (Object.keys(next).length === 0) return null;
+
+  const { data, error } = await supabase
+    .from(PLAYLISTS_TABLE)
+    .update(next)
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return mapPlaylistRow(data, 0);
+}
+
+export async function deletePlaylist({ userId, playlistId }) {
+  ensureSupabase();
+  if (!userId || !playlistId) throw new Error("Playlist nao identificada.");
+
+  const { error: linksError } = await supabase
+    .from(PLAYLIST_MIND_BLOCKS_TABLE)
+    .delete()
+    .eq("user_id", userId)
+    .eq("playlist_id", playlistId);
+
+  if (linksError) throw linksError;
+
+  const { error } = await supabase
+    .from(PLAYLISTS_TABLE)
+    .delete()
+    .eq("user_id", userId)
+    .eq("id", playlistId);
+
+  if (error) throw error;
+}
+
 export async function addMindBlockToPlaylist({ userId, playlistId, mindBlockId }) {
   ensureSupabase();
   if (!userId || !playlistId || !mindBlockId) return null;

@@ -1,6 +1,7 @@
 export const NAV_LINKS = [
   { id: "dashboard", to: "/dashboard", label: "Dashboard", shortLabel: "Inicio" },
   { id: "library", to: "/biblioteca", label: "Minha Biblioteca", shortLabel: "Biblioteca" },
+  { id: "playlists", to: "/playlists", label: "Playlists", shortLabel: "Playlists" },
   { id: "insights", to: "/insights", label: "Revisao", shortLabel: "Revisao" },
   { id: "chatbot", to: "/chatbot", label: "Chatbot", shortLabel: "Chat" },
   { id: "conversations", to: "/conversas", label: "Conversas", shortLabel: "Conversas" },
@@ -14,6 +15,7 @@ export const NAV_LINKS = [
 export const MOBILE_NAV_ALLOWED_PATHS = [
   "/dashboard",
   "/biblioteca",
+  "/playlists",
   "/insights",
   "/chatbot",
   "/conversas",
@@ -25,6 +27,7 @@ export const MOBILE_NAV_ALLOWED_PATHS = [
 export const DEFAULT_MOBILE_NAV_PATHS = [
   "/dashboard",
   "/biblioteca",
+  "/playlists",
   "/insights",
   "/chatbot",
   "/conversas",

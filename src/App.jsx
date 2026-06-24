@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Layout from "./layout/Layout.jsx";
 import DashboardPage from "./pages/Dashboard.jsx";
 import LibraryPage from "./pages/Library.jsx";
+import PlaylistsPage from "./pages/Playlists.jsx";
 import InsightsPage from "./pages/Insights.jsx";
 import ChatbotPage from "./pages/Chatbot.jsx";
 import ConversationsPage from "./pages/Conversations.jsx";
@@ -33,6 +34,7 @@ function App() {
           <Route element={<Layout />}>
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="biblioteca" element={<LibraryPage />} />
+            <Route path="playlists" element={<PlaylistsPage />} />
             <Route path="insights" element={<InsightsPage />} />
             <Route path="chatbot" element={<ChatbotPage />} />
             <Route path="conversas" element={<ConversationsPage />} />

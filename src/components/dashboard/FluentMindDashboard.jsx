@@ -29,6 +29,7 @@ import {
 import { Link } from "react-router-dom";
 import BrainCompanion from "../BrainCompanion.jsx";
 import EvolvingBrain from "../EvolvingBrain.jsx";
+import NeuralBrain from "../NeuralBrain.jsx";
 import { FIRST_DASHBOARD_EXPERIENCE_KEY } from "../onboarding/OnboardingPage.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import useProgression from "../../hooks/useProgression.js";
@@ -345,6 +346,9 @@ export default function FluentMindDashboard() {
           message={dailyHeroMessage}
           progression={progression}
           context={userContext}
+          learningEvents={learningEvents}
+          mindBlocks={dashboardData.mindBlocks}
+          playlists={dashboardData.playlists}
         />
 
         <DailyMissionCenter progression={progression} dailyExpression={dailyExpression} />
@@ -376,9 +380,11 @@ export default function FluentMindDashboard() {
   );
 }
 
-function PremiumDashboardHero({ greeting, displayName, message, progression, context }) {
+function PremiumDashboardHero({ greeting, displayName, message, progression, context, learningEvents, mindBlocks, playlists }) {
   const xpPercent = Math.min(100, Math.round((progression.xpInCurrentLevel / Math.max(1, progression.xpToNextLevel)) * 100));
   const remainingXp = Math.max(0, progression.xpToNextLevel - progression.xpInCurrentLevel);
+  const neuralNodes = Math.max(8, mindBlocks.length + learningEvents.length + progression.currentLevel);
+  const neuralConnections = Math.max(12, mindBlocks.length * 6 + learningEvents.length * 3 + playlists.length * 4);
 
   return (
     <motion.section
@@ -425,32 +431,23 @@ function PremiumDashboardHero({ greeting, displayName, message, progression, con
         </div>
       </div>
 
-      <NeuralBrainSculpture stage={progression.brainEvolutionStage} strength={context.fluentmindScore} />
-    </motion.section>
-  );
-}
-
-function NeuralBrainSculpture({ stage, strength }) {
-  const particles = Math.min(18, 6 + Math.floor(stage / 8));
-  const lines = Math.min(12, 4 + Math.floor(strength / 12));
-
-  return (
-    <div className="fm-neural-sculpture" aria-label="FluentMind evolving brain visualization">
-      <span className="fm-neural-sculpture-glow" />
-      <div className="fm-neural-sculpture-core">
-        <span className="brain-lobe lobe-left" />
-        <span className="brain-lobe lobe-right" />
-        <span className="brain-lobe lobe-front" />
-        <span className="brain-lobe lobe-back" />
-        <span className="brain-stem" />
-        {Array.from({ length: lines }).map((_, index) => (
-          <span key={`line-${index}`} className={`brain-line line-${index + 1}`} />
-        ))}
-        {Array.from({ length: particles }).map((_, index) => (
-          <span key={`particle-${index}`} className={`brain-orbit orbit-${(index % 9) + 1}`} style={{ animationDelay: `${index * 0.18}s` }} />
-        ))}
+      <div className="fm-hero-neural-brain">
+        <NeuralBrain
+          level={progression.currentLevel}
+          xp={progression.xpInCurrentLevel}
+          nextLevelXp={progression.xpToNextLevel}
+          nodes={neuralNodes}
+          connections={neuralConnections}
+          mastery={context.fluentmindScore}
+          size="xl"
+          mode="hero"
+          mood={context.goalProgress >= 100 ? "celebrating" : context.pendingReviews > 0 ? "learning" : "focused"}
+          animated
+          interactive
+          showStats={false}
+        />
       </div>
-    </div>
+    </motion.section>
   );
 }
 

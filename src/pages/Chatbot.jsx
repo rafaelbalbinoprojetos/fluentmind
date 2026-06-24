@@ -2,12 +2,24 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import {
   Brain,
+  BookOpen,
   Check,
+  Clipboard,
+  Copy,
+  Edit3,
+  Focus,
+  Heart,
+  History,
   MessageCircle,
   Mic,
+  PanelRight,
+  Paperclip,
+  Settings,
   Send,
   Sparkles,
+  RotateCcw,
   Trash2,
+  Volume2,
   X,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -27,6 +39,8 @@ import { createCorrectedMistake } from "../services/correctedMistakes.js";
 import { normalizeMindBlockExpressionText } from "../utils/mindblockText.js";
 
 const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
+const NEO_LOCAL_FAVORITES_KEY = "fluentmind_neo_favorites";
+const NEO_LOCAL_NEURAL_KEY = "fluentmind_neo_neural_activity";
 
 const welcomeMessages = [
   {
@@ -37,6 +51,66 @@ const welcomeMessages = [
       "Good morning, Rafael. Today we can strengthen your English without translating word by word.\n\nTell me one sentence you want to say naturally, and I will turn it into a MindBlock.",
     detectedExpression: "I'm getting used to it.",
   },
+];
+
+const neoModes = [
+  {
+    id: "conversation",
+    title: "Conversation",
+    description: "Practice real-life English naturally.",
+    prompt: "Great choice. Let's practice real conversation. I will ask simple questions and correct only what matters.",
+  },
+  {
+    id: "correction",
+    title: "Correct my English",
+    description: "Write anything and I will correct it gently.",
+    prompt: "Perfect. Send me any English sentence and I will correct it gently, with a short explanation and a reusable MindBlock.",
+  },
+  {
+    id: "explain",
+    title: "Explain like I'm five",
+    description: "Simple explanations with daily-life analogies.",
+    prompt: "Nice. Tell me what sounds confusing and I will explain it simply, with daily examples.",
+  },
+  {
+    id: "mindblocks",
+    title: "Build MindBlocks",
+    description: "Turn useful phrases into saved mental blocks.",
+    prompt: "Excellent. Give me a topic and I will turn it into practical MindBlocks you can save and review.",
+  },
+  {
+    id: "pronunciation",
+    title: "Pronunciation",
+    description: "Practice speaking and rhythm.",
+    prompt: "Pronunciation mode is ready as a guided practice. Type a phrase and I will show rhythm, stress and a practice path.",
+  },
+  {
+    id: "listening",
+    title: "Listening",
+    description: "Train your ear with short expressions.",
+    prompt: "Let's train your ear. I will give you short expressions and help you notice natural rhythm.",
+  },
+  {
+    id: "review",
+    title: "Review due",
+    description: "Strengthen expressions that are fading.",
+    prompt: "Let's strengthen what is fading. I can turn your saved expressions into quick review prompts.",
+  },
+  {
+    id: "challenge",
+    title: "Random challenge",
+    description: "One small challenge to improve today.",
+    prompt: "Here is today's challenge: write one natural sentence about your routine. I will make it sound more fluent.",
+  },
+];
+
+const quickPromptChips = [
+  { label: "Correct this", text: "Correct this sentence and explain simply: " },
+  { label: "Make it natural", text: "Make this sound natural in English: " },
+  { label: "Explain simply", text: "Explain this simply with examples: " },
+  { label: "Give examples", text: "Give me natural examples for: " },
+  { label: "Save this", text: "Turn this into a MindBlock: " },
+  { label: "Practice with me", text: "Practice this with me step by step: " },
 ];
 
 function getAssistantName(user) {
@@ -117,13 +191,19 @@ export default function ChatbotPage() {
   const { user, session } = useAuth();
   const assistantName = getAssistantName(user);
   const mindBlockSaveMode = user?.user_metadata?.mindblock_save_mode || "ask";
-  const [, setConversations] = useState([]);
+  const displayName = user?.user_metadata?.display_name?.trim() || user?.email?.split("@")[0] || "Rafael";
+  const currentLevel = user?.user_metadata?.learning_preferences?.currentLevel || "Beginner";
+  const chatTone = user?.user_metadata?.chat_tone || "Natural";
+  const [conversations, setConversations] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [messages, setMessages] = useState(welcomeMessages);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [, setLoadingConversations] = useState(true);
   const [voiceMode, setVoiceMode] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [learningPanelOpen, setLearningPanelOpen] = useState(false);
+  const [selectedMode, setSelectedMode] = useState("conversation");
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const messageListRef = useRef(null);
   const [selectedSuggestion, setSelectedSuggestion] = useState({
@@ -136,6 +216,23 @@ export default function ChatbotPage() {
   const [ignoredSuggestionIds, setIgnoredSuggestionIds] = useState([]);
   const [savedSuggestionIds, setSavedSuggestionIds] = useState([]);
   const [savedCorrectionIds, setSavedCorrectionIds] = useState([]);
+
+  const realMessages = messages.filter((message) => message.id !== "welcome-neo");
+  const isGuidedStart = !activeSessionId && realMessages.length === 0 && !typing;
+  const detectedExpressions = realMessages
+    .flatMap((message) => getMessageSuggestions(message).map((suggestion) => normalizeSuggestion(suggestion)))
+    .filter((item) => item.expression);
+  const detectedCorrections = realMessages
+    .map((message) => message.correction)
+    .filter((correction) => correction?.wrong && correction?.correct);
+  const sessionSummary = {
+    mode: neoModes.find((mode) => mode.id === selectedMode)?.title || "Conversation",
+    messages: realMessages.length,
+    mindBlocks: savedSuggestionIds.length,
+    corrections: savedCorrectionIds.length || detectedCorrections.length,
+    reviewItems: savedSuggestionIds.length + (savedCorrectionIds.length || detectedCorrections.length),
+    progress: Math.min(98, Math.max(12, realMessages.length * 8 + savedSuggestionIds.length * 12 + detectedCorrections.length * 10)),
+  };
 
   const refreshConversations = useCallback(async (nextActiveSessionId = activeSessionId) => {
     if (!user?.id) return [];
@@ -235,8 +332,87 @@ export default function ChatbotPage() {
   const startNewConversation = () => {
     setActiveSessionId(null);
     setMessages(welcomeMessages);
+    setSelectedMode("conversation");
     setConversations((current) => current.map((item) => ({ ...item, active: false })));
     toast("Nova conversa pronta.");
+  };
+
+  const chooseNeoMode = (mode) => {
+    setSelectedMode(mode.id);
+    setMessages([
+      {
+        id: `mode-${mode.id}-${Date.now()}`,
+        role: "neo",
+        createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+        content: mode.prompt,
+        suggestedMindBlocks: mode.id === "mindblocks" ? [
+          {
+            expression: "I am getting used to thinking in English.",
+            translation: "Estou me acostumando a pensar em ingles.",
+            category: "Conversation",
+            source: "Neo Experience",
+            usage: "Use when describing language progress.",
+            examples: ["I am getting used to thinking in English every day."],
+          },
+        ] : [],
+      },
+    ]);
+  };
+
+  const applyQuickPrompt = (chip) => {
+    setInput((current) => current ? `${chip.text}${current}` : chip.text);
+  };
+
+  const copyText = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Copiado.");
+    } catch {
+      toast.error("Nao foi possivel copiar.");
+    }
+  };
+
+  const runMockAction = (label, payload = null) => {
+    if (label === "Favorite" && payload?.expression) {
+      const current = JSON.parse(localStorage.getItem(NEO_LOCAL_FAVORITES_KEY) || "[]");
+      localStorage.setItem(NEO_LOCAL_FAVORITES_KEY, JSON.stringify([...new Set([...current, payload.expression])]));
+      toast.success("Favorito salvo localmente.");
+      return;
+    }
+
+    if (label === "Add to Neural Universe") {
+      const current = JSON.parse(localStorage.getItem(NEO_LOCAL_NEURAL_KEY) || "[]");
+      localStorage.setItem(NEO_LOCAL_NEURAL_KEY, JSON.stringify([
+        ...current,
+        {
+          id: `neo-${Date.now()}`,
+          type: "conversation_mindblock",
+          label: payload?.expression || "Neo conversation",
+          createdAt: new Date().toISOString(),
+        },
+      ]));
+      toast.success("Conexao neural registrada localmente.");
+      return;
+    }
+
+    if (label === "Generate Audio") {
+      toast("Audio generation will be available soon.");
+      return;
+    }
+
+    if (label === "Practice Pronunciation") {
+      toast("Practice Pronunciation will be available soon.");
+      return;
+    }
+
+    if (label === "Add to Review") {
+      toast.success("Marcado para revisao nesta sessao.");
+      return;
+    }
+
+    if (label === "Add to Playlist") {
+      toast("Use o modal de salvar para escolher uma playlist.");
+    }
   };
 
   const submitMessage = async (event) => {
@@ -290,6 +466,7 @@ export default function ChatbotPage() {
           currentLevel: user?.user_metadata?.learning_preferences?.currentLevel || "A2",
           targetLanguage: user?.user_metadata?.learning_preferences?.targetLanguage || "en",
           assistantVoice: user?.user_metadata?.assistant_voice || "mineirinha",
+          mode: selectedMode,
         }),
       });
 
@@ -524,12 +701,28 @@ export default function ChatbotPage() {
   };
 
   return (
-    <main className={`neo-page neo-page-chat-only ${voiceMode ? "is-voice" : ""}`}>
+    <main className={`neo-page neo-experience-v2 ${focusMode ? "is-focus" : ""} ${voiceMode ? "is-voice" : ""} ${learningPanelOpen ? "panel-open" : ""}`}>
+      {!focusMode ? (
+        <NeoSessionSidebar
+          assistantName={assistantName}
+          selectedMode={selectedMode}
+          conversations={conversations}
+          activeSessionId={activeSessionId}
+          onNew={startNewConversation}
+          onSelectMode={chooseNeoMode}
+        />
+      ) : null}
+
       <section className="neo-chat-shell">
         <NeoChatHeader
           assistantName={assistantName}
           voiceMode={voiceMode}
+          focusMode={focusMode}
+          currentLevel={currentLevel}
+          chatTone={chatTone}
           onToggleVoice={() => setVoiceMode((value) => !value)}
+          onToggleFocus={() => setFocusMode((value) => !value)}
+          onTogglePanel={() => setLearningPanelOpen((value) => !value)}
           onClear={() => {
             startNewConversation();
           }}
@@ -540,6 +733,14 @@ export default function ChatbotPage() {
           <VoiceModePanel assistantName={assistantName} onClose={() => setVoiceMode(false)} />
         ) : (
           <div className="neo-message-list" ref={messageListRef}>
+            {isGuidedStart ? (
+              <NeoGuidedStart
+                displayName={displayName}
+                modes={neoModes}
+                selectedMode={selectedMode}
+                onSelectMode={chooseNeoMode}
+              />
+            ) : null}
             {messages.map((message) => (
               <NeoMessage
                 key={message.id}
@@ -554,27 +755,32 @@ export default function ChatbotPage() {
                 onIgnore={(suggestion) => ignoreSuggestion(message.id, suggestion)}
                 correctionSaved={savedCorrectionIds.includes(message.id)}
                 onSaveCorrection={(correction) => saveCorrectionFromChat(correction, message.id)}
+                onCopy={copyText}
+                onMockAction={runMockAction}
               />
             ))}
             {typing ? <NeoTypingIndicator /> : null}
           </div>
         )}
 
-        <form className="neo-composer" onSubmit={submitMessage}>
-          <button type="button" className="neo-icon-button" onClick={() => setVoiceMode(true)} aria-label="Voice mode">
-            <Mic className="h-4 w-4" />
-          </button>
-          <textarea
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            rows={1}
-            placeholder="Ask Neo to correct, explain, save or practice a phrase..."
-          />
-          <button type="submit" className="neo-send-button" aria-label="Send">
-            <Send className="h-4 w-4" />
-          </button>
-        </form>
+        <NeoComposer
+          input={input}
+          setInput={setInput}
+          onSubmit={submitMessage}
+          onVoice={() => setVoiceMode(true)}
+          onChip={applyQuickPrompt}
+        />
       </section>
+
+      {!focusMode ? (
+        <LearningPanel
+          open={learningPanelOpen}
+          summary={sessionSummary}
+          expressions={detectedExpressions}
+          corrections={detectedCorrections}
+          onClose={() => setLearningPanelOpen(false)}
+        />
+      ) : null}
 
       {saveModalOpen ? (
         <SaveMindBlockModal
@@ -589,7 +795,197 @@ export default function ChatbotPage() {
   );
 }
 
-function NeoChatHeader({ assistantName, voiceMode, onToggleVoice, onClear, activeSessionId }) {
+function NeoSessionSidebar({ assistantName, selectedMode, conversations, activeSessionId, onNew, onSelectMode }) {
+  return (
+    <aside className="neo-left-sidebar neo-session-sidebar">
+      <div className="neo-avatar-card">
+        <div className="neo-avatar-large"><Brain className="h-7 w-7" /></div>
+        <div>
+          <h2>{assistantName}</h2>
+          <p>Fluency mentor</p>
+        </div>
+      </div>
+      <button type="button" className="neo-new-button" onClick={onNew}>
+        <PlusIcon /> New conversation
+      </button>
+
+      <div className="neo-sidebar-section">
+        <h3>Practice modes</h3>
+        <div className="neo-mode-mini-list">
+          {neoModes.slice(0, 6).map((mode) => (
+            <button
+              key={mode.id}
+              type="button"
+              onClick={() => onSelectMode(mode)}
+              className={selectedMode === mode.id ? "is-active" : ""}
+            >
+              <span>{mode.title}</span>
+              <small>{mode.description}</small>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="neo-sidebar-section">
+        <h3>Recent sessions</h3>
+        <div className="neo-conversation-groups">
+          {(conversations || []).slice(0, 5).map((conversation) => (
+            <div key={conversation.id} className={`neo-conversation-item ${conversation.id === activeSessionId ? "is-active" : ""}`}>
+              <span>{conversation.title || conversation.name || "Neo conversation"}</span>
+              <small>{conversation.scenario || "Conversation"}</small>
+            </div>
+          ))}
+          {(!conversations || conversations.length === 0) ? <p className="fm-muted text-sm">No saved sessions yet.</p> : null}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function NeoGuidedStart({ displayName, modes, selectedMode, onSelectMode }) {
+  return (
+    <section className="neo-guided-start">
+      <div className="neo-guided-hero">
+        <div className="neo-hero-brain"><Brain className="h-10 w-10" /></div>
+        <p>MindBlocks Method</p>
+        <h2>Hi {displayName}, what do you want to practice today?</h2>
+        <span>Choose a mode and I will guide you step by step.</span>
+      </div>
+      <div className="neo-mode-grid">
+        {modes.map((mode) => (
+          <button
+            key={mode.id}
+            type="button"
+            onClick={() => onSelectMode(mode)}
+            className={selectedMode === mode.id ? "is-active" : ""}
+          >
+            <Sparkles className="h-5 w-5" />
+            <strong>{mode.title}</strong>
+            <small>{mode.description}</small>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function NeoComposer({ input, setInput, onSubmit, onVoice, onChip }) {
+  return (
+    <form className="neo-composer neo-composer-v2" onSubmit={onSubmit}>
+      <div className="neo-prompt-chips">
+        {quickPromptChips.map((chip) => (
+          <button key={chip.label} type="button" onClick={() => onChip(chip)}>
+            {chip.label}
+          </button>
+        ))}
+      </div>
+      <div className="neo-composer-row">
+        <button type="button" className="neo-icon-button" aria-label="Attach context" onClick={() => toast("Attachments will be available soon.")}>
+          <Paperclip className="h-4 w-4" />
+        </button>
+        <button type="button" className="neo-icon-button" onClick={onVoice} aria-label="Voice mode">
+          <Mic className="h-4 w-4" />
+        </button>
+        <textarea
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          rows={1}
+          placeholder="Ask Neo to correct, explain, save or practice a phrase..."
+        />
+        <button type="submit" className="neo-send-button" aria-label="Send">
+          <Send className="h-4 w-4" />
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function LearningPanel({ open, summary, expressions, corrections, onClose }) {
+  return (
+    <aside className={`neo-right-sidebar neo-learning-panel ${open ? "is-open" : ""}`}>
+      <div className="neo-panel-header">
+        <div>
+          <p>Learning Panel</p>
+          <h2>Session intelligence</h2>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Close learning panel"><X className="h-4 w-4" /></button>
+      </div>
+
+      <section className="neo-intel-card">
+        <p>Current session</p>
+        <div className="neo-panel-stats">
+          <span>Mode <strong>{summary.mode}</strong></span>
+          <span>Messages <strong>{summary.messages}</strong></span>
+          <span>MindBlocks <strong>{summary.mindBlocks}</strong></span>
+          <span>Corrections <strong>{summary.corrections}</strong></span>
+          <span>Review items <strong>{summary.reviewItems}</strong></span>
+          <span>Progress <strong>{summary.progress}%</strong></span>
+        </div>
+        <div className="fm-progress-track mt-3 h-2 overflow-hidden rounded-full">
+          <div className="fm-progress-fill h-full rounded-full" style={{ width: `${summary.progress}%` }} />
+        </div>
+      </section>
+
+      <section className="neo-intel-card">
+        <p>Useful expressions</p>
+        <div className="neo-intel-list">
+          {expressions.slice(0, 5).map((item) => <span key={item.expression}>{item.expression}</span>)}
+          {expressions.length === 0 ? <small>No expressions detected yet.</small> : null}
+        </div>
+      </section>
+
+      <section className="neo-intel-card">
+        <p>Corrections</p>
+        <div className="neo-correction-mini-list">
+          {corrections.slice(0, 4).map((item) => (
+            <div key={`${item.wrong}-${item.correct}`}>
+              <span>{item.wrong}</span>
+              <strong>{item.correct}</strong>
+            </div>
+          ))}
+          {corrections.length === 0 ? <small>No corrections found yet.</small> : null}
+        </div>
+      </section>
+
+      <section className="neo-intel-card">
+        <p>Suggested next steps</p>
+        <div className="neo-next-steps">
+          <Link to="/insights">Review 3 saved expressions</Link>
+          <button type="button" onClick={() => toast("Pronunciation practice will be available soon.")}>Practice pronunciation</button>
+          <Link to="/neural-universe">Open Neural Universe</Link>
+        </div>
+      </section>
+
+      <section className="neo-intel-card">
+        <p>Neural activity</p>
+        <div className="neo-neural-line">
+          <span>Core</span>
+          <i />
+          <span>Conversation</span>
+          <i />
+          <span>MindBlock</span>
+        </div>
+      </section>
+    </aside>
+  );
+}
+
+function PlusIcon() {
+  return <span className="text-lg leading-none">+</span>;
+}
+
+function NeoChatHeader({
+  assistantName,
+  voiceMode,
+  focusMode,
+  currentLevel,
+  chatTone,
+  onToggleVoice,
+  onToggleFocus,
+  onTogglePanel,
+  onClear,
+  activeSessionId,
+}) {
   return (
     <header className="neo-chat-header">
       <div>
@@ -603,17 +999,24 @@ function NeoChatHeader({ assistantName, voiceMode, onToggleVoice, onClear, activ
         <div className="neo-status-row">
           <span><i /> Online</span>
           <span>Current mode: {voiceMode ? "Voice" : "Conversation"}</span>
+          <span>Level: {currentLevel}</span>
+          <span>Tone: {chatTone}</span>
+          <span>Goal: Think in English</span>
         </div>
       </div>
 
       <div className="neo-header-actions">
+        <button type="button" onClick={onClear}><MessageCircle className="h-4 w-4" /> New conversation</button>
         <button type="button" className={voiceMode ? "is-active" : ""} onClick={onToggleVoice}><Mic className="h-4 w-4" /> Voice Mode</button>
-        <button type="button" onClick={onClear}><Trash2 className="h-4 w-4" /> Clear</button>
+        <button type="button" className={focusMode ? "is-active" : ""} onClick={onToggleFocus}><Focus className="h-4 w-4" /> Focus Mode</button>
         <Link to="/conversas" className="neo-header-link">
-          <MessageCircle className="h-4 w-4" />
-          Conversations
+          <History className="h-4 w-4" />
+          History
           {activeSessionId ? <span className="sr-only">current conversation saved</span> : null}
         </Link>
+        <Link to="/configuracoes" className="neo-header-link"><Settings className="h-4 w-4" /> Settings</Link>
+        <button type="button" className="neo-panel-toggle" onClick={onTogglePanel}><PanelRight className="h-4 w-4" /> Learning Panel</button>
+        <button type="button" onClick={onClear}><Trash2 className="h-4 w-4" /> Clear</button>
       </div>
     </header>
   );
@@ -631,6 +1034,8 @@ function NeoMessage({
   onIgnore,
   correctionSaved,
   onSaveCorrection,
+  onCopy,
+  onMockAction,
 }) {
   const isNeo = message.role === "neo";
   const suggestions = getMessageSuggestions(message)
@@ -640,6 +1045,7 @@ function NeoMessage({
     }))
     .filter((suggestion) => !ignoredSuggestionIds.includes(suggestion.key));
   const hasSuggestion = isNeo && !suggestionsDisabled && suggestions.length > 0;
+  const primarySuggestion = suggestions[0] ?? null;
 
   return (
     <article className={`neo-message-row ${isNeo ? "is-neo" : "is-user"}`}>
@@ -651,11 +1057,17 @@ function NeoMessage({
         </div>
         <div className="neo-message-bubble">
           <RichMessage content={message.content} />
+          {!isNeo ? (
+            <div className="neo-user-message-actions">
+              <button type="button" onClick={() => onCopy(message.content)}><Copy className="h-3.5 w-3.5" /> Copy</button>
+              <button type="button" onClick={() => toast("Message editing will be available soon.")}><Edit3 className="h-3.5 w-3.5" /> Edit</button>
+            </div>
+          ) : null}
           {hasSuggestion ? (
             <div className="neo-detected-badge">
               <div className="neo-detected-heading">
                 <Sparkles className="h-3.5 w-3.5" />
-                <span>{suggestions.length} MindBlock{suggestions.length > 1 ? "s" : ""} detected</span>
+                <span>Useful expression detected</span>
               </div>
               <div className="neo-suggestion-list">
                 {suggestions.map((suggestion) => {
@@ -671,6 +1083,8 @@ function NeoMessage({
                       ) : (
                         <div className="neo-suggestion-actions">
                           <button type="button" onClick={() => onQuickSave(suggestion)} disabled={saving}>Salvar</button>
+                          <button type="button" onClick={() => onMockAction("Generate Audio", suggestion)} disabled={saving}>Listen</button>
+                          <button type="button" onClick={() => onMockAction("Practice Pronunciation", suggestion)} disabled={saving}>Practice</button>
                           <button type="button" onClick={() => onEdit(suggestion)} disabled={saving}>Editar</button>
                           <button type="button" onClick={() => onIgnore(suggestion)} disabled={saving}>Ignorar</button>
                         </div>
@@ -683,13 +1097,34 @@ function NeoMessage({
           ) : null}
           {message.correction ? (
             <div className="neo-correction-card">
-              <p>Correction</p>
+              <p>Correction detected</p>
               <span>Wrong: {message.correction.wrong}</span>
               <strong>Correct: {message.correction.correct}</strong>
               {message.correction.explanation ? <small>{message.correction.explanation}</small> : null}
-              <button type="button" onClick={() => onSaveCorrection(message.correction)} disabled={correctionSaved}>
-                {correctionSaved ? "Saved in Meus Erros" : "Save correction"}
+              <div className="neo-correction-actions">
+                <button type="button" onClick={() => onSaveCorrection(message.correction)} disabled={correctionSaved}>
+                  {correctionSaved ? "Saved in Meus Erros" : "Save correction"}
+                </button>
+                <button type="button" onClick={() => onMockAction("Add to Review", message.correction)}>Add to review</button>
+                <button type="button" onClick={() => onMockAction("Practice Pronunciation", message.correction)}>Practice again</button>
+              </div>
+            </div>
+          ) : null}
+          {isNeo ? (
+            <div className="neo-response-actions">
+              <button type="button" onClick={() => (primarySuggestion ? onQuickSave(primarySuggestion) : toast("No MindBlock detected in this response."))}>
+                <Sparkles className="h-3.5 w-3.5" /> Save MindBlock
               </button>
+              <button type="button" onClick={() => (message.correction ? onSaveCorrection(message.correction) : toast("No correction detected in this response."))}>
+                <X className="h-3.5 w-3.5" /> Save Correction
+              </button>
+              <button type="button" onClick={() => onMockAction("Generate Audio", primarySuggestion)}><Volume2 className="h-3.5 w-3.5" /> Generate Audio</button>
+              <button type="button" onClick={() => onMockAction("Practice Pronunciation", primarySuggestion)}><Mic className="h-3.5 w-3.5" /> Practice</button>
+              <button type="button" onClick={() => onMockAction("Add to Review", primarySuggestion)}><RotateCcw className="h-3.5 w-3.5" /> Add to Review</button>
+              <button type="button" onClick={() => onMockAction("Add to Playlist", primarySuggestion)}><BookOpen className="h-3.5 w-3.5" /> Playlist</button>
+              <button type="button" onClick={() => onMockAction("Add to Neural Universe", primarySuggestion)}><Brain className="h-3.5 w-3.5" /> Neural</button>
+              <button type="button" onClick={() => onMockAction("Favorite", primarySuggestion)}><Heart className="h-3.5 w-3.5" /> Favorite</button>
+              <button type="button" onClick={() => onCopy(message.content)}><Clipboard className="h-3.5 w-3.5" /> Copy</button>
             </div>
           ) : null}
         </div>

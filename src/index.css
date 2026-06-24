@@ -3082,3 +3082,504 @@ g.is-dimmed .neural-impulse {
     padding: 0.75rem 0.85rem;
   }
 }
+
+.neo-experience-v2 {
+  min-height: calc(100svh - 7.5rem);
+}
+
+.neo-experience-v2 .neo-chat-shell,
+.neo-experience-v2 .neo-left-sidebar,
+.neo-experience-v2 .neo-right-sidebar {
+  background:
+    radial-gradient(circle at top left, rgb(var(--color-accent-primary) / 0.12), transparent 34%),
+    color-mix(in srgb, var(--surface-card) 84%, transparent);
+}
+
+.neo-experience-v2 .neo-chat-shell {
+  height: calc(100svh - 7.5rem);
+  min-height: 680px;
+}
+
+.neo-session-sidebar .neo-avatar-large,
+.neo-experience-v2 .neo-avatar-small,
+.neo-experience-v2 .neo-message-avatar,
+.neo-hero-brain {
+  animation: neo-pulse-glow 2.6s ease-in-out infinite;
+}
+
+@keyframes neo-pulse-glow {
+  0%, 100% {
+    box-shadow: 0 18px 44px rgb(var(--color-accent-primary) / 0.18);
+  }
+  50% {
+    box-shadow: 0 18px 58px rgb(var(--color-accent-primary) / 0.34), 0 0 24px rgb(var(--color-info-primary) / 0.16);
+  }
+}
+
+.neo-sidebar-section {
+  margin-top: 1.1rem;
+}
+
+.neo-sidebar-section h3 {
+  color: var(--text-subtle);
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.neo-mode-mini-list {
+  margin-top: 0.65rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.neo-mode-mini-list button {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 1rem;
+  background-color: color-mix(in srgb, var(--surface-muted) 64%, transparent);
+  padding: 0.75rem;
+  text-align: left;
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
+}
+
+.neo-mode-mini-list button:hover,
+.neo-mode-mini-list button.is-active {
+  transform: translateY(-1px);
+  border-color: rgb(var(--color-accent-primary) / 0.42);
+  background-color: rgb(var(--color-accent-primary) / 0.12);
+}
+
+.neo-mode-mini-list span {
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.neo-mode-mini-list small {
+  color: var(--text-subtle);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.neo-guided-start {
+  display: grid;
+  gap: 1.1rem;
+  padding: 0.25rem 0 1rem;
+}
+
+.neo-guided-hero {
+  border: 1px solid rgb(var(--color-accent-primary) / 0.26);
+  border-radius: 1.75rem;
+  background:
+    radial-gradient(circle at 18% 20%, rgb(var(--color-accent-primary) / 0.22), transparent 36%),
+    linear-gradient(135deg, rgb(var(--color-accent-primary) / 0.11), rgb(var(--color-info-primary) / 0.08));
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.neo-hero-brain {
+  display: inline-flex;
+  height: 4.1rem;
+  width: 4.1rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1.4rem;
+  background: linear-gradient(135deg, rgb(var(--color-accent-primary) / 0.95), rgb(var(--color-info-primary) / 0.88));
+  color: white;
+}
+
+.neo-guided-hero p {
+  margin-top: 1rem;
+  color: rgb(var(--color-accent-light) / 1);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.neo-guided-hero h2 {
+  margin-top: 0.5rem;
+  max-width: 720px;
+  color: var(--text-primary);
+  font-size: clamp(2rem, 5vw, 4rem);
+  font-weight: 900;
+  line-height: 0.98;
+}
+
+.neo-guided-hero span {
+  margin-top: 1rem;
+  display: block;
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+.neo-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.neo-mode-grid button {
+  display: grid;
+  min-height: 150px;
+  align-content: start;
+  gap: 0.65rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 1.35rem;
+  background:
+    radial-gradient(circle at 0% 0%, rgb(var(--color-accent-primary) / 0.14), transparent 42%),
+    color-mix(in srgb, var(--surface-muted) 66%, transparent);
+  padding: 1rem;
+  text-align: left;
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.neo-mode-grid button:hover,
+.neo-mode-grid button.is-active {
+  transform: translateY(-2px);
+  border-color: rgb(var(--color-accent-primary) / 0.48);
+  background-color: rgb(var(--color-accent-primary) / 0.12);
+  box-shadow: 0 18px 48px rgb(var(--color-accent-primary) / 0.12);
+}
+
+.neo-mode-grid svg {
+  color: rgb(var(--color-accent-light) / 1);
+}
+
+.neo-mode-grid strong {
+  color: var(--text-primary);
+  font-size: 0.98rem;
+}
+
+.neo-mode-grid small {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.neo-experience-v2 .neo-chat-header {
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.05), transparent),
+    color-mix(in srgb, var(--surface-card) 88%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+.neo-experience-v2 .neo-header-actions button,
+.neo-experience-v2 .neo-header-link,
+.neo-panel-header button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 1rem;
+  background-color: color-mix(in srgb, var(--surface-muted) 66%, transparent);
+  padding: 0.62rem 0.8rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.neo-user-message-actions,
+.neo-correction-actions {
+  margin-top: 0.7rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.neo-user-message-actions button,
+.neo-correction-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  background-color: rgb(255 255 255 / 0.12);
+  padding: 0.32rem 0.62rem;
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.neo-composer-v2 {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.neo-composer-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.neo-prompt-chips {
+  display: flex;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding-bottom: 0.05rem;
+}
+
+.neo-prompt-chips button {
+  flex-shrink: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 9999px;
+  background-color: rgb(var(--color-accent-primary) / 0.1);
+  padding: 0.38rem 0.72rem;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 850;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.neo-prompt-chips button:hover {
+  background-color: rgb(var(--color-accent-primary) / 0.18);
+  color: var(--text-primary);
+}
+
+.neo-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.neo-panel-header p,
+.neo-intel-card > p {
+  color: rgb(var(--color-accent-light) / 1);
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.neo-panel-header h2 {
+  margin-top: 0.25rem;
+  color: var(--text-primary);
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.neo-panel-stats {
+  margin-top: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.neo-panel-stats span,
+.neo-next-steps a,
+.neo-next-steps button,
+.neo-correction-mini-list div {
+  border: 1px solid var(--border-soft);
+  border-radius: 1rem;
+  background-color: color-mix(in srgb, var(--surface-muted) 66%, transparent);
+  padding: 0.65rem;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.neo-panel-stats strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.neo-correction-mini-list,
+.neo-next-steps {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.neo-correction-mini-list span {
+  display: block;
+  color: rgb(251 113 133 / 1);
+  font-size: 0.73rem;
+}
+
+.neo-correction-mini-list strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: rgb(var(--color-secondary-light) / 1);
+}
+
+.neo-intel-card small {
+  color: var(--text-subtle);
+  font-size: 0.78rem;
+}
+
+.neo-neural-line {
+  position: relative;
+  margin-top: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+
+.neo-neural-line span {
+  border: 1px solid rgb(var(--color-accent-primary) / 0.28);
+  border-radius: 9999px;
+  background-color: rgb(var(--color-accent-primary) / 0.12);
+  padding: 0.34rem 0.55rem;
+  color: rgb(var(--color-accent-light) / 1);
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.neo-neural-line i {
+  position: relative;
+  height: 1px;
+  min-width: 30px;
+  flex: 1;
+  background-color: rgb(var(--color-accent-primary) / 0.28);
+}
+
+.neo-neural-line i::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 0;
+  height: 7px;
+  width: 7px;
+  animation: neo-energy 1.8s linear infinite;
+  border-radius: 9999px;
+  background-color: rgb(var(--color-secondary-light) / 1);
+  box-shadow: 0 0 16px rgb(var(--color-secondary-light) / 0.8);
+}
+
+@keyframes neo-energy {
+  from { transform: translateX(0); }
+  to { transform: translateX(70px); }
+}
+
+.neo-experience-v2 .neo-message-row {
+  animation: neo-message-in 220ms ease both;
+}
+
+@keyframes neo-message-in {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 1180px) {
+  .neo-experience-v2 {
+    grid-template-columns: minmax(210px, 28%) minmax(0, 1fr);
+  }
+
+  .neo-experience-v2 .neo-learning-panel {
+    position: fixed;
+    z-index: 60;
+    right: 1rem;
+    bottom: 1rem;
+    top: auto;
+    display: none;
+    width: min(420px, calc(100vw - 2rem));
+    height: min(78svh, 720px);
+  }
+
+  .neo-experience-v2 .neo-learning-panel.is-open {
+    display: grid;
+  }
+
+  .neo-mode-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .neo-experience-v2 {
+    --mobile-nav-height: 4.35rem;
+    display: flex;
+    height: calc(100svh - var(--mobile-nav-height));
+    min-height: 0;
+    margin: -1.25rem -0.75rem 0;
+    overflow: hidden;
+  }
+
+  .neo-experience-v2 .neo-left-sidebar {
+    display: none;
+  }
+
+  .neo-experience-v2 .neo-chat-shell {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border-width: 0;
+    border-radius: 0;
+  }
+
+  .neo-experience-v2 .neo-chat-header {
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    padding: 0.8rem 0.75rem;
+  }
+
+  .neo-experience-v2 .neo-header-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .neo-experience-v2 .neo-header-actions button,
+  .neo-experience-v2 .neo-header-link {
+    min-width: 0;
+    padding: 0.55rem 0.45rem;
+    font-size: 0.7rem;
+  }
+
+  .neo-experience-v2 .neo-message-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0.85rem 0.75rem;
+  }
+
+  .neo-experience-v2 .neo-message-stack,
+  .neo-experience-v2 .neo-message-row.is-user .neo-message-stack {
+    max-width: 88%;
+  }
+
+  .neo-experience-v2 .neo-mode-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .neo-experience-v2 .neo-guided-hero h2 {
+    font-size: 2.25rem;
+  }
+
+  .neo-experience-v2 .neo-composer {
+    flex-shrink: 0;
+    background-color: color-mix(in srgb, var(--surface-card) 94%, transparent);
+    padding: 0.65rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
+    backdrop-filter: blur(18px);
+  }
+
+  .neo-experience-v2 .neo-composer-row {
+    gap: 0.45rem;
+  }
+
+  .neo-experience-v2 .neo-icon-button,
+  .neo-experience-v2 .neo-send-button {
+    height: 2.5rem;
+    width: 2.5rem;
+    border-radius: 0.9rem;
+  }
+
+  .neo-experience-v2 .neo-learning-panel {
+    right: 0.75rem;
+    bottom: calc(var(--mobile-nav-height) + 0.75rem);
+    width: calc(100vw - 1.5rem);
+    height: min(72svh, 620px);
+    border-radius: 1.5rem;
+  }
+}

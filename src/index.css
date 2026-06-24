@@ -3923,6 +3923,20 @@ g.is-dimmed .neural-impulse {
   color: #0f172a;
 }
 
+[data-color-mode="light"] .neo-page .neo-message-row.is-user .neo-message-bubble {
+  color: #ffffff;
+}
+
+[data-color-mode="light"] .neo-page .neo-message-row.is-user .neo-rich-text,
+[data-color-mode="light"] .neo-page .neo-message-row.is-user .neo-rich-text strong,
+[data-color-mode="light"] .neo-page .neo-message-row.is-user .neo-user-message-actions button {
+  color: #ffffff;
+}
+
+[data-color-mode="light"] .neo-page .neo-message-row.is-user .neo-user-message-actions button {
+  background-color: rgb(255 255 255 / 0.16);
+}
+
 [data-color-mode="light"] .neo-page .neo-panel-header p,
 [data-color-mode="light"] .neo-page .neo-intel-card > p,
 [data-color-mode="light"] .neo-page .neo-memory-card p,
@@ -3940,9 +3954,31 @@ g.is-dimmed .neural-impulse {
 
 [data-color-mode="light"] .neo-page .neo-rich-blocks details,
 [data-color-mode="light"] .neo-page .neo-quick-practice input,
-[data-color-mode="light"] .neo-page .neo-user-message-actions button,
 [data-color-mode="light"] .neo-page .neo-correction-actions button {
   background-color: rgba(255, 255, 255, 0.72);
+}
+
+[data-color-mode="light"] .neo-page .neo-response-tools summary,
+[data-color-mode="light"] .neo-page .neo-response-actions button,
+[data-color-mode="light"] .neo-page .neo-detected-badge button,
+[data-color-mode="light"] .neo-page .neo-correction-card button,
+[data-color-mode="light"] .neo-page .neo-panel-expression-list button,
+[data-color-mode="light"] .neo-page .neo-next-steps a,
+[data-color-mode="light"] .neo-page .neo-next-steps button {
+  color: #0f172a;
+}
+
+[data-color-mode="light"] .neo-page .neo-composer textarea,
+[data-color-mode="light"] .neo-page .neo-save-body input,
+[data-color-mode="light"] .neo-page .neo-save-body select,
+[data-color-mode="light"] .neo-page .neo-save-body textarea {
+  color: #0f172a;
+}
+
+[data-color-mode="light"] .neo-page .neo-composer textarea::placeholder,
+[data-color-mode="light"] .neo-page .neo-save-body input::placeholder,
+[data-color-mode="light"] .neo-page .neo-save-body textarea::placeholder {
+  color: #64748b;
 }
 
 .neo-mobile-nav-v3,

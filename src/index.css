@@ -4054,7 +4054,7 @@ g.is-dimmed .neural-impulse {
   .neo-experience-v2 {
     --mobile-nav-height: 4.25rem;
     display: flex;
-    height: 100svh;
+    height: calc(100svh - 5rem);
     min-height: 0;
     margin: -1.25rem -0.75rem 0;
     overflow: hidden;

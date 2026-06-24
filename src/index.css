@@ -4099,7 +4099,7 @@ g.is-dimmed .neural-impulse {
   .neo-experience-v2 .neo-message-list {
     flex: 1 1 auto;
     min-height: 0;
-    padding: 0.85rem 0.75rem 0.95rem;
+    padding: 0.85rem 0.75rem 0.65rem;
   }
 
   .neo-experience-v2 .neo-message-stack,
@@ -4116,9 +4116,12 @@ g.is-dimmed .neural-impulse {
   }
 
   .neo-experience-v2 .neo-composer {
+    position: relative;
+    z-index: 75;
     flex-shrink: 0;
+    margin-bottom: calc(var(--mobile-tools-height) + 0.75rem + env(safe-area-inset-bottom));
     background-color: color-mix(in srgb, var(--surface-card) 94%, transparent);
-    padding: 0.55rem 0.75rem calc(var(--mobile-tools-height) + 0.7rem + env(safe-area-inset-bottom));
+    padding: 0.55rem 0.75rem calc(0.65rem + env(safe-area-inset-bottom));
     backdrop-filter: blur(18px);
   }
 
@@ -4175,7 +4178,7 @@ g.is-dimmed .neural-impulse {
 
   .neo-mobile-nav-v3 {
     position: fixed;
-    z-index: 70;
+    z-index: 65;
     right: 0.6rem;
     bottom: calc(0.5rem + env(safe-area-inset-bottom));
     left: 0.6rem;

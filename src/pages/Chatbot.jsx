@@ -23,6 +23,7 @@ import {
 import { createMindBlock, listMindBlocks } from "../services/mindblocks.js";
 import { addMindBlockToPlaylist, createPlaylist, listPlaylists } from "../services/playlists.js";
 import { recordDailyActivity } from "../services/learningProgress.js";
+import { normalizeMindBlockExpressionText } from "../utils/mindblockText.js";
 
 const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
 
@@ -377,7 +378,7 @@ export default function ChatbotPage() {
 
     try {
       setSavingMindBlock(true);
-      const expression = form.expression?.trim();
+      const expression = normalizeMindBlockExpressionText(form.expression);
       if (!expression) {
         toast.error("A expressao nao pode ficar vazia.");
         return;

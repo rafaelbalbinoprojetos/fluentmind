@@ -69,6 +69,37 @@ function buildElevenLabsError(status) {
   return "Falha ao gerar audio no ElevenLabs.";
 }
 
+function normalizeAudioText(value) {
+  const replacements = {
+    atividade: "playing soccer",
+    atividades: "playing soccer",
+    hobby: "playing guitar",
+    hobbies: "playing guitar",
+    comida: "pizza",
+    comidas: "pizza",
+    prato: "pizza",
+    pratos: "pizza",
+    nome: "John",
+    pessoa: "John",
+    cidade: "London",
+    lugar: "the park",
+    trabalho: "work",
+    profissao: "teacher",
+  };
+
+  return String(value || "")
+    .replace(/\[([^\]]+)\]/g, (match, rawKey) => {
+      const key = String(rawKey || "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+      return replacements[key] || match.replace(/[[\]]/g, "");
+    })
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 async function createSignedAudioUrl(supabaseAdmin, storagePath) {
   const { data, error } = await supabaseAdmin
     .storage
@@ -175,7 +206,7 @@ async function handlePost(req, res, user, supabaseAdmin) {
   }
 
   const mindblock = await getMindBlock(supabaseAdmin, user.id, mindblockId);
-  const text = String(body.text || mindblock?.expression_en || "").trim();
+  const text = normalizeAudioText(body.text || mindblock?.expression_en || "");
 
   if (!text) {
     return res.status(400).json({ error: "Texto do MindBlock nao encontrado." });

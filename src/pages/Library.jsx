@@ -43,6 +43,7 @@ import {
   removeMindBlockFromPlaylist,
 } from "../services/playlists.js";
 import { recordDailyActivity } from "../services/learningProgress.js";
+import { normalizeMindBlockExpressionText } from "../utils/mindblockText.js";
 
 const FILTERS = ["All", "Favorites", "Mastered", "Learning", "Review Due", "Mistakes", "Recently Saved"];
 const STATUSES = ["All statuses", "new", "learning", "mastered", "review_due"];
@@ -482,9 +483,13 @@ export default function LibraryPage() {
     }
 
     try {
-      const nextExpression = await createMindBlock(payload, { userId: user.id, mode });
+      const normalizedPayload = {
+        ...payload,
+        expression: normalizeMindBlockExpressionText(payload.expression),
+      };
+      const nextExpression = await createMindBlock(normalizedPayload, { userId: user.id, mode });
       let expressionWithPlaylist = nextExpression;
-      let selectedPlaylistId = payload.playlist;
+      let selectedPlaylistId = normalizedPayload.playlist;
       if (!selectedPlaylistId) {
         const defaultPlaylist = await ensureDefaultPlaylist();
         selectedPlaylistId = defaultPlaylist?.id;

@@ -4073,22 +4073,6 @@ g.is-dimmed .neural-impulse {
   }
 
   .neo-experience-v2 .neo-chat-header {
-    flex-shrink: 0;
-    padding: 0.65rem 0.75rem;
-  }
-
-  .neo-experience-v2 .neo-chat-header > div:first-child {
-    min-width: 0;
-  }
-
-  .neo-experience-v2 .neo-chat-header h1 {
-    font-size: 1rem;
-  }
-
-  .neo-experience-v2 .neo-chat-header p,
-  .neo-experience-v2 .neo-status-row,
-  .neo-experience-v2 .neo-mood-line,
-  .neo-experience-v2 .neo-header-actions {
     display: none;
   }
 

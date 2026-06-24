@@ -231,6 +231,7 @@ export default function ChatbotPage() {
   const [selectedMode, setSelectedMode] = useState("conversation");
   const [neoMood, setNeoMood] = useState("curious");
   const [memoryEntries, setMemoryEntries] = useState(defaultNeoMemory);
+  const [sessionXp, setSessionXp] = useState(0);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const messageListRef = useRef(null);
   const [selectedSuggestion, setSelectedSuggestion] = useState({
@@ -258,10 +259,15 @@ export default function ChatbotPage() {
     mindBlocks: savedSuggestionIds.length,
     corrections: savedCorrectionIds.length || detectedCorrections.length,
     reviewItems: savedSuggestionIds.length + (savedCorrectionIds.length || detectedCorrections.length),
-    xp: realMessages.filter((message) => message.role !== "neo").length
-      + savedSuggestionIds.length * 5
-      + (savedCorrectionIds.length || detectedCorrections.length) * 3,
+    xp: sessionXp,
     progress: Math.min(98, Math.max(12, realMessages.length * 8 + savedSuggestionIds.length * 12 + detectedCorrections.length * 10)),
+  };
+  const conversationScore = {
+    quality: Math.min(98, 72 + Math.floor(sessionSummary.progress / 5)),
+    vocabulary: Math.min(98, 70 + detectedExpressions.length * 4),
+    grammar: Math.min(98, 82 + savedCorrectionIds.length * 4),
+    participation: Math.min(98, 74 + realMessages.filter((message) => message.role !== "neo").length * 3),
+    naturalness: Math.min(98, 76 + savedSuggestionIds.length * 3),
   };
 
   useEffect(() => {
@@ -386,9 +392,15 @@ export default function ChatbotPage() {
     setActiveSessionId(null);
     setMessages(welcomeMessages);
     setSelectedMode("conversation");
+    setSessionXp(0);
     setConversations((current) => current.map((item) => ({ ...item, active: false })));
     toast("Nova conversa pronta.");
   };
+
+  const awardXp = useCallback((amount, reason = "New neural connection formed") => {
+    setSessionXp((current) => current + amount);
+    toast.success(`+${amount} XP · ${reason}`, { icon: "✨" });
+  }, []);
 
   const chooseNeoMode = (mode) => {
     setSelectedMode(mode.id);
@@ -457,6 +469,7 @@ export default function ChatbotPage() {
           createdAt: new Date().toISOString(),
         },
       ]));
+      awardXp(5, "New neural node created");
       toast.success("Conexao neural registrada localmente.");
       return;
     }
@@ -467,11 +480,13 @@ export default function ChatbotPage() {
     }
 
     if (label === "Practice Pronunciation") {
+      awardXp(10, "Practice completed");
       toast("Practice Pronunciation will be available soon.");
       return;
     }
 
     if (label === "Add to Review") {
+      awardXp(20, "Review item created");
       toast.success("Marcado para revisao nesta sessao.");
       return;
     }
@@ -479,6 +494,11 @@ export default function ChatbotPage() {
     if (label === "Add to Playlist") {
       toast("Use o modal de salvar para escolher uma playlist.");
     }
+  };
+
+  const endSession = () => {
+    awardXp(15, "Conversation completed");
+    setSummaryOpen(true);
   };
 
   const submitMessage = async (event) => {
@@ -506,6 +526,7 @@ export default function ChatbotPage() {
         conversations_started: created ? 1 : 0,
         study_minutes: 1,
       });
+      awardXp(1, "Message sent");
 
       const visibleMessages = messages[0]?.id === "welcome-neo" ? [] : messages;
       setMessages((current) => {
@@ -697,6 +718,7 @@ export default function ChatbotPage() {
       const savedKey = suggestionKey || (sourceMessageId ? getSuggestionKey(sourceMessageId, form) : null);
       if (savedKey) setSavedSuggestionIds((current) => [...new Set([...current, savedKey])]);
       setSaveModalOpen(false);
+      awardXp(5, "New neural node created");
       toast.success("MindBlock salvo na sua biblioteca.");
     } catch (error) {
       console.error(error);
@@ -731,6 +753,7 @@ export default function ChatbotPage() {
         study_minutes: 1,
       });
       setSavedCorrectionIds((current) => [...new Set([...current, messageId])]);
+      awardXp(3, "Neural pathway strengthened");
       if (!silent) toast.success("Correcao salva em Meus Erros.");
       return true;
     } catch (error) {
@@ -738,7 +761,7 @@ export default function ChatbotPage() {
       if (!silent) toast.error(error.message || "Nao foi possivel salvar a correcao.");
       return false;
     }
-  }, [activeSessionId, user?.id, user?.user_metadata?.learning_preferences?.currentLevel]);
+  }, [activeSessionId, awardXp, user?.id, user?.user_metadata?.learning_preferences?.currentLevel]);
 
   const quickSaveSuggestion = async (suggestion, messageId) => {
     const normalized = normalizeSuggestion(suggestion);
@@ -771,6 +794,9 @@ export default function ChatbotPage() {
       {!focusMode ? (
         <NeoSessionSidebar
           assistantName={assistantName}
+          displayName={displayName}
+          currentLevel={currentLevel}
+          sessionSummary={sessionSummary}
           selectedMode={selectedMode}
           conversations={conversations}
           activeSessionId={activeSessionId}
@@ -791,6 +817,7 @@ export default function ChatbotPage() {
           onToggleVoice={() => setVoiceMode((value) => !value)}
           onToggleFocus={() => setFocusMode((value) => !value)}
           onTogglePanel={() => setLearningPanelOpen((value) => !value)}
+          onEndSession={endSession}
           onClear={() => {
             startNewConversation();
           }}
@@ -845,13 +872,21 @@ export default function ChatbotPage() {
         <LearningPanel
           open={learningPanelOpen}
           summary={sessionSummary}
+          score={conversationScore}
           expressions={detectedExpressions}
           corrections={detectedCorrections}
+          saving={savingMindBlock}
+          onSaveExpression={(suggestion) => quickSaveSuggestion(suggestion, `panel-${suggestion.expression}`)}
+          onPracticeExpression={(suggestion) => {
+            setInput(`Practice this expression with me: ${suggestion.expression}`);
+            awardXp(10, "Practice started");
+          }}
+          onMockAction={runMockAction}
           onClose={() => setLearningPanelOpen(false)}
         />
       ) : null}
 
-      <NeoMobileNav onOpen={setMobileSheet} onEndSession={() => setSummaryOpen(true)} />
+      <NeoMobileNav onOpen={setMobileSheet} onEndSession={endSession} />
 
       {mobileSheet ? (
         <NeoBottomSheet
@@ -892,7 +927,7 @@ export default function ChatbotPage() {
   );
 }
 
-function NeoSessionSidebar({ assistantName, selectedMode, conversations, activeSessionId, onNew, onSelectMode }) {
+function NeoSessionSidebar({ assistantName, displayName, currentLevel, sessionSummary, selectedMode, conversations, activeSessionId, onNew, onSelectMode }) {
   return (
     <aside className="neo-left-sidebar neo-session-sidebar">
       <div className="neo-avatar-card">
@@ -905,6 +940,18 @@ function NeoSessionSidebar({ assistantName, selectedMode, conversations, activeS
       <button type="button" className="neo-new-button" onClick={onNew}>
         <PlusIcon /> New conversation
       </button>
+
+      <section className="neo-left-memory">
+        <p>Neo Memory</p>
+        <dl>
+          <div><dt>Name</dt><dd>{displayName}</dd></div>
+          <div><dt>Goal</dt><dd>Work English</dd></div>
+          <div><dt>Current Level</dt><dd>{currentLevel}</dd></div>
+          <div><dt>Favorite Topics</dt><dd>Programming · Technology · Travel</dd></div>
+          <div><dt>Most Used Expressions</dt><dd>{Math.max(5, sessionSummary.mindBlocks + sessionSummary.messages)}</dd></div>
+          <div><dt>Current Streak</dt><dd>4 days</dd></div>
+        </dl>
+      </section>
 
       <div className="neo-sidebar-section">
         <h3>Practice modes</h3>
@@ -1024,7 +1071,18 @@ function NeoComposer({ input, setInput, onSubmit, onVoice, onChip }) {
   );
 }
 
-function LearningPanel({ open, summary, expressions, corrections, onClose }) {
+function LearningPanel({
+  open,
+  summary,
+  score,
+  expressions,
+  corrections,
+  saving,
+  onSaveExpression,
+  onPracticeExpression,
+  onMockAction,
+  onClose,
+}) {
   return (
     <aside className={`neo-right-sidebar neo-learning-panel ${open ? "is-open" : ""}`}>
       <div className="neo-panel-header">
@@ -1045,6 +1103,7 @@ function LearningPanel({ open, summary, expressions, corrections, onClose }) {
           <span>Review items <strong>{summary.reviewItems}</strong></span>
           <span>Session XP <strong>{summary.xp}</strong></span>
           <span>Progress <strong>{summary.progress}%</strong></span>
+          <span>Neural Growth <strong>{summary.progress + summary.mindBlocks}%</strong></span>
         </div>
         <div className="fm-progress-track mt-3 h-2 overflow-hidden rounded-full">
           <div className="fm-progress-fill h-full rounded-full" style={{ width: `${summary.progress}%` }} />
@@ -1052,9 +1111,33 @@ function LearningPanel({ open, summary, expressions, corrections, onClose }) {
       </section>
 
       <section className="neo-intel-card">
+        <p>Conversation Score</p>
+        <div className="neo-score-list">
+          {Object.entries(score).map(([key, value]) => (
+            <div key={key}>
+              <span>{key.replace(/^\w/, (letter) => letter.toUpperCase())}</span>
+              <strong>{value}%</strong>
+              <i><b style={{ width: `${value}%` }} /></i>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="neo-intel-card">
         <p>Useful expressions</p>
-        <div className="neo-intel-list">
-          {expressions.slice(0, 5).map((item) => <span key={item.expression}>{item.expression}</span>)}
+        <div className="neo-panel-expression-list">
+          {expressions.slice(0, 5).map((item) => (
+            <article key={item.expression}>
+              <strong>{item.expression}</strong>
+              {item.translation ? <small>{item.translation}</small> : null}
+              <div>
+                <button type="button" onClick={() => onMockAction("Generate Audio", item)}>Listen</button>
+                <button type="button" onClick={() => onSaveExpression(item)} disabled={saving}>Save</button>
+                <button type="button" onClick={() => onPracticeExpression(item)}>Practice</button>
+                <button type="button" onClick={() => onMockAction("Add to Review", item)}>Review</button>
+              </div>
+            </article>
+          ))}
           {expressions.length === 0 ? <small>No expressions detected yet.</small> : null}
         </div>
       </section>
@@ -1202,6 +1285,7 @@ function NeoSessionSummary({ summary, onClose }) {
           <span>Learned <strong>{summary.mindBlocks || 5} expressions</strong></span>
           <span>Corrected <strong>{summary.corrections || 2} mistakes</strong></span>
           <span>Created <strong>{summary.mindBlocks || 3} MindBlocks</strong></span>
+          <span>Earned <strong>{summary.xp} XP</strong></span>
           <span>Studied <strong>{Math.max(1, Math.ceil(summary.messages * 1.5))} minutes</strong></span>
         </div>
         <footer>
@@ -1230,6 +1314,7 @@ function NeoChatHeader({
   onToggleVoice,
   onToggleFocus,
   onTogglePanel,
+  onEndSession,
   onClear,
   activeSessionId,
 }) {
@@ -1265,6 +1350,7 @@ function NeoChatHeader({
         </Link>
         <Link to="/configuracoes" className="neo-header-link"><Settings className="h-4 w-4" /> Settings</Link>
         <button type="button" className="neo-panel-toggle" onClick={onTogglePanel}><PanelRight className="h-4 w-4" /> Learning Panel</button>
+        <button type="button" onClick={onEndSession}><Check className="h-4 w-4" /> End Session</button>
         <button type="button" onClick={onClear}><Trash2 className="h-4 w-4" /> Clear</button>
       </div>
     </header>
@@ -1286,6 +1372,8 @@ function NeoMessage({
   onCopy,
   onMockAction,
 }) {
+  const [practiceAnswer, setPracticeAnswer] = useState("");
+  const [practiceChecked, setPracticeChecked] = useState(false);
   const isNeo = message.role === "neo";
   const suggestions = getMessageSuggestions(message)
     .map((suggestion) => ({
@@ -1376,16 +1464,89 @@ function NeoMessage({
               <button type="button" onClick={() => onCopy(message.content)}><Clipboard className="h-3.5 w-3.5" /> Copy</button>
             </div>
           ) : null}
+          {isNeo ? (
+            <QuickPractice
+              suggestion={primarySuggestion}
+              answer={practiceAnswer}
+              checked={practiceChecked}
+              onAnswer={setPracticeAnswer}
+              onCheck={() => {
+                setPracticeChecked(true);
+                onMockAction("Practice Pronunciation", primarySuggestion);
+              }}
+            />
+          ) : null}
         </div>
       </div>
     </article>
   );
 }
 
+function QuickPractice({ suggestion, answer, checked, onAnswer, onCheck }) {
+  const seed = suggestion?.expression?.split(" ").slice(0, 3).join(" ") || "I'm interested in";
+
+  return (
+    <section className="neo-quick-practice">
+      <p>Practice Challenge</p>
+      <span>Create one sentence using:</span>
+      <strong>{seed}</strong>
+      <div>
+        <input value={answer} onChange={(event) => onAnswer(event.target.value)} placeholder="Type your sentence..." />
+        <button type="button" onClick={onCheck} disabled={!answer.trim()}>Check</button>
+      </div>
+      {checked ? (
+        <small>{answer.toLowerCase().includes(seed.toLowerCase().split(" ")[0]) ? "Good. Keep the sentence natural and complete." : `Try including "${seed}" in your sentence.`}</small>
+      ) : null}
+    </section>
+  );
+}
+
+function buildMessageBlocks(content) {
+  const lines = String(content || "").split("\n");
+  const sections = [];
+  let current = { title: "Main idea", lines: [] };
+
+  lines.forEach((line) => {
+    const clean = line.trim();
+    const heading = clean.match(/^(?:#{2,4}\s+([A-Za-z0-9 &'/-]+)|([A-Z][A-Za-z &]+):)$/);
+    if (heading && current.lines.some((item) => item.trim())) {
+      sections.push(current);
+      current = { title: (heading[1] || heading[2]).trim(), lines: [] };
+      return;
+    }
+    current.lines.push(line);
+  });
+  if (current.lines.some((item) => item.trim())) sections.push(current);
+  return sections;
+}
+
 function RichMessage({ content }) {
+  const blocks = buildMessageBlocks(content);
+  const shouldCollapse = blocks.length > 2 || String(content || "").length > 700;
+
+  if (shouldCollapse) {
+    return (
+      <div className="neo-rich-blocks">
+        {blocks.map((block, index) => (
+          <details key={`${block.title}-${index}`} open={index === 0}>
+            <summary>
+              <span>{block.title}</span>
+              <small>{block.lines.filter((line) => line.trim()).length} items</small>
+            </summary>
+            <RichMessageLines lines={block.lines} />
+          </details>
+        ))}
+      </div>
+    );
+  }
+
+  return <RichMessageLines lines={String(content || "").split("\n")} />;
+}
+
+function RichMessageLines({ lines }) {
   return (
     <div className="neo-rich-text">
-      {content.split("\n").map((line, index) => {
+      {lines.map((line, index) => {
         if (!line.trim()) return <br key={index} />;
         if (line.startsWith("- ")) return <li key={index}>{line.slice(2)}</li>;
         if (line.includes("**")) {

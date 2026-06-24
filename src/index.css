@@ -3625,6 +3625,160 @@ g.is-dimmed .neural-impulse {
   font-weight: 850;
 }
 
+.neo-left-memory {
+  margin-top: 1rem;
+  border: 1px solid rgb(var(--color-accent-primary) / 0.22);
+  border-radius: 1.2rem;
+  background:
+    radial-gradient(circle at 0 0, rgb(var(--color-accent-primary) / 0.14), transparent 38%),
+    color-mix(in srgb, var(--surface-muted) 66%, transparent);
+  padding: 0.9rem;
+}
+
+.neo-left-memory > p {
+  color: rgb(var(--color-accent-light) / 1);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.neo-left-memory dl {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.neo-left-memory div {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.neo-left-memory dt {
+  color: var(--text-subtle);
+  font-size: 0.64rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.neo-left-memory dd {
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.neo-rich-blocks {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.neo-rich-blocks details {
+  border: 1px solid var(--border-soft);
+  border-radius: 1rem;
+  background-color: rgb(255 255 255 / 0.035);
+  overflow: hidden;
+}
+
+.neo-rich-blocks summary {
+  display: flex;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.78rem 0.9rem;
+}
+
+.neo-rich-blocks summary::-webkit-details-marker {
+  display: none;
+}
+
+.neo-rich-blocks summary span {
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-weight: 900;
+}
+
+.neo-rich-blocks summary small {
+  border-radius: 9999px;
+  background-color: rgb(var(--color-accent-primary) / 0.14);
+  padding: 0.25rem 0.55rem;
+  color: rgb(var(--color-accent-light) / 1);
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.neo-rich-blocks details > .neo-rich-text {
+  border-top: 1px solid var(--border-soft);
+  padding: 0.85rem 0.9rem;
+}
+
+.neo-quick-practice {
+  margin-top: 0.85rem;
+  border: 1px solid rgb(var(--color-secondary-primary) / 0.26);
+  border-radius: 1rem;
+  background:
+    radial-gradient(circle at 0 0, rgb(var(--color-secondary-primary) / 0.14), transparent 38%),
+    color-mix(in srgb, var(--surface-muted) 68%, transparent);
+  padding: 0.8rem;
+}
+
+.neo-quick-practice p {
+  color: rgb(var(--color-secondary-light) / 1);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.neo-quick-practice span {
+  margin-top: 0.45rem;
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.neo-quick-practice strong {
+  margin-top: 0.25rem;
+  display: block;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.neo-quick-practice div {
+  margin-top: 0.65rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+
+.neo-quick-practice input {
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.85rem;
+  background-color: rgb(255 255 255 / 0.04);
+  padding: 0.62rem 0.75rem;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.neo-quick-practice button {
+  border-radius: 0.85rem;
+  background-color: rgb(var(--color-secondary-primary) / 0.18);
+  padding: 0.62rem 0.8rem;
+  color: rgb(var(--color-secondary-light) / 1);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.neo-quick-practice small {
+  margin-top: 0.55rem;
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
 .neo-mission-list {
   margin-top: 0.75rem;
   display: grid;
@@ -3647,6 +3801,81 @@ g.is-dimmed .neural-impulse {
 
 .neo-mission-list strong {
   color: rgb(var(--color-secondary-light) / 1);
+}
+
+.neo-score-list,
+.neo-panel-expression-list {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.neo-score-list div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.45rem 0.75rem;
+}
+
+.neo-score-list span {
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.neo-score-list strong {
+  color: var(--text-primary);
+  font-size: 0.82rem;
+}
+
+.neo-score-list i {
+  grid-column: 1 / -1;
+  height: 0.4rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background-color: rgb(15 23 42 / 0.7);
+}
+
+.neo-score-list b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgb(var(--color-accent-primary) / 1), rgb(var(--color-info-primary) / 1), rgb(var(--color-secondary-primary) / 1));
+}
+
+.neo-panel-expression-list article {
+  border: 1px solid var(--border-soft);
+  border-radius: 1rem;
+  background-color: color-mix(in srgb, var(--surface-muted) 66%, transparent);
+  padding: 0.7rem;
+}
+
+.neo-panel-expression-list strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.84rem;
+}
+
+.neo-panel-expression-list small {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--text-secondary);
+}
+
+.neo-panel-expression-list article div {
+  margin-top: 0.6rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.neo-panel-expression-list button {
+  border-radius: 9999px;
+  background-color: rgb(var(--color-accent-primary) / 0.14);
+  padding: 0.3rem 0.55rem;
+  color: var(--text-primary);
+  font-size: 0.7rem;
+  font-weight: 850;
 }
 
 .neo-mobile-nav-v3,

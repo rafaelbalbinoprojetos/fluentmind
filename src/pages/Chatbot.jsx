@@ -338,7 +338,17 @@ export default function ChatbotPage() {
         }
       }
       if (reply.correction?.wrong && reply.correction?.correct) {
-        toast("Correction detected. Save it in Meus Erros when useful.");
+        if (reply.correction.source === "user_message") {
+          const saved = await saveCorrectionFromChat(reply.correction, storedAssistantMessage.id, {
+            silent: true,
+            sessionId,
+          });
+          if (saved) {
+            toast.success("Erro detectado e salvo em Meus Erros.");
+          }
+        } else {
+          toast("Correction detected. Save it in Meus Erros when useful.");
+        }
       }
     } catch (error) {
       console.error(error);
@@ -453,6 +463,40 @@ export default function ChatbotPage() {
     }
   };
 
+  const saveCorrectionFromChat = useCallback(async (correction, messageId, { silent = false, sessionId = activeSessionId } = {}) => {
+    if (!user?.id) {
+      if (!silent) toast.error("Sessao expirada. Faca login novamente.");
+      return false;
+    }
+    if (!correction?.wrong || !correction?.correct) {
+      if (!silent) toast.error("Correcao incompleta.");
+      return false;
+    }
+
+    try {
+      await createCorrectedMistake({
+        conversationId: sessionId,
+        messageId,
+        originalText: correction.wrong,
+        correctedText: correction.correct,
+        explanation: correction.explanation,
+        category: correction.category || "Conversation",
+        level: correction.level || user?.user_metadata?.learning_preferences?.currentLevel || "A2",
+      }, { userId: user.id });
+      await recordDailyActivity(user.id, {
+        expressions_reviewed: 1,
+        study_minutes: 1,
+      });
+      setSavedCorrectionIds((current) => [...new Set([...current, messageId])]);
+      if (!silent) toast.success("Correcao salva em Meus Erros.");
+      return true;
+    } catch (error) {
+      console.error("Erro ao salvar correcao:", error);
+      if (!silent) toast.error(error.message || "Nao foi possivel salvar a correcao.");
+      return false;
+    }
+  }, [activeSessionId, user?.id, user?.user_metadata?.learning_preferences?.currentLevel]);
+
   const quickSaveSuggestion = async (suggestion, messageId) => {
     const normalized = normalizeSuggestion(suggestion);
     await saveMindBlockFromChat({
@@ -477,38 +521,6 @@ export default function ChatbotPage() {
     const ignoredKey = suggestion ? getSuggestionKey(messageId, suggestion) : messageId;
     setIgnoredSuggestionIds((current) => [...new Set([...current, ignoredKey])]);
     toast("Sugestao ignorada.");
-  };
-
-  const saveCorrection = async (correction, messageId) => {
-    if (!user?.id) {
-      toast.error("Sessao expirada. Faca login novamente.");
-      return;
-    }
-    if (!correction?.wrong || !correction?.correct) {
-      toast.error("Correcao incompleta.");
-      return;
-    }
-
-    try {
-      await createCorrectedMistake({
-        conversationId: activeSessionId,
-        messageId,
-        originalText: correction.wrong,
-        correctedText: correction.correct,
-        explanation: correction.explanation,
-        category: correction.category || "Conversation",
-        level: user?.user_metadata?.learning_preferences?.currentLevel || "A2",
-      }, { userId: user.id });
-      await recordDailyActivity(user.id, {
-        expressions_reviewed: 1,
-        study_minutes: 1,
-      });
-      setSavedCorrectionIds((current) => [...new Set([...current, messageId])]);
-      toast.success("Correcao salva em Meus Erros.");
-    } catch (error) {
-      console.error("Erro ao salvar correcao:", error);
-      toast.error(error.message || "Nao foi possivel salvar a correcao.");
-    }
   };
 
   return (
@@ -541,7 +553,7 @@ export default function ChatbotPage() {
                 onEdit={(suggestion) => openSaveModal(suggestion)}
                 onIgnore={(suggestion) => ignoreSuggestion(message.id, suggestion)}
                 correctionSaved={savedCorrectionIds.includes(message.id)}
-                onSaveCorrection={(correction) => saveCorrection(correction, message.id)}
+                onSaveCorrection={(correction) => saveCorrectionFromChat(correction, message.id)}
               />
             ))}
             {typing ? <NeoTypingIndicator /> : null}

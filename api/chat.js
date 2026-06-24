@@ -360,8 +360,11 @@ function extractMindBlockSuggestions(reply) {
 }
 
 function extractCorrection(reply) {
-  const labels = ["You can say", "Meaning", "Examples", "Related expressions", "Common mistake", "Practice"];
-  const commonMistake = extractCommonMistake(extractSection(reply, "Common mistake", labels.filter((label) => label !== "Common mistake")));
+  const labels = ["You can say", "Meaning", "Examples", "Related expressions", "Common mistake", "Correction", "Practice"];
+  const commonMistake = extractCommonMistake(
+    extractSection(reply, "Correction", labels.filter((label) => label !== "Correction"))
+      || extractSection(reply, "Common mistake", labels.filter((label) => label !== "Common mistake")),
+  );
   if (!commonMistake?.explanation) return null;
   if (!commonMistake.wrong && !commonMistake.correct) return null;
 
@@ -370,7 +373,72 @@ function extractCorrection(reply) {
     correct: commonMistake.correct || "",
     explanation: commonMistake.explanation,
     category: "Conversation",
+    source: "assistant_reply",
   };
+}
+
+function getLatestUserMessage(messages) {
+  return [...(messages || [])].reverse().find((message) => message?.role !== "assistant" && message?.content)?.content || "";
+}
+
+function shouldAnalyzeUserCorrection(text) {
+  const clean = String(text || "").trim();
+  if (clean.length < 6 || clean.length > 500) return false;
+  if (!/[a-z]/i.test(clean)) return false;
+  const englishSignals = clean.match(/\b(?:i|you|we|they|he|she|it|my|your|is|are|am|do|does|did|have|has|can|could|would|should|want|need|like|love|go|went|work|study|english|today|yesterday|tomorrow)\b/gi);
+  return (englishSignals?.length || 0) >= 2;
+}
+
+async function analyzeUserCorrection(openai, latestUserMessage, { currentLevel = "A2" } = {}) {
+  if (!shouldAnalyzeUserCorrection(latestUserMessage)) return null;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: process.env.OPENAI_CORRECTION_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `Analyze only the user's latest message for English mistakes.
+Return strict JSON with:
+{
+  "hasMistake": boolean,
+  "wrong": string,
+  "correct": string,
+  "explanation": string,
+  "category": string,
+  "level": string
+}
+
+Rules:
+- If the user is writing mainly in Portuguese or asking for explanations, return hasMistake false.
+- Only return hasMistake true when there is a clear English grammar, vocabulary, word order, article, preposition, tense, or naturalness issue.
+- Keep the correction natural and close to the user's original intent.
+- Explanation must be in Portuguese, concise, and useful for a Brazilian learner.
+- Use level ${currentLevel || "A2"} unless another level is clearly more appropriate.
+- Do not correct capitalization or punctuation only.`,
+        },
+        { role: "user", content: String(latestUserMessage) },
+      ],
+      temperature: 0,
+      response_format: { type: "json_object" },
+    });
+
+    const raw = completion.choices[0]?.message?.content || "{}";
+    const parsed = JSON.parse(raw);
+    if (!parsed?.hasMistake || !parsed?.wrong || !parsed?.correct) return null;
+
+    return {
+      wrong: cleanSuggestionLine(parsed.wrong),
+      correct: cleanSuggestionLine(parsed.correct),
+      explanation: cleanSuggestionLine(parsed.explanation || "Correção detectada na sua mensagem."),
+      category: cleanSuggestionLine(parsed.category || "Conversation"),
+      level: cleanSuggestionLine(parsed.level || currentLevel || "A2"),
+      source: "user_message",
+    };
+  } catch (error) {
+    console.error("[chat:correction-analysis]", error);
+    return null;
+  }
 }
 
 export default async function handler(req, res) {
@@ -398,6 +466,7 @@ export default async function handler(req, res) {
       targetLanguage = "en",
     } = body;
     await requireUser(req);
+    const latestUserMessage = getLatestUserMessage(messages);
 
     const conversation = [
       { role: "system", content: buildSystemPrompt(userName, chatTone, assistantName, currentLevel, targetLanguage) },
@@ -419,7 +488,8 @@ export default async function handler(req, res) {
     const reply = completion.choices[0]?.message?.content?.trim();
     const suggestedMindBlocks = extractMindBlockSuggestions(reply);
     const suggestedMindBlock = suggestedMindBlocks[0] ?? null;
-    const correction = extractCorrection(reply);
+    const correction = await analyzeUserCorrection(openai, latestUserMessage, { currentLevel })
+      || extractCorrection(reply);
 
     return res.status(200).json({
       reply: reply || "Não consegui gerar uma resposta agora. Pode tentar reformular?",

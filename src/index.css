@@ -3008,10 +3008,11 @@ g.is-dimmed .neural-impulse {
 
 @media (max-width: 768px) {
   .neo-page-chat-only {
-    height: calc(100svh - 5.25rem);
+    --mobile-nav-height: 4.35rem;
+    height: calc(100svh - var(--mobile-nav-height));
     min-height: 0;
     overflow: hidden;
-    margin: -0.75rem;
+    margin: -1.25rem -0.75rem 0;
   }
 
   .neo-page-chat-only .neo-chat-shell {
@@ -3046,7 +3047,7 @@ g.is-dimmed .neural-impulse {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
-    padding: 0.85rem 0.75rem 1rem;
+    padding: 0.85rem 0.75rem 0.85rem;
   }
 
   .neo-page-chat-only .neo-message-stack {
@@ -3072,7 +3073,7 @@ g.is-dimmed .neural-impulse {
     z-index: 6;
     flex-shrink: 0;
     background-color: color-mix(in srgb, var(--surface-card) 94%, transparent);
-    padding: 0.75rem;
+    padding: 0.7rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
     backdrop-filter: blur(18px);
   }
 

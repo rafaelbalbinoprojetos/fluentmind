@@ -143,6 +143,7 @@ export default function Layout() {
   const [androidChromium, setAndroidChromium] = useState(() => isAndroidChromiumBrowser());
   const location = useLocation();
   const navigate = useNavigate();
+  const isChatbotRoute = location.pathname === "/chatbot";
   const navId = "primary-navigation";
   const { user, session, signOut, updateUserMetadata, subscription } = useAuth();
   const userMetadata = React.useMemo(() => user?.user_metadata ?? {}, [user]);
@@ -160,7 +161,6 @@ export default function Layout() {
     plan = fallbackPlan,
     effectivePlan = fallbackPlan,
     trialStatus = fallbackTrialStatus,
-    trialEndsAt = fallbackTrialEndsAt,
     trialExpired = fallbackTrialExpired,
     trialActive = fallbackTrialActive,
     hasPremiumAccess = fallbackHasPremiumAccess,
@@ -837,11 +837,11 @@ export default function Layout() {
           </div>
         )}
 
-        <main className="relative z-10 flex-1 px-3 pb-24 pt-5 sm:px-4 md:p-7 md:pb-8">
+        <main className={`relative z-10 flex-1 px-3 pt-5 sm:px-4 md:p-7 md:pb-8 ${isChatbotRoute ? "pb-0 md:pb-8" : "pb-24"}`}>
           <PageTransition />
         </main>
 
-        <section className="fm-footer relative z-10 border-t px-4 py-5 text-sm md:px-8">
+        <section className={`fm-footer relative z-10 border-t px-4 py-5 text-sm md:px-8 ${isChatbotRoute ? "hidden md:block" : ""}`}>
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="space-y-1">
               <p className="text-base font-semibold">Privacidade e continuidade</p>
@@ -872,28 +872,30 @@ export default function Layout() {
           accessToken={session?.access_token}
         />
 
-        <button
-          type="button"
-          onClick={handleOpenVoiceAssistant}
-          className="fm-card fm-secondary fixed bottom-20 right-4 z-40 inline-flex h-12 w-12 flex-none items-center justify-center rounded-2xl border shadow-lg shadow-black/30 backdrop-blur transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-temaSky/30 md:bottom-6 md:right-6"
-          aria-label="Iniciar gravação do assistente"
-          title="Iniciar gravação no assistente"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.6}
-              d="M12 16a3 3 0 003-3V7a3 3 0 00-6 0v6a3 3 0 003 3z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.6}
-              d="M19 11a7 7 0 01-14 0M12 19v3"
-            />
-          </svg>
-        </button>
+        {!isChatbotRoute && (
+          <button
+            type="button"
+            onClick={handleOpenVoiceAssistant}
+            className="fm-card fm-secondary fixed bottom-20 right-4 z-40 inline-flex h-12 w-12 flex-none items-center justify-center rounded-2xl border shadow-lg shadow-black/30 backdrop-blur transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-temaSky/30 md:bottom-6 md:right-6"
+            aria-label="Iniciar gravação do assistente"
+            title="Iniciar gravação no assistente"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.6}
+                d="M12 16a3 3 0 003-3V7a3 3 0 00-6 0v6a3 3 0 003 3z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.6}
+                d="M19 11a7 7 0 01-14 0M12 19v3"
+              />
+            </svg>
+          </button>
+        )}
         {androidChromium && canInstallPwa && !isStandalonePwa && (
           <button
             type="button"

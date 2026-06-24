@@ -9,6 +9,7 @@ import {
   Check,
   ChevronRight,
   Clock3,
+  Flame,
   Headphones,
   Heart,
   Library,

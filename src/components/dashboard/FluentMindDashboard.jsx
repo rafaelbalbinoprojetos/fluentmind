@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import {
   BarChart3,
   BookMarked,
@@ -34,6 +35,7 @@ import { listMindBlocks } from "../../services/mindblocks.js";
 import { listPlaylists } from "../../services/playlists.js";
 import { listReviewEvents } from "../../services/reviewEvents.js";
 import { buildActivityByDate, getOrCreateLearningProfile, listDailyActivity } from "../../services/learningProgress.js";
+import { getLearningEvents, LEARNING_EVENTS_UPDATED } from "../../services/learningEventEngine.js";
 
 const progressBars = [
   { day: "Mon", value: 54 },
@@ -49,11 +51,10 @@ const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const quickActions = [
   { label: "New Conversation", shortcut: "N", description: "Practice with AI", icon: MessageCircle, to: "/chatbot" },
-  { label: "Save Expression", shortcut: "S", description: "Capture a useful phrase", icon: Plus, to: "/biblioteca" },
-  { label: "Start Review", shortcut: "R", description: "Recall saved MindBlocks", icon: RotateCcw, to: "/insights" },
-  { label: "Random Practice", shortcut: "P", description: "Fast surprise drill", icon: Shuffle, to: "/chatbot" },
-  { label: "Listening Drill", shortcut: "L", description: "Train rhythm and meaning", icon: Headphones, to: "/biblioteca" },
-  { label: "Pronunciation", shortcut: "M", description: "Speak and compare", icon: Mic2, to: "/chatbot" },
+  { label: "Quick Review", shortcut: "R", description: "Strengthen memory", icon: RotateCcw, to: "/insights" },
+  { label: "Add Expression", shortcut: "S", description: "Capture a MindBlock", icon: Plus, to: "/biblioteca" },
+  { label: "Explore Neural Universe", shortcut: "U", description: "See your brain map", icon: Brain, to: "/neural-universe" },
+  { label: "Practice Pronunciation", shortcut: "M", description: "Train sound and rhythm", icon: Mic2, to: "/chatbot" },
 ];
 
 const weekDays = ["M", "T", "W", "T", "F", "S", "S"];
@@ -263,6 +264,7 @@ export default function FluentMindDashboard() {
     reviewEvents: [],
     activity: [],
   });
+  const [learningEvents, setLearningEvents] = useState(() => getLearningEvents());
   const [showFirstExperience, setShowFirstExperience] = useState(() => {
     if (typeof window === "undefined") {
       return false;
@@ -278,6 +280,7 @@ export default function FluentMindDashboard() {
   const stats = useMemo(() => buildStats(dashboardData, userContext), [dashboardData, userContext]);
   const recentExpressions = useMemo(() => buildRecentExpressions(dashboardData.mindBlocks), [dashboardData.mindBlocks]);
   const weeklyProgress = useMemo(() => buildWeeklyProgress(dashboardData.activity), [dashboardData.activity]);
+  const dailyHeroMessage = useMemo(() => motivationalMessages[getDayIndex(motivationalMessages.length)], []);
 
   const completeFirstExperience = () => {
     window.localStorage.removeItem(FIRST_DASHBOARD_EXPERIENCE_KEY);
@@ -318,44 +321,50 @@ export default function FluentMindDashboard() {
     };
   }, [user]);
 
+  useEffect(() => {
+    const syncEvents = () => setLearningEvents(getLearningEvents());
+    window.addEventListener(LEARNING_EVENTS_UPDATED, syncEvents);
+    window.addEventListener("storage", syncEvents);
+    return () => {
+      window.removeEventListener(LEARNING_EVENTS_UPDATED, syncEvents);
+      window.removeEventListener("storage", syncEvents);
+    };
+  }, []);
+
   return (
-    <div className="fm-dashboard fm-gradient-soft relative min-h-full overflow-hidden rounded-[28px] border px-4 py-5 shadow-lg sm:px-6 lg:px-8">
+    <div className="fm-dashboard fm-premium-dashboard relative min-h-full overflow-hidden rounded-[28px] border px-4 py-5 shadow-lg sm:px-6 lg:px-8">
       <AnimatedBackground />
 
       <div className="relative z-10 space-y-6">
-        <DashboardHeader greeting={greeting} displayName={displayName} adaptiveMessage={adaptiveMessage} />
-
         {showFirstExperience ? <FirstLearningExperience displayName={displayName} onComplete={completeFirstExperience} /> : null}
 
-        <TodayExpression expression={dailyExpression} />
+        <PremiumDashboardHero
+          greeting={greeting}
+          displayName={displayName}
+          message={dailyHeroMessage}
+          progression={progression}
+          context={userContext}
+        />
 
-        <ProgressionOverview progression={progression} />
+        <DailyMissionCenter progression={progression} dailyExpression={dailyExpression} />
 
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {stats.map((item, index) => (
-            <StatCard key={item.label} index={index} {...item} />
-          ))}
+        <GrowthSection
+          mindBlocks={dashboardData.mindBlocks}
+          playlists={dashboardData.playlists}
+          progression={progression}
+          context={userContext}
+          learningEvents={learningEvents}
+        />
+
+        <section className="grid gap-5 xl:grid-cols-[0.9fr,1.1fr]">
+          <BrainInsights mindBlocks={dashboardData.mindBlocks} context={userContext} learningEvents={learningEvents} />
+          <ActivityFeed learningEvents={learningEvents} progression={progression} mindBlocks={dashboardData.mindBlocks} />
         </section>
 
-        <section className="grid gap-5 xl:grid-cols-[1.25fr,0.75fr]">
-          <GoalCard
-            message={motivationalMessages[getDayIndex(motivationalMessages.length, 3)]}
-            brainState={adaptiveMessage.brainState}
-            context={userContext}
-          />
-          <div className="grid gap-5">
-            <StreakCard streakDays={userContext.streakDays} />
-            <SmartDailyPlan context={userContext} />
-          </div>
-        </section>
-
-        <section className="grid gap-5 xl:grid-cols-[1.05fr,0.95fr]">
-          <RecentExpressionList expressions={recentExpressions} />
-          <ProgressCard progressBars={weeklyProgress} context={userContext} />
-        </section>
+        <ModernRecentExpressions expressions={recentExpressions} />
 
         <section className="grid gap-5 xl:grid-cols-[1fr,0.72fr]">
-          <QuickActions />
+          <PremiumQuickActions />
           <QuoteCard />
         </section>
       </div>
@@ -363,6 +372,361 @@ export default function FluentMindDashboard() {
       <AiCoachButton onClick={() => setCoachOpen(true)} />
       {coachOpen ? <AiCoachPanel onClose={() => setCoachOpen(false)} /> : null}
     </div>
+  );
+}
+
+function PremiumDashboardHero({ greeting, displayName, message, progression, context }) {
+  const xpPercent = Math.min(100, Math.round((progression.xpInCurrentLevel / Math.max(1, progression.xpToNextLevel)) * 100));
+  const remainingXp = Math.max(0, progression.xpToNextLevel - progression.xpInCurrentLevel);
+
+  return (
+    <motion.section
+      className="fm-hero-evolution"
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.55, ease: "easeOut" }}
+    >
+      <div className="fm-hero-evolution-copy">
+        <p className="fm-chip inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]">
+          Fluent brain training
+        </p>
+        <h1>{greeting}, {displayName} <span aria-hidden="true">👋</span></h1>
+        <p className="fm-hero-message">{message}</p>
+
+        <div className="fm-hero-xp-panel">
+          <div>
+            <span>Level</span>
+            <strong>{progression.currentLevel}</strong>
+          </div>
+          <div>
+            <span>Total XP</span>
+            <strong>{progression.totalXp.toLocaleString("en-US")}</strong>
+          </div>
+          <div>
+            <span>Next Level</span>
+            <strong>{remainingXp} XP</strong>
+          </div>
+        </div>
+
+        <div className="fm-hero-progress">
+          <div className="flex items-center justify-between gap-3 text-xs font-semibold">
+            <span>{progression.currentLevelName}</span>
+            <span>{remainingXp} XP until Level {progression.currentLevel + 1}</span>
+          </div>
+          <div className="fm-hero-progress-track">
+            <motion.div
+              className="fm-hero-progress-fill"
+              initial={{ width: 0 }}
+              animate={{ width: `${xpPercent}%` }}
+              transition={{ duration: 0.9, ease: "easeOut" }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <NeuralBrainSculpture stage={progression.brainEvolutionStage} strength={context.fluentmindScore} />
+    </motion.section>
+  );
+}
+
+function NeuralBrainSculpture({ stage, strength }) {
+  const particles = Math.min(18, 6 + Math.floor(stage / 8));
+  const lines = Math.min(12, 4 + Math.floor(strength / 12));
+
+  return (
+    <div className="fm-neural-sculpture" aria-label="FluentMind evolving brain visualization">
+      <span className="fm-neural-sculpture-glow" />
+      <div className="fm-neural-sculpture-core">
+        <span className="brain-lobe lobe-left" />
+        <span className="brain-lobe lobe-right" />
+        <span className="brain-lobe lobe-front" />
+        <span className="brain-lobe lobe-back" />
+        <span className="brain-stem" />
+        {Array.from({ length: lines }).map((_, index) => (
+          <span key={`line-${index}`} className={`brain-line line-${index + 1}`} />
+        ))}
+        {Array.from({ length: particles }).map((_, index) => (
+          <span key={`particle-${index}`} className={`brain-orbit orbit-${(index % 9) + 1}`} style={{ animationDelay: `${index * 0.18}s` }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DailyMissionCenter({ progression, dailyExpression }) {
+  const missionProgress = Math.round(
+    (progression.dailyMissions.filter((mission) => mission.completed).length / Math.max(1, progression.dailyMissions.length)) * 100,
+  );
+  const missions = [
+    ...progression.dailyMissions.slice(0, 3),
+    {
+      id: "today-expression",
+      title: "Learn Today's Expression",
+      description: dailyExpression.phrase,
+      progress: dailyExpression.sourceMindBlockId ? 1 : 0,
+      target: 1,
+      completed: Boolean(dailyExpression.sourceMindBlockId),
+      xpReward: 20,
+    },
+  ];
+
+  return (
+    <motion.section className="fm-mission-center" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
+      <div className="fm-section-heading">
+        <div>
+          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Today&apos;s Brain Mission</p>
+          <h2>Train one stronger neural path today.</h2>
+        </div>
+        <div className="fm-mission-score">
+          <span>Mission Progress</span>
+          <strong>{missionProgress}%</strong>
+        </div>
+      </div>
+
+      <div className="fm-mission-progress-track">
+        <motion.div className="fm-mission-progress-fill" initial={{ width: 0 }} animate={{ width: `${missionProgress}%` }} />
+      </div>
+
+      <div className="fm-mission-grid">
+        {missions.map((mission, index) => (
+          <motion.article
+            key={mission.id}
+            className={`fm-mission-card ${mission.completed ? "is-complete" : ""}`}
+            whileHover={{ y: -4, scale: 1.01 }}
+            transition={{ type: "spring", stiffness: 260, damping: 20 }}
+          >
+            <span className="fm-mission-check">{mission.completed ? <Check className="h-4 w-4" /> : index + 1}</span>
+            <div>
+              <h3>{mission.title}</h3>
+              <p>{mission.description}</p>
+              <small>{mission.progress}/{mission.target} · +{mission.xpReward} XP</small>
+            </div>
+          </motion.article>
+        ))}
+      </div>
+
+      {missionProgress >= 100 ? (
+        <motion.div className="fm-mission-complete" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}>
+          <strong>Brain Growth Completed</strong>
+          <span>+150 XP</span>
+        </motion.div>
+      ) : null}
+    </motion.section>
+  );
+}
+
+function GrowthSection({ mindBlocks, playlists, progression, context, learningEvents }) {
+  const weeklyEvents = learningEvents.filter((event) => Date.now() - new Date(event.createdAt).getTime() <= 1000 * 60 * 60 * 24 * 7);
+  const neuralConnections = Math.max(0, mindBlocks.length * 6 + learningEvents.length * 3 + playlists.length * 4);
+  const cards = [
+    { label: "MindBlocks", value: mindBlocks.length, change: `+${weeklyEvents.filter((event) => event.type === "expression_saved").length} this week`, icon: Brain, tone: "violet" },
+    { label: "Neural Connections", value: neuralConnections, change: `+${weeklyEvents.length * 3} this week`, icon: Zap, tone: "cyan" },
+    { label: "Current Streak", value: context.streakDays, suffix: " days", change: "keep the chain alive", icon: Flame, tone: "orange" },
+    { label: "Mastery Score", value: context.fluentmindScore, suffix: "%", change: `${progression.currentLevelName}`, icon: Target, tone: "green" },
+  ];
+
+  return (
+    <section className="fm-growth-section">
+      <div className="fm-section-heading">
+        <div>
+          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Your Growth</p>
+          <h2>Your brain is becoming more fluent.</h2>
+        </div>
+      </div>
+      <div className="fm-growth-grid">
+        {cards.map((card, index) => (
+          <motion.article
+            key={card.label}
+            className={`fm-growth-card is-${card.tone}`}
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.06 }}
+            whileHover={{ y: -5 }}
+          >
+            <div className="fm-growth-icon">{React.createElement(card.icon, { className: "h-5 w-5" })}</div>
+            <p>{card.label}</p>
+            <strong><AnimatedNumber value={card.value} />{card.suffix || ""}</strong>
+            <span>{card.change}</span>
+          </motion.article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AnimatedNumber({ value }) {
+  const [current, setCurrent] = useState(0);
+
+  useEffect(() => {
+    let frame = 0;
+    const start = performance.now();
+    const animate = (time) => {
+      const progress = Math.min(1, (time - start) / 850);
+      setCurrent(Math.round(value * (1 - (1 - progress) ** 3)));
+      if (progress < 1) frame = requestAnimationFrame(animate);
+    };
+    frame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frame);
+  }, [value]);
+
+  return current.toLocaleString("en-US");
+}
+
+function BrainInsights({ mindBlocks, context, learningEvents }) {
+  const categoryCounts = mindBlocks.reduce((acc, item) => {
+    const category = item.category || "Daily Fluency";
+    acc[category] = (acc[category] || 0) + 1;
+    return acc;
+  }, {});
+  const strongestCategory = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "Daily Fluency";
+  const reviewEvents = learningEvents.filter((event) => event.type === "review_completed" || event.type === "mistake_reviewed").length;
+  const insights = [
+    `You are strongest in ${strongestCategory}.`,
+    `${strongestCategory} is becoming your largest cluster.`,
+    reviewEvents > 2 ? `You reviewed ${reviewEvents} neural paths recently.` : "Your next leap will come from short review sessions.",
+    context.pendingReviews > 0 ? `${context.pendingReviews} MindBlocks are asking for reinforcement.` : "Your memory queue is calm today.",
+  ];
+
+  return (
+    <article className="fm-brain-insights">
+      <div className="fm-section-heading compact">
+        <div>
+          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Brain Insights</p>
+          <h2>Neo sees patterns in your growth.</h2>
+        </div>
+      </div>
+      <div className="fm-insight-list">
+        {insights.map((insight, index) => (
+          <motion.div key={insight} className="fm-insight-item" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }}>
+            <Sparkles className="h-4 w-4" />
+            <span>{insight}</span>
+          </motion.div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function ActivityFeed({ learningEvents, progression, mindBlocks }) {
+  const fallbackActivities = [
+    { id: "fallback-expression", title: "New expression saved", body: mindBlocks[0]?.expression || "I'm looking forward to it.", time: "10 minutes ago", icon: Brain },
+    { id: "fallback-streak", title: `Streak reached ${progression.streak || 1} days`, body: "Your consistency is shaping recall.", time: "Yesterday", icon: Flame },
+    { id: "fallback-universe", title: "Neural Universe expanded", body: `+${Math.max(1, learningEvents.length)} nodes`, time: "Today", icon: Sparkles },
+  ];
+  const eventItems = learningEvents.slice(-6).reverse().map((event) => {
+    const payload = event.payload || {};
+    const map = {
+      expression_saved: ["New expression saved", payload.expression, Brain],
+      correction_saved: ["Correction strengthened", `${payload.wrongText} -> ${payload.correctText}`, Check],
+      conversation_completed: ["Conversation completed", `${payload.xpEarned || 15} XP earned`, MessageCircle],
+      review_completed: ["Review completed", payload.expression, RotateCcw],
+      expression_mastered: ["MindBlock mastered", payload.expression, Target],
+      favorite_added: ["Favorite neural path", payload.expression, Star],
+      playlist_created: ["New cluster created", payload.name, Library],
+    };
+    const [title, body, icon] = map[event.type] || ["Brain activity", event.type, Sparkles];
+    return {
+      id: event.id,
+      title,
+      body: body || "Your FluentMind evolved.",
+      time: formatActivityTime(event.createdAt),
+      icon,
+    };
+  });
+  const activities = eventItems.length ? eventItems : fallbackActivities;
+
+  return (
+    <article className="fm-activity-feed">
+      <div className="fm-section-heading compact">
+        <div>
+          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Your Brain Activity</p>
+          <h2>A living history of your fluency.</h2>
+        </div>
+      </div>
+      <div className="fm-activity-list">
+        {activities.map((item, index) => (
+          <motion.div key={item.id} className="fm-activity-item" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }}>
+            <span>{React.createElement(item.icon, { className: "h-4 w-4" })}</span>
+            <div>
+              <strong>{item.title}</strong>
+              <p>{item.body}</p>
+            </div>
+            <small>{item.time}</small>
+          </motion.div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function formatActivityTime(date) {
+  const diff = Date.now() - new Date(date).getTime();
+  const minutes = Math.max(1, Math.round(diff / 60000));
+  if (minutes < 60) return `${minutes} minutes ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hours ago`;
+  return `${Math.round(hours / 24)} days ago`;
+}
+
+function ModernRecentExpressions({ expressions }) {
+  return (
+    <section className="fm-modern-expressions">
+      <div className="fm-section-heading">
+        <div>
+          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Recent Expressions</p>
+          <h2>Small blocks. Big fluency.</h2>
+        </div>
+        <Link to="/biblioteca" className="fm-secondary inline-flex items-center gap-1 text-xs font-semibold">
+          Open Library <ChevronRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+      <div className="fm-expression-strip">
+        {(expressions.length ? expressions : dailyExpressions.slice(0, 3)).map((item, index) => {
+          const phrase = item.phrase || item.expression;
+          return (
+            <motion.article key={phrase} className="fm-expression-modern-card" whileHover={{ y: -4 }} transition={{ type: "spring", stiffness: 260, damping: 20 }}>
+              <span className="fm-chip rounded-full border px-2.5 py-1 text-[11px] font-semibold">{item.category || "Daily Fluency"}</span>
+              <h3>{phrase}</h3>
+              <p>{item.translation}</p>
+              <div className="fm-expression-actions">
+                <button type="button"><Play className="h-4 w-4 fill-current" /> Ouvir</button>
+                <Link to="/chatbot"><MessageCircle className="h-4 w-4" /> Praticar</Link>
+                <span>{item.mastery ?? 10 + index * 12}%</span>
+              </div>
+            </motion.article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function PremiumQuickActions() {
+  return (
+    <article className="fm-card fm-quick-premium rounded-[30px] border p-6 shadow-md backdrop-blur-xl">
+      <div className="fm-section-heading compact">
+        <div>
+          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Quick Actions</p>
+          <h2>Choose your next neural rep.</h2>
+        </div>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {quickActions.map((action) => (
+          <motion.div key={action.label} whileHover={{ y: -4 }} transition={{ type: "spring", stiffness: 260, damping: 20 }}>
+            <Link to={action.to} className="fm-inner group block rounded-2xl border p-4">
+              <div className="flex items-start justify-between gap-3">
+                <span className="fm-chip flex h-11 w-11 items-center justify-center rounded-2xl border-0">
+                  <action.icon className="h-5 w-5" />
+                </span>
+                <span className="fm-shortcut rounded-lg border px-2 py-1 text-[10px] font-semibold">{action.shortcut}</span>
+              </div>
+              <p className="mt-4 text-sm font-semibold">{action.label}</p>
+              <p className="fm-subtle mt-1 text-xs">{action.description}</p>
+            </Link>
+          </motion.div>
+        ))}
+      </div>
+    </article>
   );
 }
 

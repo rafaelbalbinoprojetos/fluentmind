@@ -6,6 +6,7 @@ import { listMindBlocks, updateMindBlock } from "../services/mindblocks.js";
 import { generateMindBlockAudio, getMindBlockAudio } from "../services/mindblockAudio.js";
 import { createReviewEvent, listReviewEvents } from "../services/reviewEvents.js";
 import { recordDailyActivity } from "../services/learningProgress.js";
+import { listCorrectedMistakes, updateCorrectedMistake } from "../services/correctedMistakes.js";
 
 const REVIEW_SCORES = {
   again: { masteryDelta: -10, correct: false, toast: "No problem. Send it to another round." },
@@ -28,6 +29,33 @@ function sortReviewDeck(expressions) {
   });
 }
 
+function toReviewCard(item, type) {
+  if (type === "mistake") {
+    return {
+      ...item,
+      reviewType: "mistake",
+      expectedText: item.correctedText,
+      promptText: item.originalText,
+      promptLabel: "Corrija esta frase",
+      answerLabel: "Correção",
+      helperText: "Reescreva a frase corrigida antes de revelar.",
+      difficulty: item.level,
+      notes: item.explanation || "Compare a estrutura correta com o erro original e tente repetir em voz alta.",
+      examples: [],
+    };
+  }
+
+  return {
+    ...item,
+    reviewType: "mindblock",
+    expectedText: item.expression,
+    promptText: item.translation?.replace(/\.$/, "").toLowerCase(),
+    promptLabel: "Como dizer em inglês?",
+    answerLabel: "Resposta",
+    helperText: "Digite, fale em voz alta ou responda mentalmente antes de revelar.",
+  };
+}
+
 function calculateNextReview({ result, mastery, timesReviewed }) {
   if (result === "again") return 0;
   if (result === "hard") return Math.max(1, Math.min(3, Math.ceil((timesReviewed + 1) / 2)));
@@ -39,6 +67,10 @@ function calculateNextReview({ result, mastery, timesReviewed }) {
   if (mastery >= 85) return 21;
   if (mastery >= 65) return 14;
   return 7;
+}
+
+function addDaysIso(days) {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
 }
 
 function formatReviewInterval(days) {
@@ -115,12 +147,18 @@ export default function InsightsPage() {
       setLoading(true);
       setLoadError(null);
       try {
-        const [mindBlocks, reviewEvents] = await Promise.all([
+        const [mindBlocks, reviewEvents, correctedMistakes] = await Promise.all([
           listMindBlocks(user.id),
           listReviewEvents(user.id),
+          listCorrectedMistakes(user.id),
         ]);
         if (ignore) return;
-        setDeck(sortReviewDeck(mindBlocks));
+        setDeck(sortReviewDeck([
+          ...mindBlocks.map((item) => toReviewCard(item, "mindblock")),
+          ...correctedMistakes
+            .filter((item) => item.status !== "archived")
+            .map((item) => toReviewCard(item, "mistake")),
+        ]));
         setEvents(reviewEvents);
         setCardIndex(0);
         setShowAnswer(false);
@@ -150,7 +188,7 @@ export default function InsightsPage() {
   const progress = useMemo(() => buildProgress(events), [events]);
   const reviewedCount = sessionStats.reviewed;
   const accuracy = sessionStats.reviewed ? Math.round((sessionStats.correct / sessionStats.reviewed) * 100) : 0;
-  const currentCardId = currentCard?.id;
+  const currentCardKey = currentCard ? `${currentCard.reviewType}:${currentCard.id}` : null;
   const dueCount = useMemo(() => {
     const now = Date.now();
     return deck.filter((item) => {
@@ -158,12 +196,12 @@ export default function InsightsPage() {
       return item.isReviewDue || item.status === "review_due" || dueTime <= now;
     }).length;
   }, [deck]);
-  const typedSimilarity = currentCard ? answerSimilarity(typedAnswer, currentCard.expression) : null;
+  const typedSimilarity = currentCard ? answerSimilarity(typedAnswer, currentCard.expectedText) : null;
 
   useEffect(() => {
-    if (!currentCardId) return;
+    if (!currentCardKey) return;
     setAnswerStartedAt(Date.now());
-  }, [currentCardId]);
+  }, [currentCardKey]);
 
   const nextCard = () => {
     setShowAnswer(false);
@@ -174,7 +212,7 @@ export default function InsightsPage() {
 
   const updateDeckAfterAnswer = (updatedCard, result) => {
     setDeck((current) => {
-      const withoutCurrent = current.filter((item) => item.id !== updatedCard.id);
+      const withoutCurrent = current.filter((item) => item.id !== updatedCard.id || item.reviewType !== updatedCard.reviewType);
       if (result === "again") return [...withoutCurrent, updatedCard];
       return withoutCurrent;
     });
@@ -185,7 +223,7 @@ export default function InsightsPage() {
   };
 
   const playCardAudio = async (card) => {
-    if (!card?.id) return;
+    if (!card?.id || card.reviewType !== "mindblock") return;
     if (!session?.access_token) {
       toast.error("Sessao expirada. Entre novamente para ouvir este MindBlock.");
       return;
@@ -241,42 +279,63 @@ export default function InsightsPage() {
       timesReviewed: currentCard.timesReviewed ?? 0,
     });
     const nextReviewAt = formatReviewInterval(nextDays);
+    const nextReviewAtIso = addDaysIso(nextDays);
 
     setSavingResult(true);
     try {
-      const [event] = await Promise.all([
-        createReviewEvent({
-          userId: user.id,
-          mindBlockId: currentCard.id,
-          result,
-          answerText: typedAnswer.trim() || null,
-          expectedText: currentCard.expression,
-          responseTimeMs,
-        }),
-        updateMindBlock(currentCard.id, {
+      let persistedCard;
+
+      if (currentCard.reviewType === "mistake") {
+        persistedCard = await updateCorrectedMistake(currentCard.id, {
           mastery: nextMastery,
           timesReviewed: (currentCard.timesReviewed ?? 0) + 1,
-          lastReviewedAt: "Today",
-          nextReviewAt,
-          isReviewDue: nextDays === 0,
-          status: nextDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : "learning",
-        }),
-        recordDailyActivity(user.id, {
+          lastReviewedAt: new Date().toISOString(),
+          nextReviewAt: nextReviewAtIso,
+          status: nextDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : "reviewed",
+        });
+        await recordDailyActivity(user.id, {
           expressions_reviewed: 1,
           [`reviews_${result}`]: 1,
           study_minutes: 1,
-        }),
-      ]);
+        });
+      } else {
+        const [event, updatedMindBlock] = await Promise.all([
+          createReviewEvent({
+            userId: user.id,
+            mindBlockId: currentCard.id,
+            result,
+            answerText: typedAnswer.trim() || null,
+            expectedText: currentCard.expectedText,
+            responseTimeMs,
+          }),
+          updateMindBlock(currentCard.id, {
+            mastery: nextMastery,
+            timesReviewed: (currentCard.timesReviewed ?? 0) + 1,
+            lastReviewedAt: "Today",
+            nextReviewAt,
+            isReviewDue: nextDays === 0,
+            status: nextDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : "learning",
+          }),
+          recordDailyActivity(user.id, {
+            expressions_reviewed: 1,
+            [`reviews_${result}`]: 1,
+            study_minutes: 1,
+          }),
+        ]);
+        setEvents((current) => [event, ...current]);
+        persistedCard = updatedMindBlock;
+      }
 
-      setEvents((current) => [event, ...current]);
       const updatedCard = {
+        ...toReviewCard(persistedCard, currentCard.reviewType),
         ...currentCard,
         mastery: nextMastery,
         timesReviewed: (currentCard.timesReviewed ?? 0) + 1,
         lastReviewedAt: "Today",
-        nextReviewAt,
+        nextReviewAt: currentCard.reviewType === "mistake" ? formatReviewInterval(nextDays) : nextReviewAt,
+        nextReviewAtRaw: currentCard.reviewType === "mistake" ? nextReviewAtIso : persistedCard?.nextReviewAtRaw,
         isReviewDue: nextDays === 0,
-        status: nextDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : "learning",
+        status: nextDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : currentCard.reviewType === "mistake" ? "reviewed" : "learning",
       };
       setSessionStats((current) => ({
         ...current,
@@ -309,7 +368,7 @@ export default function InsightsPage() {
         <section className="fm-card rounded-[30px] border p-8 text-center shadow-lg">
           <Brain className="fm-secondary mx-auto h-12 w-12 animate-pulse" />
           <h1 className="mt-4 text-3xl font-semibold">Revisão</h1>
-          <p className="fm-muted mt-2">Carregando seus MindBlocks...</p>
+          <p className="fm-muted mt-2">Carregando MindBlocks e erros corrigidos...</p>
         </section>
       </main>
     );
@@ -321,7 +380,7 @@ export default function InsightsPage() {
         <section className="fm-card rounded-[30px] border p-8 text-center shadow-lg">
           <X className="mx-auto h-12 w-12 text-rose-300" />
           <h1 className="mt-4 text-3xl font-semibold">Revisão indisponível</h1>
-          <p className="fm-muted mt-2">Nao foi possivel carregar `review_events` ou `mindblocks` agora.</p>
+          <p className="fm-muted mt-2">Nao foi possivel carregar MindBlocks, eventos ou erros corrigidos agora.</p>
         </section>
       </main>
     );
@@ -335,8 +394,8 @@ export default function InsightsPage() {
           <h1 className="mt-4 text-3xl font-semibold">{sessionStats.reviewed ? "Sessão concluída" : "Revisão"}</h1>
           <p className="fm-muted mt-2">
             {sessionStats.reviewed
-              ? "Você fortaleceu seus MindBlocks de hoje."
-              : "Nenhuma expressão disponível para revisar agora."}
+              ? "Você fortaleceu seus MindBlocks e correções de hoje."
+              : "Nenhum MindBlock ou erro corrigido disponível para revisar agora."}
           </p>
           {sessionStats.reviewed ? (
             <div className="mt-6 grid gap-3 sm:grid-cols-4">
@@ -377,6 +436,7 @@ export default function InsightsPage() {
             <div className="flex flex-wrap gap-2">
               <span className="library-badge accent">{currentCard.category}</span>
               <span className="library-badge">{currentCard.difficulty}</span>
+              <span className="library-badge">{currentCard.reviewType === "mistake" ? "Erro corrigido" : "MindBlock"}</span>
               {currentCard.isReviewDue || currentCard.status === "review_due" ? (
                 <span className="library-badge warning">Due today</span>
               ) : null}
@@ -390,9 +450,9 @@ export default function InsightsPage() {
             <div className="review-brain-mark">
               <Sparkles className="h-7 w-7" />
             </div>
-            <p className="fm-subtle text-xs font-semibold uppercase tracking-[0.16em]">Como dizer em inglês?</p>
-            <h2>“{currentCard.translation.replace(/\.$/, "").toLowerCase()}”</h2>
-            <p className="fm-muted text-sm">Digite, fale em voz alta ou responda mentalmente antes de revelar.</p>
+            <p className="fm-subtle text-xs font-semibold uppercase tracking-[0.16em]">{currentCard.promptLabel}</p>
+            <h2>“{currentCard.promptText}”</h2>
+            <p className="fm-muted text-sm">{currentCard.helperText}</p>
             {!showAnswer ? (
               <label className="review-typed-answer">
                 <span>Sua resposta</span>
@@ -400,11 +460,11 @@ export default function InsightsPage() {
                   value={typedAnswer}
                   onChange={(event) => setTypedAnswer(event.target.value)}
                   rows={2}
-                  placeholder="Type your answer in English..."
+                  placeholder={currentCard.reviewType === "mistake" ? "Type the corrected sentence..." : "Type your answer in English..."}
                 />
               </label>
             ) : null}
-            {!showAnswer ? (
+            {!showAnswer && currentCard.reviewType === "mindblock" ? (
               <button
                 type="button"
                 disabled={audioLoadingId === currentCard.id}
@@ -419,8 +479,8 @@ export default function InsightsPage() {
 
           {showAnswer ? (
             <div className="review-answer-box">
-              <p className="fm-subtle text-xs font-semibold uppercase tracking-[0.14em]">Resposta</p>
-              <h3>{currentCard.expression}</h3>
+              <p className="fm-subtle text-xs font-semibold uppercase tracking-[0.14em]">{currentCard.answerLabel}</p>
+              <h3>{currentCard.expectedText}</h3>
               {typedAnswer.trim() ? (
                 <div className="review-comparison">
                   <span>You answered {typedSimilarity !== null ? `· ${typedSimilarity}% match` : ""}</span>
@@ -428,7 +488,13 @@ export default function InsightsPage() {
                 </div>
               ) : null}
               <p>{currentCard.notes || "Use como um bloco mental completo, sem traduzir palavra por palavra."}</p>
-              {progress[currentCard.id] ? (
+              {currentCard.reviewType === "mistake" ? (
+                <div className="review-comparison mt-3">
+                  <span>Original</span>
+                  <strong>{currentCard.originalText}</strong>
+                </div>
+              ) : null}
+              {currentCard.reviewType === "mindblock" && progress[currentCard.id] ? (
                 <p className="mt-2 text-xs">
                   Histórico: {progress[currentCard.id].reviewed} revisão(ões) · {progress[currentCard.id].correct} acerto(s)
                 </p>
@@ -457,15 +523,17 @@ export default function InsightsPage() {
               </button>
             ) : (
               <>
-                <button
-                  type="button"
-                  disabled={audioLoadingId === currentCard.id}
-                  onClick={() => playCardAudio(currentCard)}
-                  className="review-answer-button"
-                >
-                  {audioLoadingId === currentCard.id ? <Sparkles className="h-4 w-4 animate-spin" /> : <Headphones className="h-4 w-4" />}
-                  Listen
-                </button>
+                {currentCard.reviewType === "mindblock" ? (
+                  <button
+                    type="button"
+                    disabled={audioLoadingId === currentCard.id}
+                    onClick={() => playCardAudio(currentCard)}
+                    className="review-answer-button"
+                  >
+                    {audioLoadingId === currentCard.id ? <Sparkles className="h-4 w-4 animate-spin" /> : <Headphones className="h-4 w-4" />}
+                    Listen
+                  </button>
+                ) : null}
                 <button type="button" disabled={savingResult} onClick={() => answerCard("again")} className="review-answer-button wrong">
                   <X className="h-4 w-4" /> Again
                 </button>

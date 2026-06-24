@@ -898,6 +898,7 @@ export default function ChatbotPage() {
           summary={sessionSummary}
           expressions={detectedExpressions}
           corrections={detectedCorrections}
+          onEndSession={endSession}
           onClose={() => setMobileSheet(null)}
           onSelectMode={(mode) => {
             chooseNeoMode(mode);
@@ -1193,10 +1194,8 @@ function LearningPanel({
 function NeoMobileNav({ onOpen, onEndSession }) {
   return (
     <nav className="neo-mobile-nav-v3" aria-label="Neo mobile tools">
+      <button type="button" onClick={() => onOpen("tools")}><PanelRight className="h-4 w-4" />Tools</button>
       <button type="button" onClick={() => onOpen("practice")}><Sparkles className="h-4 w-4" />Practice</button>
-      <button type="button" onClick={() => onOpen("session")}><PanelRight className="h-4 w-4" />Session</button>
-      <button type="button" onClick={() => onOpen("memory")}><Brain className="h-4 w-4" />Memory</button>
-      <button type="button" onClick={() => onOpen("history")}><History className="h-4 w-4" />History</button>
       <button type="button" onClick={onEndSession}><Check className="h-4 w-4" />End</button>
     </nav>
   );
@@ -1211,19 +1210,57 @@ function NeoBottomSheet({
   summary,
   expressions,
   corrections,
+  onEndSession,
   onClose,
   onSelectMode,
   onEditMemory,
 }) {
+  const title = {
+    tools: "Learning tools",
+    practice: "Practice",
+    session: "Current Session",
+    memory: "Things I remember",
+    history: "History",
+  }[type] || "Learning tools";
+
   return (
     <div className="neo-sheet-backdrop" role="dialog" aria-modal="true">
       <button type="button" className="neo-sheet-dismiss" onClick={onClose} aria-label="Close sheet" />
       <section className="neo-bottom-sheet">
         <div className="neo-sheet-handle" />
         <header>
-          <h2>{type === "practice" ? "Practice" : type === "session" ? "Current Session" : type === "memory" ? "Things I remember" : "History"}</h2>
+          <h2>{title}</h2>
           <button type="button" onClick={onClose}><X className="h-4 w-4" /></button>
         </header>
+
+        {type === "tools" ? (
+          <div className="neo-sheet-tools">
+            <button type="button" onClick={() => onSelectMode(modes.find((mode) => mode.id === "conversation") || modes[0])}>
+              <MessageCircle className="h-4 w-4" />
+              <span><strong>New practice</strong><small>Choose a conversation path</small></span>
+            </button>
+            <button type="button" onClick={() => onSelectMode(modes.find((mode) => mode.id === "review") || modes[0])}>
+              <RotateCcw className="h-4 w-4" />
+              <span><strong>Review due</strong><small>Strengthen saved expressions</small></span>
+            </button>
+            <button type="button" onClick={() => onSelectMode(modes.find((mode) => mode.id === "correction") || modes[0])}>
+              <Check className="h-4 w-4" />
+              <span><strong>Correct my English</strong><small>Send a phrase and Neo corrects it</small></span>
+            </button>
+            <Link to="/biblioteca">
+              <BookOpen className="h-4 w-4" />
+              <span><strong>Open library</strong><small>See saved MindBlocks</small></span>
+            </Link>
+            <Link to="/neural-universe">
+              <Brain className="h-4 w-4" />
+              <span><strong>Neural Universe</strong><small>View your learning map</small></span>
+            </Link>
+            <button type="button" onClick={onEndSession}>
+              <Check className="h-4 w-4" />
+              <span><strong>End session</strong><small>Show summary and XP</small></span>
+            </button>
+          </div>
+        ) : null}
 
         {type === "practice" ? (
           <div className="neo-sheet-grid">
@@ -1448,21 +1485,24 @@ function NeoMessage({
             </div>
           ) : null}
           {isNeo ? (
-            <div className="neo-response-actions">
-              <button type="button" onClick={() => (primarySuggestion ? onQuickSave(primarySuggestion) : toast("No MindBlock detected in this response."))}>
-                <Sparkles className="h-3.5 w-3.5" /> Save MindBlock
-              </button>
-              <button type="button" onClick={() => (message.correction ? onSaveCorrection(message.correction) : toast("No correction detected in this response."))}>
-                <X className="h-3.5 w-3.5" /> Save Correction
-              </button>
-              <button type="button" onClick={() => onMockAction("Generate Audio", primarySuggestion)}><Volume2 className="h-3.5 w-3.5" /> Generate Audio</button>
-              <button type="button" onClick={() => onMockAction("Practice Pronunciation", primarySuggestion)}><Mic className="h-3.5 w-3.5" /> Practice</button>
-              <button type="button" onClick={() => onMockAction("Add to Review", primarySuggestion)}><RotateCcw className="h-3.5 w-3.5" /> Add to Review</button>
-              <button type="button" onClick={() => onMockAction("Add to Playlist", primarySuggestion)}><BookOpen className="h-3.5 w-3.5" /> Playlist</button>
-              <button type="button" onClick={() => onMockAction("Add to Neural Universe", primarySuggestion)}><Brain className="h-3.5 w-3.5" /> Neural</button>
-              <button type="button" onClick={() => onMockAction("Favorite", primarySuggestion)}><Heart className="h-3.5 w-3.5" /> Favorite</button>
-              <button type="button" onClick={() => onCopy(message.content)}><Clipboard className="h-3.5 w-3.5" /> Copy</button>
-            </div>
+            <details className="neo-response-tools">
+              <summary><Sparkles className="h-3.5 w-3.5" /> Actions and practice</summary>
+              <div className="neo-response-actions">
+                <button type="button" onClick={() => (primarySuggestion ? onQuickSave(primarySuggestion) : toast("No MindBlock detected in this response."))}>
+                  <Sparkles className="h-3.5 w-3.5" /> Save MindBlock
+                </button>
+                <button type="button" onClick={() => (message.correction ? onSaveCorrection(message.correction) : toast("No correction detected in this response."))}>
+                  <X className="h-3.5 w-3.5" /> Save Correction
+                </button>
+                <button type="button" onClick={() => onMockAction("Generate Audio", primarySuggestion)}><Volume2 className="h-3.5 w-3.5" /> Generate Audio</button>
+                <button type="button" onClick={() => onMockAction("Practice Pronunciation", primarySuggestion)}><Mic className="h-3.5 w-3.5" /> Practice</button>
+                <button type="button" onClick={() => onMockAction("Add to Review", primarySuggestion)}><RotateCcw className="h-3.5 w-3.5" /> Add to Review</button>
+                <button type="button" onClick={() => onMockAction("Add to Playlist", primarySuggestion)}><BookOpen className="h-3.5 w-3.5" /> Playlist</button>
+                <button type="button" onClick={() => onMockAction("Add to Neural Universe", primarySuggestion)}><Brain className="h-3.5 w-3.5" /> Neural</button>
+                <button type="button" onClick={() => onMockAction("Favorite", primarySuggestion)}><Heart className="h-3.5 w-3.5" /> Favorite</button>
+                <button type="button" onClick={() => onCopy(message.content)}><Clipboard className="h-3.5 w-3.5" /> Copy</button>
+              </div>
+            </details>
           ) : null}
           {isNeo ? (
             <QuickPractice

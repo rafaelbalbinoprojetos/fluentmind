@@ -21,6 +21,7 @@ import {
   neuralUniverseNodes,
   neuralUniverseStats,
 } from "../data/neuralUniverseMock.js";
+import { trackProgressionAction } from "../services/progressionEngine.js";
 
 const VIEWBOX = { width: 1000, height: 850 };
 const FILTERS = [
@@ -123,6 +124,10 @@ export default function NeuralUniversePage() {
 
   const nodeMap = useMemo(() => new Map(neuralUniverseNodes.map((node) => [node.id, node])), []);
   const timelineLimit = TIMELINES.find((item) => item.id === timeline)?.nodeLimit ?? 999;
+
+  useEffect(() => {
+    trackProgressionAction("openNeuralUniverse", { reason: "Neural Universe opened" });
+  }, []);
 
   const visibleNodes = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();

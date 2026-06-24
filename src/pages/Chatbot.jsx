@@ -36,6 +36,7 @@ import { createMindBlock, listMindBlocks } from "../services/mindblocks.js";
 import { addMindBlockToPlaylist, createPlaylist, listPlaylists } from "../services/playlists.js";
 import { recordDailyActivity } from "../services/learningProgress.js";
 import { createCorrectedMistake } from "../services/correctedMistakes.js";
+import { trackProgressionAction } from "../services/progressionEngine.js";
 import { normalizeMindBlockExpressionText } from "../utils/mindblockText.js";
 
 const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
@@ -398,8 +399,13 @@ export default function ChatbotPage() {
 
   const awardXp = useCallback((amount, reason = "New neural connection formed") => {
     setSessionXp((current) => current + amount);
-    toast.success(`+${amount} XP · ${reason}`, { icon: "✨" });
+    if (amount > 0) toast.success(`+${amount} XP · ${reason}`, { icon: "✨" });
   }, []);
+
+  const trackNeoProgress = useCallback((action, amount, reason, meta = {}) => {
+    awardXp(amount, reason);
+    trackProgressionAction(action, { ...meta, reason, silent: true });
+  }, [awardXp]);
 
   const chooseNeoMode = (mode) => {
     setSelectedMode(mode.id);
@@ -468,24 +474,25 @@ export default function ChatbotPage() {
           createdAt: new Date().toISOString(),
         },
       ]));
-      awardXp(5, "New neural node created");
+      trackNeoProgress("saveMindBlock", 5, "New neural node created", { category: payload?.category });
       toast.success("Conexao neural registrada localmente.");
       return;
     }
 
     if (label === "Generate Audio") {
+      trackNeoProgress("generateAudio", 2, "Audio generated");
       toast("Audio generation will be available soon.");
       return;
     }
 
     if (label === "Practice Pronunciation") {
-      awardXp(10, "Practice completed");
+      trackNeoProgress("practicePronunciation", 5, "Practice completed");
       toast("Practice Pronunciation will be available soon.");
       return;
     }
 
     if (label === "Add to Review") {
-      awardXp(20, "Review item created");
+      trackNeoProgress("completeReviewCard", 10, "Review item created");
       toast.success("Marcado para revisao nesta sessao.");
       return;
     }
@@ -496,7 +503,7 @@ export default function ChatbotPage() {
   };
 
   const endSession = () => {
-    awardXp(15, "Conversation completed");
+    trackNeoProgress("conversationCompleted", 15, "Conversation completed");
     setSummaryOpen(true);
   };
 
@@ -525,7 +532,7 @@ export default function ChatbotPage() {
         conversations_started: created ? 1 : 0,
         study_minutes: 1,
       });
-      awardXp(1, "Message sent");
+      trackNeoProgress("neoMessage", 1, "Message sent");
 
       const visibleMessages = messages[0]?.id === "welcome-neo" ? [] : messages;
       setMessages((current) => {
@@ -717,7 +724,7 @@ export default function ChatbotPage() {
       const savedKey = suggestionKey || (sourceMessageId ? getSuggestionKey(sourceMessageId, form) : null);
       if (savedKey) setSavedSuggestionIds((current) => [...new Set([...current, savedKey])]);
       setSaveModalOpen(false);
-      awardXp(5, "New neural node created");
+      trackNeoProgress("saveMindBlock", 5, "New neural node created", { category: form.category });
       toast.success("MindBlock salvo na sua biblioteca.");
     } catch (error) {
       console.error(error);
@@ -752,7 +759,7 @@ export default function ChatbotPage() {
         study_minutes: 1,
       });
       setSavedCorrectionIds((current) => [...new Set([...current, messageId])]);
-      awardXp(3, "Neural pathway strengthened");
+      trackNeoProgress("saveCorrection", 3, "Neural pathway strengthened", { category: correction.category || "Conversation" });
       if (!silent) toast.success("Correcao salva em Meus Erros.");
       return true;
     } catch (error) {
@@ -760,7 +767,7 @@ export default function ChatbotPage() {
       if (!silent) toast.error(error.message || "Nao foi possivel salvar a correcao.");
       return false;
     }
-  }, [activeSessionId, awardXp, user?.id, user?.user_metadata?.learning_preferences?.currentLevel]);
+  }, [activeSessionId, trackNeoProgress, user?.id, user?.user_metadata?.learning_preferences?.currentLevel]);
 
   const quickSaveSuggestion = async (suggestion, messageId) => {
     const normalized = normalizeSuggestion(suggestion);
@@ -878,7 +885,7 @@ export default function ChatbotPage() {
           onSaveExpression={(suggestion) => quickSaveSuggestion(suggestion, `panel-${suggestion.expression}`)}
           onPracticeExpression={(suggestion) => {
             setInput(`Practice this expression with me: ${suggestion.expression}`);
-            awardXp(10, "Practice started");
+            trackNeoProgress("practicePronunciation", 5, "Practice started");
           }}
           onMockAction={runMockAction}
           onClose={() => setLearningPanelOpen(false)}

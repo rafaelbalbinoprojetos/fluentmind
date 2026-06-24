@@ -43,6 +43,7 @@ import {
   removeMindBlockFromPlaylist,
 } from "../services/playlists.js";
 import { recordDailyActivity } from "../services/learningProgress.js";
+import { trackProgressionAction } from "../services/progressionEngine.js";
 import { normalizeMindBlockExpressionText } from "../utils/mindblockText.js";
 
 const FILTERS = ["All", "Favorites", "Mastered", "Learning", "Review Due", "Mistakes", "Recently Saved"];
@@ -320,6 +321,9 @@ export default function LibraryPage() {
 
   const toggleFavorite = (expression) => {
     updateExpression(expression.id, { isFavorite: !expression.isFavorite });
+    if (!expression.isFavorite) {
+      trackProgressionAction("addFavorite", { reason: "Favorite expression", category: expression.category });
+    }
     toast.success(expression.isFavorite ? "Removed from Favorites." : "Added to Favorites.");
   };
 
@@ -332,6 +336,7 @@ export default function LibraryPage() {
       lastReviewedAt: "Today",
       nextReviewAt: "In 7 days",
     });
+    trackProgressionAction("markMastered", { reason: "Expression mastered", category: expression.category });
     toast.success("Marked as mastered.");
   };
 
@@ -446,6 +451,7 @@ export default function LibraryPage() {
         });
         toast.success("Audio gerado e salvo no Supabase.");
       }
+      trackProgressionAction("generateAudio", { reason: "Audio listened", category: expression.category });
 
       setAudioByMindBlock((current) => ({ ...current, [expression.id]: audioData }));
 
@@ -513,6 +519,7 @@ export default function LibraryPage() {
       });
       setExpressions((current) => [expressionWithPlaylist, ...current]);
       setAddModalOpen(false);
+      trackProgressionAction("saveMindBlock", { reason: "MindBlock saved", category: normalizedPayload.category });
       toast.success(mode === "review" ? "Expression saved and moved to review." : "Expression saved as a new MindBlock.");
     } catch (error) {
       console.error("Erro ao salvar MindBlock:", error);

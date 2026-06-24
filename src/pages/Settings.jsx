@@ -7,6 +7,7 @@ import {
   sanitizeMobileNavSelection,
 } from "../data/navigation.js";
 import { getOrCreateLearningProfile, updateLearningProfile } from "../services/learningProgress.js";
+import { resetProgression } from "../services/progressionEngine.js";
 
 const PRACTICE_GOAL_OPTIONS = [
   { value: "expressions", label: "Salvar expressoes", description: "Priorize novos MindBlocks durante conversas." },
@@ -207,6 +208,13 @@ export default function SettingsPage() {
     } finally {
       setLearningSaving(false);
     }
+  };
+
+  const handleResetProgression = () => {
+    const confirmed = window.confirm("Resetar XP, nivel, missoes diarias e conquistas locais?");
+    if (!confirmed) return;
+    resetProgression();
+    toast.success("Progressao local resetada.");
   };
 
   return (
@@ -519,6 +527,24 @@ export default function SettingsPage() {
             </div>
           </div>
         </form>
+      </section>
+
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Progression Engine</h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              XP, nivel, missoes e conquistas ficam em localStorage nesta etapa.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleResetProgression}
+            className="inline-flex items-center justify-center rounded-md border border-rose-300 px-4 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 dark:border-rose-500/50 dark:text-rose-300 dark:hover:bg-rose-500/10"
+          >
+            Resetar progressao local
+          </button>
+        </div>
       </section>
     </div>
   );

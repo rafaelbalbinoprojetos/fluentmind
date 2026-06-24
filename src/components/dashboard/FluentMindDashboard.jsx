@@ -26,8 +26,10 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import BrainCompanion from "../BrainCompanion.jsx";
+import EvolvingBrain from "../EvolvingBrain.jsx";
 import { FIRST_DASHBOARD_EXPERIENCE_KEY } from "../onboarding/OnboardingPage.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
+import useProgression from "../../hooks/useProgression.js";
 import { listMindBlocks } from "../../services/mindblocks.js";
 import { listPlaylists } from "../../services/playlists.js";
 import { listReviewEvents } from "../../services/reviewEvents.js";
@@ -267,6 +269,7 @@ export default function FluentMindDashboard() {
     }
     return window.localStorage.getItem(FIRST_DASHBOARD_EXPERIENCE_KEY) === "true";
   });
+  const progression = useProgression();
   const greeting = useMemo(() => getGreeting(), []);
   const displayName = useMemo(() => getDisplayName(user, dashboardData.profile), [dashboardData.profile, user]);
   const dailyExpression = useMemo(() => buildTodayExpression(dashboardData.mindBlocks), [dashboardData.mindBlocks]);
@@ -325,6 +328,8 @@ export default function FluentMindDashboard() {
         {showFirstExperience ? <FirstLearningExperience displayName={displayName} onComplete={completeFirstExperience} /> : null}
 
         <TodayExpression expression={dailyExpression} />
+
+        <ProgressionOverview progression={progression} />
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {stats.map((item, index) => (
@@ -668,6 +673,82 @@ function RecentExpressionList({ expressions }) {
         )}
       </div>
     </article>
+  );
+}
+
+function ProgressionOverview({ progression }) {
+  const xpPercent = Math.min(100, Math.round((progression.xpInCurrentLevel / progression.xpToNextLevel) * 100));
+  const remainingXp = Math.max(0, progression.xpToNextLevel - progression.xpInCurrentLevel);
+  const recentAchievements = progression.achievementsUnlocked.slice(-3).reverse();
+
+  return (
+    <section className="grid gap-5 xl:grid-cols-[0.95fr,1.05fr,0.8fr]">
+      <article className="progression-panel">
+        <EvolvingBrain
+          level={progression.currentLevel}
+          xp={progression.totalXp}
+          stage={progression.brainEvolutionStage}
+          size="md"
+          mood={progression.xpInCurrentLevel > 0 ? "focused" : "idle"}
+          showLabel={false}
+        />
+        <div>
+          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.16em]">Progression Engine</p>
+          <h2>Level {progression.currentLevel} — {progression.currentLevelName}</h2>
+          <p>{remainingXp} XP until your next neural path.</p>
+          <div className="progression-xp-track">
+            <div className="progression-xp-fill" style={{ width: `${xpPercent}%` }} />
+          </div>
+        </div>
+      </article>
+
+      <article className="progression-missions">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2>Daily Missions</h2>
+            <p>Small actions that strengthen today&apos;s brain.</p>
+          </div>
+          <span className="fm-chip rounded-full border px-3 py-1 text-xs font-semibold">
+            {progression.dailyMissions.filter((mission) => mission.completed).length}/{progression.dailyMissions.length}
+          </span>
+        </div>
+        <div className="progression-mission-list">
+          {progression.dailyMissions.slice(0, 4).map((mission) => (
+            <div key={mission.id} className={`progression-mission-item ${mission.completed ? "is-complete" : ""}`}>
+              <header>
+                <span>{mission.title}</span>
+                <strong>{mission.progress}/{mission.target}</strong>
+              </header>
+              <small>{mission.description}</small>
+              <div className="progression-xp-track">
+                <div className="progression-xp-fill" style={{ width: `${Math.round((mission.progress / mission.target) * 100)}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </article>
+
+      <article className="progression-achievements">
+        <h2>Recent Achievements</h2>
+        <p>Unlocked proof of your fluency path.</p>
+        <div className="progression-achievement-list">
+          {recentAchievements.length ? recentAchievements.map((achievement) => (
+            <div key={achievement.id} className="progression-achievement-item">
+              <header>
+                <span>{achievement.title}</span>
+                <strong>+{achievement.xpReward} XP</strong>
+              </header>
+              <small>{achievement.description}</small>
+            </div>
+          )) : (
+            <div className="progression-achievement-item">
+              <header><span>No achievements yet</span><strong>0 XP</strong></header>
+              <small>Save, review or practice to unlock your first badge.</small>
+            </div>
+          )}
+        </div>
+      </article>
+    </section>
   );
 }
 

@@ -7,6 +7,7 @@ import { generateMindBlockAudio, getMindBlockAudio } from "../services/mindblock
 import { createReviewEvent, listReviewEvents } from "../services/reviewEvents.js";
 import { recordDailyActivity } from "../services/learningProgress.js";
 import { listCorrectedMistakes, updateCorrectedMistake } from "../services/correctedMistakes.js";
+import { trackProgressionAction } from "../services/progressionEngine.js";
 
 const REVIEW_SCORES = {
   again: { masteryDelta: -10, correct: false, toast: "No problem. Send it to another round." },
@@ -253,6 +254,7 @@ export default function InsightsPage() {
       }
 
       setAudioByMindBlock((current) => ({ ...current, [card.id]: audioData }));
+      trackProgressionAction("generateAudio", { reason: "Review audio listened", category: card.category });
 
       if (audioRef.current) {
         audioRef.current.pause();
@@ -344,6 +346,10 @@ export default function InsightsPage() {
         [result]: current[result] + 1,
       }));
       toast.success(score.toast);
+      trackProgressionAction("completeReviewCard", { reason: "Review card completed", category: currentCard.category });
+      if (result !== "again" && deck.length <= 1) {
+        trackProgressionAction("completeReviewSession", { reason: "Review session completed" });
+      }
       updateDeckAfterAnswer(updatedCard, result);
     } catch (error) {
       console.error("Erro ao registrar revisao:", error);

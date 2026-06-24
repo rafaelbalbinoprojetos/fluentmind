@@ -911,26 +911,28 @@ export default function Layout() {
           </button>
         )}
 
-        <nav className="fm-header fixed bottom-0 left-0 right-0 z-30 flex justify-around border-t py-2 backdrop-blur-xl md:hidden">
-          {mobileNavItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === "/"}
-              className={({ isActive }) =>
-                `flex flex-col items-center gap-1 text-xs font-medium transition ${
-                  isActive
-                    ? "fm-secondary"
-                    : "fm-subtle hover:brightness-125"
-                }`
-              }
-              aria-label={item.label}
-            >
-              <item.icon className="h-5 w-5" />
-              <span>{item.shortLabel}</span>
-            </NavLink>
-          ))}
-        </nav>
+        {!isChatbotRoute ? (
+          <nav className="fm-header fixed bottom-0 left-0 right-0 z-30 flex justify-around border-t py-2 backdrop-blur-xl md:hidden">
+            {mobileNavItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === "/"}
+                className={({ isActive }) =>
+                  `flex flex-col items-center gap-1 text-xs font-medium transition ${
+                    isActive
+                      ? "fm-secondary"
+                      : "fm-subtle hover:brightness-125"
+                  }`
+                }
+                aria-label={item.label}
+              >
+                <item.icon className="h-5 w-5" />
+                <span>{item.shortLabel}</span>
+              </NavLink>
+            ))}
+          </nav>
+        ) : null}
       </div>
       <WelcomeModal
         open={welcomeOpen}

@@ -1194,9 +1194,17 @@ function LearningPanel({
 function NeoMobileNav({ onOpen, onEndSession }) {
   return (
     <nav className="neo-mobile-nav-v3" aria-label="Neo mobile tools">
-      <button type="button" onClick={() => onOpen("tools")}><PanelRight className="h-4 w-4" />Tools</button>
-      <button type="button" onClick={() => onOpen("practice")}><Sparkles className="h-4 w-4" />Practice</button>
-      <button type="button" onClick={onEndSession}><Check className="h-4 w-4" />End</button>
+      <button type="button" className="neo-mobile-tools-trigger" onClick={() => onOpen("tools")}>
+        <PanelRight className="h-4 w-4" />
+        <span>Neo tools</span>
+      </button>
+      <button type="button" className="neo-mobile-practice-trigger" onClick={() => onOpen("practice")}>
+        <Sparkles className="h-4 w-4" />
+        <span>Practice</span>
+      </button>
+      <button type="button" className="neo-mobile-end-trigger" onClick={onEndSession} aria-label="End session">
+        <Check className="h-4 w-4" />
+      </button>
     </nav>
   );
 }

@@ -37,6 +37,7 @@ import { addMindBlockToPlaylist, createPlaylist, listPlaylists } from "../servic
 import { recordDailyActivity } from "../services/learningProgress.js";
 import { createCorrectedMistake } from "../services/correctedMistakes.js";
 import { trackProgressionAction } from "../services/progressionEngine.js";
+import { recordLearningEvent } from "../services/learningEventEngine.js";
 import { normalizeMindBlockExpressionText } from "../utils/mindblockText.js";
 
 const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
@@ -503,6 +504,13 @@ export default function ChatbotPage() {
   };
 
   const endSession = () => {
+    recordLearningEvent("conversation_completed", {
+      conversationId: activeSessionId || `local-${Date.now()}`,
+      expressionsCreated: savedSuggestionIds.length,
+      correctionsCreated: savedCorrectionIds.length,
+      xpEarned: sessionXp,
+      durationMinutes: Math.max(1, messages.filter((message) => message.role !== "system").length),
+    }, "neo_chat");
     trackNeoProgress("conversationCompleted", 15, "Conversation completed");
     setSummaryOpen(true);
   };
@@ -724,6 +732,18 @@ export default function ChatbotPage() {
       const savedKey = suggestionKey || (sourceMessageId ? getSuggestionKey(sourceMessageId, form) : null);
       if (savedKey) setSavedSuggestionIds((current) => [...new Set([...current, savedKey])]);
       setSaveModalOpen(false);
+      recordLearningEvent("expression_saved", {
+        expressionId: mindBlock.id,
+        expression,
+        translation: form.translation,
+        category: form.category,
+        playlistIds: playlist?.id ? [playlist.id] : [],
+        difficulty: form.level || currentLevel,
+        tags: form.tags || [],
+        mastery: mindBlock.mastery ?? 10,
+        isFavorite: Boolean(form.favorite),
+        sourceMessageId,
+      }, "neo_chat");
       trackNeoProgress("saveMindBlock", 5, "New neural node created", { category: form.category });
       toast.success("MindBlock salvo na sua biblioteca.");
     } catch (error) {
@@ -754,6 +774,13 @@ export default function ChatbotPage() {
         category: correction.category || "Conversation",
         level: correction.level || user?.user_metadata?.learning_preferences?.currentLevel || "A2",
       }, { userId: user.id });
+      recordLearningEvent("correction_saved", {
+        wrongText: correction.wrong,
+        correctText: correction.correct,
+        explanation: correction.explanation,
+        category: correction.category || "Conversation",
+        expressionId: messageId,
+      }, "neo_chat");
       await recordDailyActivity(user.id, {
         expressions_reviewed: 1,
         study_minutes: 1,

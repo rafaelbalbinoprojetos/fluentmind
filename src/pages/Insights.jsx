@@ -8,6 +8,7 @@ import { createReviewEvent, listReviewEvents } from "../services/reviewEvents.js
 import { recordDailyActivity } from "../services/learningProgress.js";
 import { listCorrectedMistakes, updateCorrectedMistake } from "../services/correctedMistakes.js";
 import { trackProgressionAction } from "../services/progressionEngine.js";
+import { recordLearningEvent } from "../services/learningEventEngine.js";
 
 const REVIEW_SCORES = {
   again: { masteryDelta: -10, correct: false, toast: "No problem. Send it to another round." },
@@ -255,6 +256,11 @@ export default function InsightsPage() {
 
       setAudioByMindBlock((current) => ({ ...current, [card.id]: audioData }));
       trackProgressionAction("generateAudio", { reason: "Review audio listened", category: card.category });
+      recordLearningEvent("audio_generated_mock", {
+        expressionId: card.id,
+        expression: card.expression,
+        category: card.category,
+      }, "review");
 
       if (audioRef.current) {
         audioRef.current.pause();
@@ -346,6 +352,15 @@ export default function InsightsPage() {
         [result]: current[result] + 1,
       }));
       toast.success(score.toast);
+      recordLearningEvent(currentCard.reviewType === "mistake" ? "mistake_reviewed" : "review_completed", {
+        expressionId: currentCard.id,
+        expression: currentCard.expression,
+        correct: score.correct,
+        result,
+        masteryBefore: currentCard.mastery ?? 0,
+        masteryAfter: nextMastery,
+        category: currentCard.category,
+      }, "review");
       trackProgressionAction("completeReviewCard", { reason: "Review card completed", category: currentCard.category });
       if (result !== "again" && deck.length <= 1) {
         trackProgressionAction("completeReviewSession", { reason: "Review session completed" });

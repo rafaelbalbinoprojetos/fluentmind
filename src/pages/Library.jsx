@@ -44,6 +44,7 @@ import {
 } from "../services/playlists.js";
 import { recordDailyActivity } from "../services/learningProgress.js";
 import { trackProgressionAction } from "../services/progressionEngine.js";
+import { recordLearningEvent } from "../services/learningEventEngine.js";
 import { normalizeMindBlockExpressionText } from "../utils/mindblockText.js";
 
 const FILTERS = ["All", "Favorites", "Mastered", "Learning", "Review Due", "Mistakes", "Recently Saved"];
@@ -322,7 +323,18 @@ export default function LibraryPage() {
   const toggleFavorite = (expression) => {
     updateExpression(expression.id, { isFavorite: !expression.isFavorite });
     if (!expression.isFavorite) {
+      recordLearningEvent("favorite_added", {
+        expressionId: expression.id,
+        expression: expression.expression,
+        category: expression.category,
+      }, "library");
       trackProgressionAction("addFavorite", { reason: "Favorite expression", category: expression.category });
+    } else {
+      recordLearningEvent("favorite_removed", {
+        expressionId: expression.id,
+        expression: expression.expression,
+        category: expression.category,
+      }, "library");
     }
     toast.success(expression.isFavorite ? "Removed from Favorites." : "Added to Favorites.");
   };
@@ -336,6 +348,13 @@ export default function LibraryPage() {
       lastReviewedAt: "Today",
       nextReviewAt: "In 7 days",
     });
+    recordLearningEvent("expression_mastered", {
+      expressionId: expression.id,
+      expression: expression.expression,
+      category: expression.category,
+      masteryBefore: expression.mastery,
+      masteryAfter: 90,
+    }, "library");
     trackProgressionAction("markMastered", { reason: "Expression mastered", category: expression.category });
     toast.success("Marked as mastered.");
   };
@@ -387,6 +406,11 @@ export default function LibraryPage() {
       setPlaylists((current) => current.map((item) => (
         item.id === playlistId ? { ...item, count: (item.count ?? 0) + 1, minutes: Math.max(3, Math.ceil(((item.count ?? 0) + 1) * 0.75)) } : item
       )));
+      recordLearningEvent("playlist_updated", {
+        playlistId,
+        name: playlists.find((item) => item.id === playlistId)?.name || "Playlist",
+        expressionIds: [expression.id],
+      }, "library");
       toast.success("MindBlock adicionado a playlist.");
     } catch (error) {
       console.error("Erro ao adicionar a playlist:", error);
@@ -452,6 +476,11 @@ export default function LibraryPage() {
         toast.success("Audio gerado e salvo no Supabase.");
       }
       trackProgressionAction("generateAudio", { reason: "Audio listened", category: expression.category });
+      recordLearningEvent("audio_generated_mock", {
+        expressionId: expression.id,
+        expression: expression.expression,
+        category: expression.category,
+      }, "library");
 
       setAudioByMindBlock((current) => ({ ...current, [expression.id]: audioData }));
 
@@ -479,6 +508,11 @@ export default function LibraryPage() {
       icon: "message-circle",
     });
     setPlaylists((current) => [playlist, ...current]);
+    recordLearningEvent("playlist_created", {
+      playlistId: playlist.id,
+      name: playlist.name,
+      expressionIds: [],
+    }, "library");
     return playlist;
   };
 
@@ -519,6 +553,17 @@ export default function LibraryPage() {
       });
       setExpressions((current) => [expressionWithPlaylist, ...current]);
       setAddModalOpen(false);
+      recordLearningEvent("expression_saved", {
+        expressionId: nextExpression.id,
+        expression: expressionWithPlaylist.expression,
+        translation: expressionWithPlaylist.translation,
+        category: expressionWithPlaylist.category,
+        playlistIds: expressionWithPlaylist.playlistIds || [],
+        difficulty: expressionWithPlaylist.level,
+        tags: expressionWithPlaylist.tags || [],
+        mastery: expressionWithPlaylist.mastery,
+        isFavorite: expressionWithPlaylist.isFavorite,
+      }, "library");
       trackProgressionAction("saveMindBlock", { reason: "MindBlock saved", category: normalizedPayload.category });
       toast.success(mode === "review" ? "Expression saved and moved to review." : "Expression saved as a new MindBlock.");
     } catch (error) {

@@ -1,6 +1,7 @@
 import React from "react";
 import toast from "react-hot-toast";
 import { ACHIEVEMENTS } from "../data/achievementsMock.js";
+import { recordLearningEvent } from "./learningEventEngine.js";
 
 export const PROGRESSION_STATE_KEY = "fluentmind_progression_state";
 export const ACHIEVEMENTS_KEY = "fluentmind_achievements";
@@ -313,6 +314,12 @@ export function updateDailyMission(action, state = getProgressionState()) {
   if (completedMission) {
     next.totalXp += completedMission.xpReward;
     next.xpInCurrentLevel += completedMission.xpReward;
+    recordLearningEvent("daily_mission_completed", {
+      missionId: completedMission.id,
+      title: completedMission.title,
+      xpReward: completedMission.xpReward,
+      action,
+    }, "progression_engine");
     showProgressToast("Daily Mission Complete", `+${completedMission.xpReward} XP · ${completedMission.title}`);
   }
 
@@ -362,6 +369,19 @@ export function trackProgressionAction(action, meta = {}) {
   }
   if (action === "openNeuralUniverse") {
     state.lastNeuralUniverseOpenDate = dateKey;
+  }
+
+  if (action === "practicePronunciation") {
+    recordLearningEvent("practice_completed", {
+      category: meta.category,
+      reason: meta.reason,
+    }, meta.source || "progression_engine");
+  }
+  if (action === "generateAudio") {
+    recordLearningEvent("audio_generated_mock", {
+      category: meta.category,
+      reason: meta.reason,
+    }, meta.source || "progression_engine");
   }
 
   incrementStats(state, action, meta);

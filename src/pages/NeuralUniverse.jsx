@@ -22,6 +22,14 @@ import {
   neuralUniverseStats,
 } from "../data/neuralUniverseMock.js";
 import { trackProgressionAction } from "../services/progressionEngine.js";
+import {
+  buildNeuralUniverseFromEvents,
+  clearLearningEvents,
+  getLearningEvents,
+  LEARNING_EVENTS_UPDATED,
+  seedLearningEvents,
+} from "../services/learningEventEngine.js";
+import { Link } from "react-router-dom";
 
 const VIEWBOX = { width: 1000, height: 850 };
 const FILTERS = [
@@ -55,12 +63,12 @@ const typeLabels = {
   playlist: "Playlist",
 };
 
-function createInitialPositions() {
-  return Object.fromEntries(neuralUniverseNodes.map((node) => [node.id, { x: node.x, y: node.y }]));
+function createInitialPositions(nodes = neuralUniverseNodes) {
+  return Object.fromEntries(nodes.map((node) => [node.id, { x: node.x, y: node.y }]));
 }
 
-function createInitialVelocities() {
-  return Object.fromEntries(neuralUniverseNodes.map((node) => [node.id, { vx: 0, vy: 0 }]));
+function createInitialVelocities(nodes = neuralUniverseNodes) {
+  return Object.fromEntries(nodes.map((node) => [node.id, { vx: 0, vy: 0 }]));
 }
 
 function isNodeInFilter(node, filter) {
@@ -100,13 +108,19 @@ function getRelatedNodeIds(selectedNodeId, connections) {
 }
 
 export default function NeuralUniversePage() {
+  const [learningEvents, setLearningEvents] = useState(() => getLearningEvents());
+  const dynamicGraph = useMemo(() => buildNeuralUniverseFromEvents(learningEvents), [learningEvents]);
+  const hasLearningEvents = learningEvents.length > 0;
+  const graphNodes = hasLearningEvents ? dynamicGraph.nodes : neuralUniverseNodes;
+  const graphConnections = hasLearningEvents ? dynamicGraph.connections : neuralUniverseConnections;
+  const graphStats = hasLearningEvents ? dynamicGraph.stats : neuralUniverseStats;
   const canvasRef = useRef(null);
-  const positionsRef = useRef(createInitialPositions());
-  const velocitiesRef = useRef(createInitialVelocities());
+  const positionsRef = useRef(createInitialPositions(graphNodes));
+  const velocitiesRef = useRef(createInitialVelocities(graphNodes));
   const transformRef = useRef({ x: 0, y: 0, scale: 1 });
   const dragNodeRef = useRef(null);
-  const visibleIdsRef = useRef(new Set(neuralUniverseNodes.map((node) => node.id)));
-  const [positions, setPositions] = useState(createInitialPositions);
+  const visibleIdsRef = useRef(new Set(graphNodes.map((node) => node.id)));
+  const [positions, setPositions] = useState(() => createInitialPositions(graphNodes));
   const [selectedNode, setSelectedNode] = useState(null);
   const [hoveredNode, setHoveredNode] = useState(null);
   const [filter, setFilter] = useState("all");
@@ -118,29 +132,48 @@ export default function NeuralUniversePage() {
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [showRetrospective, setShowRetrospective] = useState(false);
   const [thoughtPulse, setThoughtPulse] = useState(null);
-  const [replayCount, setReplayCount] = useState(neuralUniverseNodes.length);
+  const [replayCount, setReplayCount] = useState(graphNodes.length);
   const [frameTime, setFrameTime] = useState(0);
   const [mouseParallax, setMouseParallax] = useState({ x: 0, y: 0 });
 
-  const nodeMap = useMemo(() => new Map(neuralUniverseNodes.map((node) => [node.id, node])), []);
+  const nodeMap = useMemo(() => new Map(graphNodes.map((node) => [node.id, node])), [graphNodes]);
   const timelineLimit = TIMELINES.find((item) => item.id === timeline)?.nodeLimit ?? 999;
 
   useEffect(() => {
     trackProgressionAction("openNeuralUniverse", { reason: "Neural Universe opened" });
   }, []);
 
+  useEffect(() => {
+    const syncEvents = () => setLearningEvents(getLearningEvents());
+    window.addEventListener(LEARNING_EVENTS_UPDATED, syncEvents);
+    window.addEventListener("storage", syncEvents);
+    return () => {
+      window.removeEventListener(LEARNING_EVENTS_UPDATED, syncEvents);
+      window.removeEventListener("storage", syncEvents);
+    };
+  }, []);
+
+  useEffect(() => {
+    const nextPositions = createInitialPositions(graphNodes);
+    positionsRef.current = nextPositions;
+    velocitiesRef.current = createInitialVelocities(graphNodes);
+    visibleIdsRef.current = new Set(graphNodes.map((node) => node.id));
+    setPositions(nextPositions);
+    setReplayCount(graphNodes.length);
+  }, [graphNodes]);
+
   const visibleNodes = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
-    return neuralUniverseNodes
+    return graphNodes
       .slice(0, timelineLimit)
       .filter((node) => !normalizedSearch || node.label.toLowerCase().includes(normalizedSearch) || node.category.toLowerCase().includes(normalizedSearch))
       .slice(0, isReplaying ? replayCount : undefined);
-  }, [isReplaying, replayCount, search, timelineLimit]);
+  }, [graphNodes, isReplaying, replayCount, search, timelineLimit]);
 
   const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((node) => node.id)), [visibleNodes]);
   const visibleConnections = useMemo(
-    () => neuralUniverseConnections.filter((connection) => visibleNodeIds.has(connection.source) && visibleNodeIds.has(connection.target)),
-    [visibleNodeIds],
+    () => graphConnections.filter((connection) => visibleNodeIds.has(connection.source) && visibleNodeIds.has(connection.target)),
+    [graphConnections, visibleNodeIds],
   );
   const relatedNodeIds = useMemo(() => getRelatedNodeIds(selectedNode, visibleConnections), [selectedNode, visibleConnections]);
   const selected = selectedNode ? nodeMap.get(selectedNode) : null;
@@ -161,7 +194,7 @@ export default function NeuralUniversePage() {
       const ids = visibleIdsRef.current;
       const positionsNext = positionsRef.current;
       const velocitiesNext = velocitiesRef.current;
-      const visible = neuralUniverseNodes.filter((node) => ids.has(node.id));
+      const visible = graphNodes.filter((node) => ids.has(node.id));
 
       for (let i = 0; i < visible.length; i += 1) {
         const a = visible[i];
@@ -191,7 +224,7 @@ export default function NeuralUniversePage() {
         }
       }
 
-      neuralUniverseConnections.forEach((connection) => {
+      graphConnections.forEach((connection) => {
         if (!ids.has(connection.source) || !ids.has(connection.target)) return;
         const source = nodeMap.get(connection.source);
         const target = nodeMap.get(connection.target);
@@ -242,7 +275,7 @@ export default function NeuralUniversePage() {
 
     animationFrame = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [nodeMap]);
+  }, [graphConnections, graphNodes, nodeMap]);
 
   useEffect(() => {
     if (!isReplaying) return undefined;
@@ -250,11 +283,11 @@ export default function NeuralUniversePage() {
     setSelectedNode(null);
     const interval = window.setInterval(() => {
       setReplayCount((current) => {
-        if (current >= Math.min(timelineLimit, neuralUniverseNodes.length)) {
+        if (current >= Math.min(timelineLimit, graphNodes.length)) {
           window.clearInterval(interval);
           setIsReplaying(false);
           setShowRetrospective(true);
-          setThoughtPulse({ startedAt: performance.now(), targetId: "looking-forward" });
+          setThoughtPulse({ startedAt: performance.now(), targetId: graphNodes.find((node) => node.id !== "core")?.id || "core" });
           window.setTimeout(() => setShowRetrospective(false), 5200);
           return current;
         }
@@ -262,7 +295,7 @@ export default function NeuralUniversePage() {
       });
     }, 220);
     return () => window.clearInterval(interval);
-  }, [isReplaying, timelineLimit]);
+  }, [graphNodes, isReplaying, timelineLimit]);
 
   useEffect(() => {
     if (!thoughtPulse) return undefined;
@@ -273,6 +306,15 @@ export default function NeuralUniversePage() {
   const resetView = () => setTransform({ x: 0, y: 0, scale: 1 });
   const centerCore = () => setTransform({ x: 0, y: 0, scale: 1.08 });
   const openFullscreen = () => canvasRef.current?.requestFullscreen?.();
+  const handleSeedEvents = () => {
+    seedLearningEvents();
+    setLearningEvents(getLearningEvents());
+  };
+  const handleClearEvents = () => {
+    clearLearningEvents();
+    setLearningEvents([]);
+    setSelectedNode(null);
+  };
 
   const handleWheel = (event) => {
     event.preventDefault();
@@ -303,7 +345,7 @@ export default function NeuralUniversePage() {
       const dy = graphPoint.y - previous.y;
       positionsRef.current[drag.id] = graphPoint;
       velocitiesRef.current[drag.id] = { vx: 0, vy: 0 };
-      neuralUniverseConnections.forEach((connection) => {
+      graphConnections.forEach((connection) => {
         const neighborId = connection.source === drag.id ? connection.target : connection.target === drag.id ? connection.source : null;
         if (!neighborId || !positionsRef.current[neighborId]) return;
         velocitiesRef.current[neighborId].vx += dx * 0.055 * connection.strength;
@@ -342,10 +384,10 @@ export default function NeuralUniversePage() {
   };
 
   const triggerThoughtPulse = () => {
-    setThoughtPulse({ startedAt: performance.now(), targetId: "looking-forward" });
+    setThoughtPulse({ startedAt: performance.now(), targetId: graphNodes.find((node) => node.id !== "core")?.id || "core" });
   };
 
-  const replayProgress = Math.min(100, (replayCount / Math.min(timelineLimit, neuralUniverseNodes.length)) * 100);
+  const replayProgress = Math.min(100, (replayCount / Math.min(timelineLimit, graphNodes.length || 1)) * 100);
 
   return (
     <main className={`neural-universe ${isFocusMode ? "is-focus-mode" : ""} relative min-h-[calc(100vh-7rem)] overflow-hidden rounded-[28px] border border-[var(--border-soft)] shadow-lg`}>
@@ -388,9 +430,24 @@ export default function NeuralUniversePage() {
           </div>
         </header>
 
-        <NeuralUniverseStats />
+        <NeuralUniverseStats stats={graphStats} />
         <NeuralUniverseFilters activeFilter={filter} onChange={setFilter} />
         <NeuralTimeline timeline={timeline} onChange={setTimeline} />
+
+        {!hasLearningEvents ? (
+          <section className="neural-empty-state">
+            <div>
+              <p className="fm-chip inline-flex rounded-full border px-3 py-1 text-xs font-semibold">Dynamic Universe</p>
+              <h2>Your Neural Universe is waiting.</h2>
+              <p>Start by saving your first MindBlock with Neo, or seed local learning events to preview the dynamic graph.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link to="/chatbot" className="neural-tool-button">Talk to Neo</Link>
+              <Link to="/biblioteca" className="neural-tool-button">Open Library</Link>
+              <button type="button" onClick={handleSeedEvents} className="neural-tool-button">Seed Learning Events</button>
+            </div>
+          </section>
+        ) : null}
 
         <section className="neural-stage-grid grid flex-1 gap-4 p-4 xl:grid-cols-[1fr,340px]">
           <div className="neural-canvas-shell">
@@ -496,10 +553,17 @@ export default function NeuralUniversePage() {
             </div>
           </div>
 
-          {!isFocusMode ? <NodeDetailsPanel node={selected} onClose={() => setSelectedNode(null)} /> : null}
+          {!isFocusMode ? <NodeDetailsPanel node={selected} nodes={graphNodes} stats={graphStats} onClose={() => setSelectedNode(null)} /> : null}
         </section>
 
-        {showRetrospective ? <ReplayRetrospective /> : null}
+        {hasLearningEvents ? (
+          <div className="neural-debug-actions">
+            <button type="button" onClick={handleSeedEvents}>Seed Learning Events</button>
+            <button type="button" onClick={handleClearEvents}>Clear Events</button>
+          </div>
+        ) : null}
+
+        {showRetrospective ? <ReplayRetrospective stats={graphStats} /> : null}
       </div>
     </main>
   );
@@ -522,18 +586,18 @@ function ClusterConstellation({ node, position }) {
   );
 }
 
-function NeuralUniverseStats() {
-  const stats = [
-    { label: "Nodes", value: neuralUniverseStats.nodes },
-    { label: "Connections", value: neuralUniverseStats.connections },
-    { label: "Mastered", value: neuralUniverseStats.mastered },
-    { label: "Review Due", value: neuralUniverseStats.reviewDue },
-    { label: "Growth Today", value: neuralUniverseStats.growthToday, prefix: "+" },
+function NeuralUniverseStats({ stats }) {
+  const items = [
+    { label: "Nodes", value: stats.nodes },
+    { label: "Connections", value: stats.connections },
+    { label: "Mastered", value: stats.mastered },
+    { label: "Review Due", value: stats.reviewDue },
+    { label: "Growth Today", value: stats.growthToday, prefix: "+" },
   ];
 
   return (
     <div className="neural-hud">
-      {stats.map((item) => (
+      {items.map((item) => (
         <div key={item.label} className="neural-hud-card">
           <span>{item.label}</span>
           <strong>
@@ -605,10 +669,10 @@ function NodeTooltip({ node }) {
   );
 }
 
-function NodeDetailsPanel({ node, onClose }) {
+function NodeDetailsPanel({ node, nodes, stats, onClose }) {
   const isCategory = node?.type === "category";
   const clusterNodes = isCategory
-    ? neuralUniverseNodes.filter((item) => item.category === node.label || node.relatedIds?.includes(item.id))
+    ? nodes.filter((item) => item.category === node.label || node.relatedIds?.includes(item.id))
     : [];
   const mastered = clusterNodes.filter((item) => item.type === "mastered").length;
   const reviewDue = clusterNodes.filter((item) => item.type === "reviewDue").length;
@@ -618,12 +682,12 @@ function NodeDetailsPanel({ node, onClose }) {
       <aside className="neural-side-panel">
         <p className="fm-chip inline-flex rounded-full border px-3 py-1 text-xs font-semibold">Your Universe</p>
         <h2 className="mt-4 text-2xl font-semibold">Your English mind is forming.</h2>
-        <PanelMetric label="Nodes" value={neuralUniverseStats.nodes} />
-        <PanelMetric label="Connections" value={neuralUniverseStats.connections} />
-        <PanelMetric label="Mastered" value={neuralUniverseStats.mastered} />
-        <PanelMetric label="Review Due" value={neuralUniverseStats.reviewDue} />
-        <PanelMetric label="Largest Cluster" value={neuralUniverseStats.largestCluster} />
-        <PanelMetric label="Growth Today" value={`+${neuralUniverseStats.growthToday} nodes`} />
+        <PanelMetric label="Nodes" value={stats.nodes} />
+        <PanelMetric label="Connections" value={stats.connections} />
+        <PanelMetric label="Mastered" value={stats.mastered} />
+        <PanelMetric label="Review Due" value={stats.reviewDue} />
+        <PanelMetric label="Largest Cluster" value={stats.largestCluster} />
+        <PanelMetric label="Growth Today" value={`+${stats.growthToday} events`} />
       </aside>
     );
   }
@@ -673,13 +737,13 @@ function PanelMetric({ label, value }) {
   );
 }
 
-function ReplayRetrospective() {
+function ReplayRetrospective({ stats }) {
   return (
     <div className="neural-retrospective">
-      <strong>248 Nodes</strong>
-      <strong>1482 Connections</strong>
-      <strong>86 Mastered</strong>
-      <strong>+8 Today</strong>
+      <strong>{stats.mindBlocks || 0} MindBlocks</strong>
+      <strong>{stats.corrections || 0} Corrections</strong>
+      <strong>{stats.conversations || 0} Conversations</strong>
+      <strong>{stats.strongConnections || 0} Strong Connections</strong>
     </div>
   );
 }

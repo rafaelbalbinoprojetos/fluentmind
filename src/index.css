@@ -2677,6 +2677,68 @@ a:hover {
   font-weight: 800;
 }
 
+.neural-empty-state {
+  margin: 0 1rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgb(var(--color-accent-primary) / 0.18);
+  border-radius: 1.5rem;
+  padding: 1.25rem;
+  background:
+    radial-gradient(circle at 10% 10%, rgb(var(--color-secondary-primary) / 0.12), transparent 32%),
+    color-mix(in srgb, var(--surface-card) 84%, transparent);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.neural-empty-state h2 {
+  margin-top: 0.7rem;
+  font-size: clamp(1.35rem, 2vw, 2rem);
+  font-weight: 900;
+}
+
+.neural-empty-state p:not(.fm-chip) {
+  margin-top: 0.35rem;
+  max-width: 42rem;
+  color: var(--text-secondary);
+}
+
+.neural-debug-actions {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 8;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.neural-debug-actions button {
+  border: 1px solid var(--border-soft);
+  border-radius: 9999px;
+  padding: 0.55rem 0.8rem;
+  background-color: color-mix(in srgb, var(--surface-card) 78%, transparent);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  backdrop-filter: blur(12px);
+}
+
+@media (max-width: 760px) {
+  .neural-empty-state {
+    align-items: stretch;
+    flex-direction: column;
+    margin-inline: 0.75rem;
+  }
+
+  .neural-debug-actions {
+    position: static;
+    padding: 0 1rem 1rem;
+    flex-wrap: wrap;
+  }
+}
+
 .neural-connection {
   stroke: rgb(var(--color-accent-primary) / 0.24);
   filter: drop-shadow(0 0 7px rgb(var(--color-accent-primary) / 0.16));
@@ -2688,6 +2750,8 @@ a:hover {
 .neural-connection-mastery { stroke: rgb(var(--color-secondary-primary) / 0.36); }
 .neural-connection-favorite { stroke: rgb(var(--color-tertiary-primary) / 0.42); }
 .neural-connection-conversation { stroke: rgb(var(--color-accent-primary) / 0.42); }
+.neural-connection-playlist { stroke: rgb(129 140 248 / 0.45); }
+.neural-connection-related { stroke: rgb(var(--color-secondary-primary) / 0.24); }
 
 g.is-dimmed .neural-connection,
 g.is-dimmed .neural-impulse {
@@ -2804,6 +2868,11 @@ g.is-dimmed .neural-impulse {
 .neural-node-conversation circle {
   fill: rgb(var(--color-accent-primary) / 0.66);
   stroke: rgb(var(--color-accent-light) / 0.92);
+}
+
+.neural-node-playlist circle {
+  fill: rgb(99 102 241 / 0.7);
+  stroke: rgb(165 180 252 / 0.95);
 }
 
 .neural-core-icon,

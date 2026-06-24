@@ -8,6 +8,7 @@ import {
 } from "../data/navigation.js";
 import { getOrCreateLearningProfile, updateLearningProfile } from "../services/learningProgress.js";
 import { resetProgression } from "../services/progressionEngine.js";
+import { clearLearningEvents, seedLearningEvents } from "../services/learningEventEngine.js";
 
 const PRACTICE_GOAL_OPTIONS = [
   { value: "expressions", label: "Salvar expressoes", description: "Priorize novos MindBlocks durante conversas." },
@@ -215,6 +216,18 @@ export default function SettingsPage() {
     if (!confirmed) return;
     resetProgression();
     toast.success("Progressao local resetada.");
+  };
+
+  const handleSeedLearningEvents = () => {
+    const events = seedLearningEvents();
+    toast.success(`${events.length} eventos de aprendizado criados.`);
+  };
+
+  const handleClearLearningEvents = () => {
+    const confirmed = window.confirm("Limpar eventos locais que alimentam o Neural Universe?");
+    if (!confirmed) return;
+    clearLearningEvents();
+    toast.success("Eventos locais limpos.");
   };
 
   return (
@@ -543,6 +556,20 @@ export default function SettingsPage() {
             className="inline-flex items-center justify-center rounded-md border border-rose-300 px-4 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 dark:border-rose-500/50 dark:text-rose-300 dark:hover:bg-rose-500/10"
           >
             Resetar progressao local
+          </button>
+          <button
+            type="button"
+            onClick={handleSeedLearningEvents}
+            className="inline-flex items-center justify-center rounded-md border border-sky-300 px-4 py-2 text-xs font-semibold text-sky-600 transition hover:bg-sky-50 dark:border-sky-500/50 dark:text-sky-300 dark:hover:bg-sky-500/10"
+          >
+            Seed Learning Events
+          </button>
+          <button
+            type="button"
+            onClick={handleClearLearningEvents}
+            className="inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+          >
+            Limpar eventos locais
           </button>
         </div>
       </section>

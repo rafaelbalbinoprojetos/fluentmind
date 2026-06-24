@@ -41,6 +41,7 @@ import { normalizeMindBlockExpressionText } from "../utils/mindblockText.js";
 const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
 const NEO_LOCAL_FAVORITES_KEY = "fluentmind_neo_favorites";
 const NEO_LOCAL_NEURAL_KEY = "fluentmind_neo_neural_activity";
+const NEO_MEMORY_KEY = "fluentmind_neo_memory";
 
 const welcomeMessages = [
   {
@@ -111,6 +112,28 @@ const quickPromptChips = [
   { label: "Give examples", text: "Give me natural examples for: " },
   { label: "Save this", text: "Turn this into a MindBlock: " },
   { label: "Practice with me", text: "Practice this with me step by step: " },
+];
+
+const neoMoods = {
+  curious: { label: "Curious", line: "Let's explore something new today." },
+  focused: { label: "Focused", line: "Let's strengthen what you learned yesterday." },
+  excited: { label: "Excited", line: "Your brain is building new English paths." },
+  proud: { label: "Proud", line: "You are turning mistakes into fluency." },
+  helper: { label: "Helper", line: "I will keep it simple and practical." },
+};
+
+const defaultNeoMemory = [
+  "Your goal is Work English.",
+  "You like technology.",
+  "You're building FluentMind.",
+  "You want to think directly in English.",
+];
+
+const dailyMissions = [
+  "Save 3 expressions",
+  "Practice pronunciation",
+  "Finish 1 review",
+  "Speak with Neo for 5 minutes",
 ];
 
 function getAssistantName(user) {
@@ -203,7 +226,11 @@ export default function ChatbotPage() {
   const [voiceMode, setVoiceMode] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [learningPanelOpen, setLearningPanelOpen] = useState(false);
+  const [mobileSheet, setMobileSheet] = useState(null);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [selectedMode, setSelectedMode] = useState("conversation");
+  const [neoMood, setNeoMood] = useState("curious");
+  const [memoryEntries, setMemoryEntries] = useState(defaultNeoMemory);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const messageListRef = useRef(null);
   const [selectedSuggestion, setSelectedSuggestion] = useState({
@@ -231,8 +258,34 @@ export default function ChatbotPage() {
     mindBlocks: savedSuggestionIds.length,
     corrections: savedCorrectionIds.length || detectedCorrections.length,
     reviewItems: savedSuggestionIds.length + (savedCorrectionIds.length || detectedCorrections.length),
+    xp: realMessages.filter((message) => message.role !== "neo").length
+      + savedSuggestionIds.length * 5
+      + (savedCorrectionIds.length || detectedCorrections.length) * 3,
     progress: Math.min(98, Math.max(12, realMessages.length * 8 + savedSuggestionIds.length * 12 + detectedCorrections.length * 10)),
   };
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(NEO_MEMORY_KEY) || "[]");
+      if (Array.isArray(stored) && stored.length > 0) setMemoryEntries(stored);
+    } catch {
+      setMemoryEntries(defaultNeoMemory);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typing) {
+      setNeoMood("focused");
+    } else if (savedSuggestionIds.length > 0 || savedCorrectionIds.length > 0) {
+      setNeoMood("proud");
+    } else if (selectedMode === "challenge" || selectedMode === "mindblocks") {
+      setNeoMood("excited");
+    } else if (selectedMode === "correction" || selectedMode === "explain") {
+      setNeoMood("helper");
+    } else {
+      setNeoMood("curious");
+    }
+  }, [selectedMode, savedCorrectionIds.length, savedSuggestionIds.length, typing]);
 
   const refreshConversations = useCallback(async (nextActiveSessionId = activeSessionId) => {
     if (!user?.id) return [];
@@ -357,6 +410,19 @@ export default function ChatbotPage() {
         ] : [],
       },
     ]);
+  };
+
+  const editMemory = () => {
+    const nextValue = window.prompt("Edit Neo memory. Use one item per line.", memoryEntries.join("\n"));
+    if (nextValue === null) return;
+    const nextEntries = nextValue
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+    setMemoryEntries(nextEntries.length ? nextEntries : defaultNeoMemory);
+    localStorage.setItem(NEO_MEMORY_KEY, JSON.stringify(nextEntries.length ? nextEntries : defaultNeoMemory));
+    toast.success("Neo memory updated locally.");
   };
 
   const applyQuickPrompt = (chip) => {
@@ -718,6 +784,8 @@ export default function ChatbotPage() {
           assistantName={assistantName}
           voiceMode={voiceMode}
           focusMode={focusMode}
+          mood={neoMoods[neoMood]}
+          avatarState={voiceMode ? "listening" : typing ? "thinking" : "idle"}
           currentLevel={currentLevel}
           chatTone={chatTone}
           onToggleVoice={() => setVoiceMode((value) => !value)}
@@ -741,6 +809,7 @@ export default function ChatbotPage() {
                 onSelectMode={chooseNeoMode}
               />
             ) : null}
+            <NeoMemoryCard entries={memoryEntries} onEdit={editMemory} />
             {messages.map((message) => (
               <NeoMessage
                 key={message.id}
@@ -779,6 +848,34 @@ export default function ChatbotPage() {
           expressions={detectedExpressions}
           corrections={detectedCorrections}
           onClose={() => setLearningPanelOpen(false)}
+        />
+      ) : null}
+
+      <NeoMobileNav onOpen={setMobileSheet} onEndSession={() => setSummaryOpen(true)} />
+
+      {mobileSheet ? (
+        <NeoBottomSheet
+          type={mobileSheet}
+          modes={neoModes}
+          selectedMode={selectedMode}
+          conversations={conversations}
+          memoryEntries={memoryEntries}
+          summary={sessionSummary}
+          expressions={detectedExpressions}
+          corrections={detectedCorrections}
+          onClose={() => setMobileSheet(null)}
+          onSelectMode={(mode) => {
+            chooseNeoMode(mode);
+            setMobileSheet(null);
+          }}
+          onEditMemory={editMemory}
+        />
+      ) : null}
+
+      {summaryOpen ? (
+        <NeoSessionSummary
+          summary={sessionSummary}
+          onClose={() => setSummaryOpen(false)}
         />
       ) : null}
 
@@ -842,6 +939,19 @@ function NeoSessionSidebar({ assistantName, selectedMode, conversations, activeS
   );
 }
 
+function NeoAvatar({ state = "idle", size = "small" }) {
+  return (
+    <div className={`neo-live-avatar is-${state} is-${size}`}>
+      <Brain className={size === "large" ? "h-10 w-10" : "h-5 w-5"} />
+      <span className="neo-avatar-orbit" />
+      <span className="neo-avatar-wave one" />
+      <span className="neo-avatar-wave two" />
+      <span className="neo-avatar-particle one" />
+      <span className="neo-avatar-particle two" />
+    </div>
+  );
+}
+
 function NeoGuidedStart({ displayName, modes, selectedMode, onSelectMode }) {
   return (
     <section className="neo-guided-start">
@@ -865,6 +975,20 @@ function NeoGuidedStart({ displayName, modes, selectedMode, onSelectMode }) {
           </button>
         ))}
       </div>
+    </section>
+  );
+}
+
+function NeoMemoryCard({ entries, onEdit }) {
+  return (
+    <section className="neo-memory-card">
+      <div>
+        <p>I remember:</p>
+        <ul>
+          {entries.slice(0, 4).map((entry) => <li key={entry}>{entry}</li>)}
+        </ul>
+      </div>
+      <button type="button" onClick={onEdit}>Edit Memory</button>
     </section>
   );
 }
@@ -919,6 +1043,7 @@ function LearningPanel({ open, summary, expressions, corrections, onClose }) {
           <span>MindBlocks <strong>{summary.mindBlocks}</strong></span>
           <span>Corrections <strong>{summary.corrections}</strong></span>
           <span>Review items <strong>{summary.reviewItems}</strong></span>
+          <span>Session XP <strong>{summary.xp}</strong></span>
           <span>Progress <strong>{summary.progress}%</strong></span>
         </div>
         <div className="fm-progress-track mt-3 h-2 overflow-hidden rounded-full">
@@ -957,6 +1082,18 @@ function LearningPanel({ open, summary, expressions, corrections, onClose }) {
       </section>
 
       <section className="neo-intel-card">
+        <p>Today's Mission</p>
+        <div className="neo-mission-list">
+          {dailyMissions.map((mission, index) => (
+            <div key={mission}>
+              <span>{mission}</span>
+              <strong>{index === 0 ? `${Math.min(3, summary.mindBlocks)}/3` : index === 2 ? `${Math.min(1, summary.reviewItems)}/1` : "0/1"}</strong>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="neo-intel-card">
         <p>Neural activity</p>
         <div className="neo-neural-line">
           <span>Core</span>
@@ -970,6 +1107,114 @@ function LearningPanel({ open, summary, expressions, corrections, onClose }) {
   );
 }
 
+function NeoMobileNav({ onOpen, onEndSession }) {
+  return (
+    <nav className="neo-mobile-nav-v3" aria-label="Neo mobile tools">
+      <button type="button" onClick={() => onOpen("practice")}><Sparkles className="h-4 w-4" />Practice</button>
+      <button type="button" onClick={() => onOpen("session")}><PanelRight className="h-4 w-4" />Session</button>
+      <button type="button" onClick={() => onOpen("memory")}><Brain className="h-4 w-4" />Memory</button>
+      <button type="button" onClick={() => onOpen("history")}><History className="h-4 w-4" />History</button>
+      <button type="button" onClick={onEndSession}><Check className="h-4 w-4" />End</button>
+    </nav>
+  );
+}
+
+function NeoBottomSheet({
+  type,
+  modes,
+  selectedMode,
+  conversations,
+  memoryEntries,
+  summary,
+  expressions,
+  corrections,
+  onClose,
+  onSelectMode,
+  onEditMemory,
+}) {
+  return (
+    <div className="neo-sheet-backdrop" role="dialog" aria-modal="true">
+      <button type="button" className="neo-sheet-dismiss" onClick={onClose} aria-label="Close sheet" />
+      <section className="neo-bottom-sheet">
+        <div className="neo-sheet-handle" />
+        <header>
+          <h2>{type === "practice" ? "Practice" : type === "session" ? "Current Session" : type === "memory" ? "Things I remember" : "History"}</h2>
+          <button type="button" onClick={onClose}><X className="h-4 w-4" /></button>
+        </header>
+
+        {type === "practice" ? (
+          <div className="neo-sheet-grid">
+            {modes.map((mode) => (
+              <button key={mode.id} type="button" onClick={() => onSelectMode(mode)} className={selectedMode === mode.id ? "is-active" : ""}>
+                <strong>{mode.title}</strong>
+                <small>{mode.description}</small>
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {type === "session" ? (
+          <div className="neo-sheet-stats">
+            <span>Messages <strong>{summary.messages}</strong></span>
+            <span>Expressions <strong>{expressions.length}</strong></span>
+            <span>Corrections <strong>{corrections.length}</strong></span>
+            <span>Session XP <strong>{summary.xp}</strong></span>
+            <span>Neural Growth <strong>{summary.progress}%</strong></span>
+          </div>
+        ) : null}
+
+        {type === "memory" ? (
+          <div className="neo-sheet-memory">
+            {memoryEntries.map((entry) => <p key={entry}>{entry}</p>)}
+            <button type="button" onClick={onEditMemory}>Edit Memory</button>
+          </div>
+        ) : null}
+
+        {type === "history" ? (
+          <div className="neo-sheet-history">
+            {(conversations || []).slice(0, 8).map((conversation) => (
+              <div key={conversation.id}>
+                <strong>{conversation.title || conversation.name || "Neo conversation"}</strong>
+                <small>{conversation.scenario || "Conversation"}</small>
+              </div>
+            ))}
+            {(!conversations || conversations.length === 0) ? <p>No saved conversations yet.</p> : null}
+          </div>
+        ) : null}
+      </section>
+    </div>
+  );
+}
+
+function NeoSessionSummary({ summary, onClose }) {
+  return (
+    <div className="neo-modal-wrap" role="dialog" aria-modal="true">
+      <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Close summary" />
+      <section className="neo-summary-modal">
+        <header>
+          <div>
+            <p>Conversation Summary</p>
+            <h2>Today you practiced</h2>
+          </div>
+          <button type="button" onClick={onClose}><X className="h-5 w-5" /></button>
+        </header>
+        <div className="neo-summary-grid">
+          <span>Learned <strong>{summary.mindBlocks || 5} expressions</strong></span>
+          <span>Corrected <strong>{summary.corrections || 2} mistakes</strong></span>
+          <span>Created <strong>{summary.mindBlocks || 3} MindBlocks</strong></span>
+          <span>Studied <strong>{Math.max(1, Math.ceil(summary.messages * 1.5))} minutes</strong></span>
+        </div>
+        <footer>
+          <button type="button" onClick={() => toast.success("Summary saved locally.")}>Save Summary</button>
+          <Link to="/insights">Review Tomorrow</Link>
+          <Link to="/biblioteca">Open Library</Link>
+          <Link to="/neural-universe">Open Neural Universe</Link>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
 function PlusIcon() {
   return <span className="text-lg leading-none">+</span>;
 }
@@ -978,6 +1223,8 @@ function NeoChatHeader({
   assistantName,
   voiceMode,
   focusMode,
+  mood,
+  avatarState,
   currentLevel,
   chatTone,
   onToggleVoice,
@@ -990,7 +1237,7 @@ function NeoChatHeader({
     <header className="neo-chat-header">
       <div>
         <div className="flex items-center gap-3">
-          <div className="neo-avatar-small"><Brain className="h-5 w-5" /></div>
+          <NeoAvatar state={avatarState} />
           <div>
             <h1>{assistantName}</h1>
             <p>Your personal fluency mentor</p>
@@ -998,11 +1245,13 @@ function NeoChatHeader({
         </div>
         <div className="neo-status-row">
           <span><i /> Online</span>
+          <span>Neo mood: {mood?.label || "Curious"}</span>
           <span>Current mode: {voiceMode ? "Voice" : "Conversation"}</span>
           <span>Level: {currentLevel}</span>
           <span>Tone: {chatTone}</span>
           <span>Goal: Think in English</span>
         </div>
+        <p className="neo-mood-line">{mood?.line || "Let's explore something new today."}</p>
       </div>
 
       <div className="neo-header-actions">

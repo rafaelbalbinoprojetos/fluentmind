@@ -5161,6 +5161,50 @@ g.is-dimmed .neural-impulse {
   font-weight: 780;
 }
 
+.history-event-icon {
+  display: inline-flex;
+  width: 2.8rem;
+  height: 2.8rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(var(--color-accent-primary) / 0.24);
+  border-radius: 1rem;
+  background: rgb(var(--color-accent-primary) / 0.12);
+  color: rgb(var(--color-accent-light));
+  box-shadow: 0 16px 36px rgb(var(--color-accent-primary) / 0.12);
+}
+
+.history-event-icon-violet {
+  border-color: rgb(var(--color-accent-primary) / 0.34);
+  background: rgb(var(--color-accent-primary) / 0.14);
+  color: rgb(var(--color-accent-light));
+}
+
+.history-event-icon-cyan {
+  border-color: rgb(var(--color-info-primary) / 0.34);
+  background: rgb(var(--color-info-primary) / 0.14);
+  color: rgb(var(--color-info-primary));
+}
+
+.history-event-icon-green {
+  border-color: rgb(var(--color-success-primary) / 0.34);
+  background: rgb(var(--color-success-primary) / 0.14);
+  color: rgb(var(--color-success-primary));
+}
+
+.history-event-icon-amber {
+  border-color: rgb(var(--color-warning-primary) / 0.34);
+  background: rgb(var(--color-warning-primary) / 0.14);
+  color: rgb(var(--color-warning-primary));
+}
+
+.history-event-icon-blue {
+  border-color: rgb(var(--color-secondary-primary) / 0.34);
+  background: rgb(var(--color-secondary-primary) / 0.14);
+  color: rgb(var(--color-secondary-primary));
+}
+
 .evolving-brain {
   display: inline-grid;
   justify-items: center;

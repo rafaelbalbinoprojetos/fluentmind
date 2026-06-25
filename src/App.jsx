@@ -3,6 +3,7 @@ import Layout from "./layout/Layout.jsx";
 import DashboardPage from "./pages/Dashboard.jsx";
 import DailyWorkoutPage from "./pages/DailyWorkout.jsx";
 import LearningJourneyPage from "./pages/LearningJourney.jsx";
+import LearningHistoryPage from "./pages/LearningHistory.jsx";
 import LibraryPage from "./pages/Library.jsx";
 import PlaylistsPage from "./pages/Playlists.jsx";
 import InsightsPage from "./pages/Insights.jsx";
@@ -37,6 +38,7 @@ function App() {
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="daily-workout" element={<DailyWorkoutPage />} />
             <Route path="learning-journey" element={<LearningJourneyPage />} />
+            <Route path="historico" element={<LearningHistoryPage />} />
             <Route path="biblioteca" element={<LibraryPage />} />
             <Route path="playlists" element={<PlaylistsPage />} />
             <Route path="insights" element={<InsightsPage />} />

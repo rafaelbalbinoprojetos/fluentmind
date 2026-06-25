@@ -76,7 +76,13 @@ supabase/
 
 docs/
   FLUENTMIND_SYSTEM_OVERVIEW.md
+  FLUENTMIND_USER_MANUAL.md
 ```
+
+## Documentacao complementar
+
+- `docs/FLUENTMIND_SYSTEM_OVERVIEW.md`: visao tecnica do sistema, arquitetura, rotas, services, banco e APIs.
+- `docs/FLUENTMIND_USER_MANUAL.md`: manual de uso e treinamento para usuario, com fluxo recomendado, features e melhores praticas.
 
 ## Rotas principais
 

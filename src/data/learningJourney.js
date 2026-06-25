@@ -1,6 +1,6 @@
 export const LEARNING_JOURNEY_KEY = "fluentmind_learning_journey_progress";
 
-export const learningJourneyChapters = [
+const baseLearningJourneyChapters = [
   {
     id: "about-me",
     order: 1,
@@ -234,6 +234,215 @@ export const learningJourneyChapters = [
   },
 ];
 
+function buildInteractiveCourseMaterial(chapter) {
+  const [primaryExpression, primaryTranslation] = chapter.mindBlocks[0] || ["", ""];
+  const [secondExpression, secondTranslation] = chapter.mindBlocks[1] || chapter.mindBlocks[0] || ["", ""];
+  const [thirdExpression, thirdTranslation] = chapter.mindBlocks[2] || chapter.mindBlocks[0] || ["", ""];
+  const topic = chapter.title;
+
+  return {
+    lessonTitle: `Como usar ${topic} em conversas reais`,
+    lesson: [
+      `Neste capítulo, o objetivo não é decorar palavras soltas. Você vai treinar blocos prontos de pensamento para conseguir responder com mais naturalidade quando o assunto for ${topic}.`,
+      `Leia a frase em inglês, entenda a ideia em português e repita o bloco inteiro em voz alta. O foco é criar reflexo: situação, frase útil e resposta natural.`,
+      `Quando praticar com o Neo, tente usar pelo menos duas frases deste capítulo. Se errar, salve a correção como um novo MindBlock para revisar depois.`,
+    ],
+    examples: [
+      {
+        expression: primaryExpression,
+        translation: primaryTranslation,
+        context: "Use como frase principal quando quiser começar uma resposta simples.",
+      },
+      {
+        expression: secondExpression,
+        translation: secondTranslation,
+        context: "Use como variação para deixar a conversa continuar sem travar.",
+      },
+      {
+        expression: thirdExpression,
+        translation: thirdTranslation,
+        context: "Use quando precisar responder de forma curta, clara e natural.",
+      },
+    ],
+    commonMistakes: [
+      {
+        wrong: "I am have...",
+        correct: "I have...",
+        reason: "Em inglês, use 'I have' para posse. Não misture 'am' com 'have'.",
+      },
+      {
+        wrong: "I from Brazil.",
+        correct: "I'm from Brazil.",
+        reason: "Para dizer origem, use 'I'm from...' porque a frase precisa do verbo 'to be'.",
+      },
+    ],
+    practiceDrills: [
+      `Complete em inglês usando uma frase do capítulo: "${primaryTranslation}"`,
+      `Crie uma frase pessoal começando com: "${primaryExpression.split(" ").slice(0, 3).join(" ")}..."`,
+      `Envie uma resposta curta para o Neo usando duas palavras do vocabulário: ${chapter.vocabulary.slice(0, 2).join(" + ")}.`,
+    ],
+    miniQuiz: {
+      question: `Como você usaria "${primaryExpression}" em uma situação real?`,
+      hint: "Responda com uma frase curta, pessoal e natural. Depois peça para o Neo corrigir.",
+    },
+    studyTip: "Estude em três ciclos: ler, ouvir/repetir e usar em uma frase pessoal.",
+  };
+}
+
+const chapterMaterialOverrides = {
+  "about-me": {
+    commonMistakes: [
+      {
+        wrong: "My name Rafael.",
+        correct: "My name is Rafael.",
+        reason: "Em inglês, a frase precisa do verbo 'is' para ligar o nome à pessoa.",
+      },
+      {
+        wrong: "I have 30 years.",
+        correct: "I'm 30 years old.",
+        reason: "Idade em inglês usa o verbo 'to be': I am / I'm.",
+      },
+    ],
+    practiceDrills: [
+      "Escreva 4 frases sobre você: nome, país, trabalho e objetivo.",
+      "Fale em voz alta: My name is... I'm from... I work in...",
+      "Peça ao Neo: 'Practice introductions with me slowly.'",
+    ],
+  },
+  "daily-routine": {
+    commonMistakes: [
+      {
+        wrong: "I work in night.",
+        correct: "I work at night.",
+        reason: "Para período do dia, use 'at night'.",
+      },
+      {
+        wrong: "I go to home.",
+        correct: "I go home.",
+        reason: "'Home' geralmente não usa 'to' depois de go.",
+      },
+    ],
+  },
+  questions: {
+    commonMistakes: [
+      {
+        wrong: "Where you live?",
+        correct: "Where do you live?",
+        reason: "Perguntas no presente simples usam auxiliar 'do'.",
+      },
+      {
+        wrong: "What you do?",
+        correct: "What do you do?",
+        reason: "Use 'do' para formar perguntas comuns.",
+      },
+    ],
+  },
+  family: {
+    commonMistakes: [
+      {
+        wrong: "I have 2 brothers and 1 sisters.",
+        correct: "I have 2 brothers and 1 sister.",
+        reason: "Singular e plural precisam concordar com a quantidade.",
+      },
+      {
+        wrong: "My mother have...",
+        correct: "My mother has...",
+        reason: "He/she/it usa 'has'.",
+      },
+    ],
+  },
+  feelings: {
+    commonMistakes: [
+      {
+        wrong: "I am with tired.",
+        correct: "I'm tired.",
+        reason: "Sentimentos comuns usam 'I'm + adjective'.",
+      },
+      {
+        wrong: "I have afraid.",
+        correct: "I'm afraid.",
+        reason: "Para emoções, muitas vezes usamos 'I'm'.",
+      },
+    ],
+  },
+  "work-english": {
+    commonMistakes: [
+      {
+        wrong: "I work in night shift.",
+        correct: "I work the night shift.",
+        reason: "Para turno, a forma natural é 'work the night shift'.",
+      },
+      {
+        wrong: "I need do a report.",
+        correct: "I need to write a report.",
+        reason: "Depois de 'need', use infinitivo: need to + verbo.",
+      },
+    ],
+  },
+  technology: {
+    commonMistakes: [
+      {
+        wrong: "The API don't work.",
+        correct: "The API doesn't work.",
+        reason: "Para it/he/she, use 'doesn't'.",
+      },
+      {
+        wrong: "I need deploy.",
+        correct: "I need to deploy.",
+        reason: "Depois de 'need', use 'to + verbo'.",
+      },
+    ],
+  },
+  travel: {
+    commonMistakes: [
+      {
+        wrong: "I have reservation.",
+        correct: "I have a reservation.",
+        reason: "Substantivos contáveis no singular geralmente precisam de artigo.",
+      },
+      {
+        wrong: "Where is taxi?",
+        correct: "Where is the taxi?",
+        reason: "Use 'the' quando fala de algo específico.",
+      },
+    ],
+  },
+  "small-talk": {
+    commonMistakes: [
+      {
+        wrong: "How is going?",
+        correct: "How's it going?",
+        reason: "A expressão natural inclui 'it'.",
+      },
+      {
+        wrong: "The weather is good today?",
+        correct: "Is the weather good today?",
+        reason: "Perguntas com 'to be' invertem sujeito e verbo.",
+      },
+    ],
+  },
+  "real-conversations": {
+    commonMistakes: [
+      {
+        wrong: "Can you repeat, please?",
+        correct: "Can you repeat that, please?",
+        reason: "Use 'that' para indicar o que precisa ser repetido.",
+      },
+      {
+        wrong: "Let me to think.",
+        correct: "Let me think.",
+        reason: "Depois de 'let me', use o verbo base, sem 'to'.",
+      },
+    ],
+  },
+};
+
+export const learningJourneyChapters = baseLearningJourneyChapters.map((chapter) => ({
+  ...chapter,
+  ...buildInteractiveCourseMaterial(chapter),
+  ...(chapterMaterialOverrides[chapter.id] || {}),
+}));
+
 export function getInitialJourneyProgress() {
   return {
     activeChapterId: learningJourneyChapters[0].id,
@@ -246,12 +455,16 @@ export function getInitialJourneyProgress() {
 export function getChapterChecklist(chapter, progress = {}) {
   const current = progress.chapterProgress?.[chapter.id] || {};
   return [
-    { id: "vocabulary", label: "Vocabulary", complete: Boolean(current.vocabulary) },
+    { id: "lesson", label: "Aula", complete: Boolean(current.lesson) },
+    { id: "vocabulary", label: "Vocabulário", complete: Boolean(current.vocabulary) },
     { id: "mindblocks", label: "MindBlocks", complete: Boolean(current.mindblocks) },
-    { id: "review", label: "Review", complete: Boolean(current.review) },
-    { id: "listening", label: "Listening", complete: Boolean(current.listening) },
-    { id: "conversation", label: "Conversation", complete: Boolean(current.conversation) },
-    { id: "challenge", label: "Challenge", complete: Boolean(current.challenge) },
+    { id: "examples", label: "Exemplos", complete: Boolean(current.examples) },
+    { id: "mistakes", label: "Erros", complete: Boolean(current.mistakes) },
+    { id: "review", label: "Revisão", complete: Boolean(current.review) },
+    { id: "listening", label: "Escuta", complete: Boolean(current.listening) },
+    { id: "practice", label: "Exercícios", complete: Boolean(current.practice) },
+    { id: "conversation", label: "Conversa", complete: Boolean(current.conversation) },
+    { id: "challenge", label: "Desafio", complete: Boolean(current.challenge) },
   ];
 }
 

@@ -61,14 +61,19 @@ function createChapterMindBlockPayload(chapter, [expression, translation]) {
     notes: `Saved from Learning Journey chapter ${chapter.order}: ${chapter.title}.`,
     meta: {
       usage: chapter.objective,
-      examples: [`${expression} ${chapter.title === "About Me" ? "Nice to meet you." : ""}`.trim()],
+      examples: chapter.examples?.map((item) => item.expression) || [`${expression} ${chapter.title === "About Me" ? "Nice to meet you." : ""}`.trim()],
       pattern: `${expression.split(" ").slice(0, 3).join(" ")} + context`,
       patternExplanation: chapter.intro,
+      commonMistake: chapter.commonMistakes?.[0] ? {
+        wrong: chapter.commonMistakes[0].wrong,
+        correct: chapter.commonMistakes[0].correct,
+        explanation: chapter.commonMistakes[0].reason,
+      } : null,
       relatedExpressions: chapter.mindBlocks.slice(0, 3).map(([itemExpression, itemTranslation]) => ({
         expression: itemExpression,
         translation: itemTranslation,
       })),
-      practice: chapter.finalChallenge,
+      practice: chapter.practiceDrills?.join("\n") || chapter.finalChallenge,
     },
   };
 }
@@ -146,9 +151,9 @@ export default function LearningJourneyPage() {
 
   const handleCompleteChapter = () => {
     const currentChecklist = getChapterChecklist(selectedChapter, journeyProgress);
-    const minimumReady = currentChecklist.filter((item) => item.complete).length >= 4;
+    const minimumReady = currentChecklist.filter((item) => item.complete).length >= 6;
     if (!minimumReady) {
-      toast.error("Conclua pelo menos 4 etapas do capitulo antes do desafio final.");
+      toast.error("Conclua pelo menos 6 etapas do capítulo antes do desafio final.");
       return;
     }
 
@@ -341,6 +346,23 @@ function ChapterDetail({ chapter, checklist, progressPercent, saving, neoUrl, on
       </div>
 
       <div className="mt-8 grid gap-4 lg:grid-cols-2">
+        <LessonSection title="Aula principal" icon={BookOpen} actionLabel="Marcar aula concluída" onAction={() => onStep("lesson")}>
+          <div className="space-y-4">
+            <div className="rounded-[26px] border border-cyan-400/20 bg-cyan-400/[0.06] p-5">
+              <p className="fm-accent text-xs font-black uppercase tracking-[0.16em]">{chapter.lessonTitle}</p>
+              <div className="mt-4 space-y-3">
+                {chapter.lesson.map((paragraph) => (
+                  <p key={paragraph} className="fm-muted text-sm leading-7">{paragraph}</p>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-[22px] border border-[var(--border-soft)] bg-white/[0.03] p-4">
+              <strong className="block text-sm">Como estudar este capítulo</strong>
+              <p className="fm-muted mt-2 text-sm leading-6">{chapter.studyTip}</p>
+            </div>
+          </div>
+        </LessonSection>
+
         <LessonSection title="Vocabulário" icon={BookOpen} actionLabel="Marcar vocabulário concluído" onAction={() => onStep("vocabulary")}>
           <div className="flex flex-wrap gap-2">
             {chapter.vocabulary.map((word) => (
@@ -360,6 +382,30 @@ function ChapterDetail({ chapter, checklist, progressPercent, saving, neoUrl, on
           </div>
         </LessonSection>
 
+        <LessonSection title="Exemplos reais" icon={MessageCircle} actionLabel="Marcar exemplos lidos" onAction={() => onStep("examples")}>
+          <div className="space-y-3">
+            {chapter.examples.map((example) => (
+              <div key={example.expression} className="rounded-2xl border border-[var(--border-soft)] bg-white/[0.03] p-4">
+                <strong className="block text-sm">{example.expression}</strong>
+                <span className="fm-muted mt-1 block text-xs">{example.translation}</span>
+                <p className="fm-subtle mt-3 text-xs leading-5">{example.context}</p>
+              </div>
+            ))}
+          </div>
+        </LessonSection>
+
+        <LessonSection title="Erros comuns" icon={Zap} actionLabel="Marcar erros estudados" onAction={() => onStep("mistakes")}>
+          <div className="space-y-3">
+            {chapter.commonMistakes.map((mistake) => (
+              <div key={mistake.wrong} className="rounded-2xl border border-rose-400/20 bg-rose-500/[0.06] p-4">
+                <p className="text-sm font-bold text-rose-300">Evite: {mistake.wrong}</p>
+                <p className="mt-1 text-sm font-bold text-emerald-300">Use: {mistake.correct}</p>
+                <p className="fm-muted mt-2 text-xs leading-5">{mistake.reason}</p>
+              </div>
+            ))}
+          </div>
+        </LessonSection>
+
         <LessonSection title="Escuta e fala" icon={Headphones} actionLabel="Marcar escuta concluída" onAction={() => {
           onStep("listening");
           onStep("review");
@@ -367,8 +413,26 @@ function ChapterDetail({ chapter, checklist, progressPercent, saving, neoUrl, on
           <p className="fm-muted text-sm leading-6">Ouça os MindBlocks do capítulo na Biblioteca, repita em voz alta e volte para marcar esta etapa.</p>
         </LessonSection>
 
+        <LessonSection title="Exercícios rápidos" icon={Target} actionLabel="Marcar exercícios concluídos" onAction={() => onStep("practice")}>
+          <div className="space-y-3">
+            {chapter.practiceDrills.map((drill, index) => (
+              <div key={drill} className="rounded-2xl border border-[var(--border-soft)] bg-white/[0.03] p-4">
+                <span className="fm-chip inline-flex rounded-full border px-2.5 py-1 text-[11px] font-black">Exercício {index + 1}</span>
+                <p className="fm-muted mt-3 text-sm leading-6">{drill}</p>
+              </div>
+            ))}
+            <div className="rounded-2xl border border-violet-400/20 bg-violet-500/[0.06] p-4">
+              <strong className="block text-sm">Mini quiz</strong>
+              <p className="fm-muted mt-2 text-sm">{chapter.miniQuiz.question}</p>
+              <p className="fm-subtle mt-2 text-xs">{chapter.miniQuiz.hint}</p>
+            </div>
+          </div>
+        </LessonSection>
+
         <LessonSection title="Conversa" icon={MessageCircle} actionLabel="Marcar conversa concluída" onAction={() => onStep("conversation")}>
-          <p className="fm-muted text-sm leading-6">{chapter.neoPrompt}</p>
+          <p className="fm-muted text-sm leading-6">
+            Abra o Neo para praticar este capítulo em conversa guiada. Ele vai usar os MindBlocks, corrigir erros importantes e sugerir novos blocos para salvar.
+          </p>
           <Link to={neoUrl} className="fm-primary-button mt-4 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-black">
             Praticar com Neo <ChevronRight className="h-4 w-4" />
           </Link>

@@ -19,25 +19,25 @@ const PRACTICE_GOAL_OPTIONS = [
 const LEVEL_OPTIONS = ["A1", "A2", "B1", "B2", "C1", "C2"];
 
 export default function SettingsPage() {
-  const { user, updateUserMetadata, subscription } = useAuth();
+  const { user, updateUserMetadata, updateUserPreferences, userPreferences, subscription } = useAuth();
   const metadata = useMemo(() => user?.user_metadata ?? {}, [user]);
   const { effectivePlan = "free", hasLifetimeAccess = false, isMasterUser = false } = subscription ?? {};
   const storedMobileNav = useMemo(() => {
-    const sanitized = sanitizeMobileNavSelection(metadata.mobile_nav_paths);
+    const sanitized = sanitizeMobileNavSelection(userPreferences?.mobileNavPaths ?? metadata.mobile_nav_paths);
     return sanitized.length > 0 ? sanitized : DEFAULT_MOBILE_NAV_PATHS;
-  }, [metadata]);
+  }, [metadata, userPreferences?.mobileNavPaths]);
   const learningMetadata = useMemo(() => metadata.learning_preferences ?? {}, [metadata]);
   const [learningProfile, setLearningProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const initialLearning = useMemo(
     () => ({
-      dailyGoal: String(learningProfile?.daily_expression_goal ?? learningMetadata.dailyGoal ?? 30),
-      currentLevel: learningProfile?.current_level ?? learningMetadata.currentLevel ?? "A2",
-      targetLanguage: learningProfile?.target_language ?? learningMetadata.targetLanguage ?? "en",
-      practiceFocus: learningMetadata.practiceFocus ?? "expressions",
-      showToasts: learningMetadata.showToasts !== false,
+      dailyGoal: String(userPreferences?.dailyExpressionGoal ?? learningProfile?.daily_expression_goal ?? learningMetadata.dailyGoal ?? 30),
+      currentLevel: userPreferences?.currentLevel ?? learningProfile?.current_level ?? learningMetadata.currentLevel ?? "A2",
+      targetLanguage: userPreferences?.targetLanguage ?? learningProfile?.target_language ?? learningMetadata.targetLanguage ?? "en",
+      practiceFocus: userPreferences?.practiceFocus ?? learningMetadata.practiceFocus ?? "expressions",
+      showToasts: userPreferences?.showToasts ?? learningMetadata.showToasts !== false,
     }),
-    [learningMetadata, learningProfile],
+    [learningMetadata, learningProfile, userPreferences],
   );
 
   const [mobileNavSelection, setMobileNavSelection] = useState(storedMobileNav);
@@ -48,18 +48,18 @@ export default function SettingsPage() {
     return storedMobileNav.some((path, index) => path !== mobileNavSelection[index]);
   }, [mobileNavSelection, storedMobileNav]);
 
-  const [displayName, setDisplayName] = useState(() => metadata.display_name ?? "");
-  const [assistantName, setAssistantName] = useState(() => metadata.assistant_name ?? "Neo");
-  const [assistantVoice, setAssistantVoice] = useState(() => metadata.assistant_voice ?? "mineirinha");
-  const [chatTone, setChatTone] = useState(() => metadata.chat_tone ?? "natural");
-  const [mindBlockSaveMode, setMindBlockSaveMode] = useState(() => metadata.mindblock_save_mode ?? "ask");
+  const [displayName, setDisplayName] = useState(() => userPreferences?.displayName ?? metadata.display_name ?? "");
+  const [assistantName, setAssistantName] = useState(() => userPreferences?.assistantName ?? metadata.assistant_name ?? "Neo");
+  const [assistantVoice, setAssistantVoice] = useState(() => userPreferences?.assistantVoice ?? metadata.assistant_voice ?? "mineirinha");
+  const [chatTone, setChatTone] = useState(() => userPreferences?.chatTone ?? metadata.chat_tone ?? "natural");
+  const [mindBlockSaveMode, setMindBlockSaveMode] = useState(() => userPreferences?.mindBlockSaveMode ?? metadata.mindblock_save_mode ?? "ask");
   const [profileSaving, setProfileSaving] = useState(false);
   const profileDirty =
-    displayName.trim() !== (metadata.display_name ?? "") ||
-    assistantName.trim() !== (metadata.assistant_name ?? "Neo") ||
-    assistantVoice !== (metadata.assistant_voice ?? "mineirinha") ||
-    mindBlockSaveMode !== (metadata.mindblock_save_mode ?? "ask") ||
-    chatTone !== (metadata.chat_tone ?? "natural");
+    displayName.trim() !== (userPreferences?.displayName ?? metadata.display_name ?? "") ||
+    assistantName.trim() !== (userPreferences?.assistantName ?? metadata.assistant_name ?? "Neo") ||
+    assistantVoice !== (userPreferences?.assistantVoice ?? metadata.assistant_voice ?? "mineirinha") ||
+    mindBlockSaveMode !== (userPreferences?.mindBlockSaveMode ?? metadata.mindblock_save_mode ?? "ask") ||
+    chatTone !== (userPreferences?.chatTone ?? metadata.chat_tone ?? "natural");
 
   const [learningForm, setLearningForm] = useState(initialLearning);
   const [learningSaving, setLearningSaving] = useState(false);
@@ -105,6 +105,15 @@ export default function SettingsPage() {
   }, [storedMobileNav]);
 
   useEffect(() => {
+    if (!userPreferences) return;
+    setDisplayName(userPreferences.displayName ?? "");
+    setAssistantName(userPreferences.assistantName ?? "Neo");
+    setAssistantVoice(userPreferences.assistantVoice ?? "mineirinha");
+    setChatTone(userPreferences.chatTone ?? "natural");
+    setMindBlockSaveMode(userPreferences.mindBlockSaveMode ?? "ask");
+  }, [userPreferences]);
+
+  useEffect(() => {
     setLearningForm(initialLearning);
   }, [initialLearning]);
 
@@ -113,6 +122,13 @@ export default function SettingsPage() {
     if (!profileDirty || !updateUserMetadata) return;
     try {
       setProfileSaving(true);
+      await updateUserPreferences?.({
+        displayName: displayName.trim(),
+        assistantName: assistantName.trim() || "Neo",
+        assistantVoice,
+        mindBlockSaveMode,
+        chatTone,
+      });
       await updateUserMetadata({
         display_name: displayName.trim(),
         assistant_name: assistantName.trim() || "Neo",
@@ -166,6 +182,7 @@ export default function SettingsPage() {
 
     try {
       setMobileNavSaving(true);
+      await updateUserPreferences?.({ mobileNavPaths: sanitized });
       await updateUserMetadata({ mobile_nav_paths: sanitized });
       toast.success("Menu mobile atualizado.");
     } catch (error) {
@@ -183,6 +200,13 @@ export default function SettingsPage() {
 
     try {
       setLearningSaving(true);
+      await updateUserPreferences?.({
+        dailyExpressionGoal: dailyGoal,
+        currentLevel: learningForm.currentLevel,
+        targetLanguage: learningForm.targetLanguage,
+        practiceFocus: learningForm.practiceFocus,
+        showToasts: learningForm.showToasts,
+      });
       await updateUserMetadata({
         learning_preferences: {
           dailyGoal,
@@ -547,7 +571,7 @@ export default function SettingsPage() {
           <div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Progression Engine</h2>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              XP, nivel, missoes e conquistas ficam em localStorage nesta etapa.
+              XP, nivel, missoes, eventos e preferencias sao sincronizados com Supabase quando a sessao esta ativa.
             </p>
           </div>
           <button

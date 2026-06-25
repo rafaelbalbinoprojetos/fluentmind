@@ -131,8 +131,9 @@ function getAdaptiveDashboardMessage(context) {
   return { title: "☀️ Vamos fazer o dia contar.", subtitle: motivationalMessages[getDayIndex(motivationalMessages.length)], brainState: "idle" };
 }
 
-function getDisplayName(user, profile) {
+function getDisplayName(user, profile, preferences) {
   return profile?.display_name
+    || preferences?.displayName
     || user?.user_metadata?.display_name
     || user?.email?.split("@")[0]
     || "aluno";
@@ -257,7 +258,7 @@ function buildWeeklyProgress(activity) {
 }
 
 export default function FluentMindDashboard() {
-  const { user } = useAuth();
+  const { user, userPreferences } = useAuth();
   const [coachOpen, setCoachOpen] = useState(false);
   const [dashboardData, setDashboardData] = useState({
     profile: null,
@@ -275,7 +276,7 @@ export default function FluentMindDashboard() {
   });
   const progression = useProgression();
   const greeting = useMemo(() => getGreeting(), []);
-  const displayName = useMemo(() => getDisplayName(user, dashboardData.profile), [dashboardData.profile, user]);
+  const displayName = useMemo(() => getDisplayName(user, dashboardData.profile, userPreferences), [dashboardData.profile, user, userPreferences]);
   const dailyExpression = useMemo(() => buildTodayExpression(dashboardData.mindBlocks), [dashboardData.mindBlocks]);
   const userContext = useMemo(() => buildUserContext(dashboardData), [dashboardData]);
   const adaptiveMessage = useMemo(() => getAdaptiveDashboardMessage(userContext), [userContext]);

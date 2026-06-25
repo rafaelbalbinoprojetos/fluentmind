@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useAuth } from "./AuthContext.jsx";
 
 const STORAGE_KEY = "fluentmind:theme:v2";
 const DEFAULT_LIGHT_THEME = "lilac";
@@ -391,7 +392,9 @@ const THEME_PRESETS = [
 const THEME_MAP = new Map(THEME_PRESETS.map((theme) => [theme.id, theme]));
 
 export function ThemeProvider({ children }) {
+  const { user, userPreferences, updateUserPreferences } = useAuth();
   const explicitPreference = useRef(false);
+  const hydratedPreference = useRef(false);
 
   const [themeId, setThemeId] = useState(() => {
     if (typeof window === "undefined") {
@@ -412,6 +415,14 @@ export function ThemeProvider({ children }) {
   }, [themeId]);
 
   useEffect(() => {
+    const preferredTheme = userPreferences?.themeId;
+    if (!preferredTheme || !THEME_MAP.has(preferredTheme)) return;
+    hydratedPreference.current = true;
+    explicitPreference.current = true;
+    setThemeId(preferredTheme);
+  }, [userPreferences?.themeId]);
+
+  useEffect(() => {
     if (!activeTheme) {
       return;
     }
@@ -430,6 +441,13 @@ export function ThemeProvider({ children }) {
     } else {
       window.localStorage.removeItem(STORAGE_KEY);
     }
+
+    if (user?.id && explicitPreference.current && !hydratedPreference.current && userPreferences?.themeId !== activeTheme.id) {
+      updateUserPreferences?.({ themeId: activeTheme.id }).catch((error) => {
+        console.warn("[theme] Falha ao salvar tema no Supabase:", error.message);
+      });
+    }
+    hydratedPreference.current = false;
   }, [activeTheme]);
 
   useEffect(() => {

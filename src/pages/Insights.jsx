@@ -120,7 +120,7 @@ function buildProgress(events) {
 }
 
 export default function InsightsPage() {
-  const { user, session } = useAuth();
+  const { user, session, userPreferences } = useAuth();
   const [deck, setDeck] = useState([]);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -231,7 +231,7 @@ export default function InsightsPage() {
       return;
     }
 
-    const voice = user?.user_metadata?.assistant_voice || "mineirinha";
+    const voice = userPreferences?.assistantVoice || user?.user_metadata?.assistant_voice || "mineirinha";
 
     try {
       setAudioLoadingId(card.id);

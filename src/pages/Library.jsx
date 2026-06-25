@@ -202,7 +202,7 @@ function buildMindBlock(expression, expressions, playlists) {
 }
 
 export default function LibraryPage() {
-  const { user, session } = useAuth();
+  const { user, session, userPreferences } = useAuth();
   const [expressions, setExpressions] = useState([]);
   const [playlists, setPlaylists] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -495,7 +495,7 @@ export default function LibraryPage() {
     }
 
     const cached = audioByMindBlock[expression.id];
-    const voice = user?.user_metadata?.assistant_voice || "mineirinha";
+    const voice = userPreferences?.assistantVoice || user?.user_metadata?.assistant_voice || "mineirinha";
 
     try {
       setAudioLoadingId(expression.id);

@@ -213,12 +213,12 @@ function buildMindBlockMeta(form, assistantName) {
 }
 
 export default function ChatbotPage() {
-  const { user, session } = useAuth();
-  const assistantName = getAssistantName(user);
-  const mindBlockSaveMode = user?.user_metadata?.mindblock_save_mode || "ask";
-  const displayName = user?.user_metadata?.display_name?.trim() || user?.email?.split("@")[0] || "Rafael";
-  const currentLevel = user?.user_metadata?.learning_preferences?.currentLevel || "Beginner";
-  const chatTone = user?.user_metadata?.chat_tone || "Natural";
+  const { user, session, userPreferences } = useAuth();
+  const assistantName = userPreferences?.assistantName || getAssistantName(user);
+  const mindBlockSaveMode = userPreferences?.mindBlockSaveMode || user?.user_metadata?.mindblock_save_mode || "ask";
+  const displayName = userPreferences?.displayName?.trim() || user?.user_metadata?.display_name?.trim() || user?.email?.split("@")[0] || "Rafael";
+  const currentLevel = userPreferences?.currentLevel || user?.user_metadata?.learning_preferences?.currentLevel || "Beginner";
+  const chatTone = userPreferences?.chatTone || user?.user_metadata?.chat_tone || "Natural";
   const [conversations, setConversations] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [messages, setMessages] = useState(welcomeMessages);
@@ -561,12 +561,12 @@ export default function ChatbotPage() {
         },
         body: JSON.stringify({
           messages: currentMessages,
-          userName: user?.user_metadata?.display_name?.trim() || user?.email?.split("@")[0] || null,
+          userName: displayName || null,
           assistantName,
-          chatTone: user?.user_metadata?.chat_tone || "natural",
-          currentLevel: user?.user_metadata?.learning_preferences?.currentLevel || "A2",
-          targetLanguage: user?.user_metadata?.learning_preferences?.targetLanguage || "en",
-          assistantVoice: user?.user_metadata?.assistant_voice || "mineirinha",
+          chatTone: userPreferences?.chatTone || user?.user_metadata?.chat_tone || "natural",
+          currentLevel: userPreferences?.currentLevel || user?.user_metadata?.learning_preferences?.currentLevel || "A2",
+          targetLanguage: userPreferences?.targetLanguage || user?.user_metadata?.learning_preferences?.targetLanguage || "en",
+          assistantVoice: userPreferences?.assistantVoice || user?.user_metadata?.assistant_voice || "mineirinha",
           mode: selectedMode,
         }),
       });
@@ -605,7 +605,7 @@ export default function ChatbotPage() {
       await refreshConversations(sessionId);
       const suggestions = getMessageSuggestions(reply);
       if (suggestions.length > 0) {
-        const saveMode = user?.user_metadata?.mindblock_save_mode || "ask";
+        const saveMode = mindBlockSaveMode;
         if (saveMode === "auto") {
           await Promise.allSettled(
             suggestions.map((suggestion) => quickSaveSuggestion(suggestion, storedAssistantMessage.id)),
@@ -772,7 +772,7 @@ export default function ChatbotPage() {
         correctedText: correction.correct,
         explanation: correction.explanation,
         category: correction.category || "Conversation",
-        level: correction.level || user?.user_metadata?.learning_preferences?.currentLevel || "A2",
+        level: correction.level || userPreferences?.currentLevel || user?.user_metadata?.learning_preferences?.currentLevel || "A2",
       }, { userId: user.id });
       recordLearningEvent("correction_saved", {
         wrongText: correction.wrong,
@@ -794,7 +794,7 @@ export default function ChatbotPage() {
       if (!silent) toast.error(error.message || "Nao foi possivel salvar a correcao.");
       return false;
     }
-  }, [activeSessionId, trackNeoProgress, user?.id, user?.user_metadata?.learning_preferences?.currentLevel]);
+  }, [activeSessionId, trackNeoProgress, user?.id, userPreferences?.currentLevel]);
 
   const quickSaveSuggestion = async (suggestion, messageId) => {
     const normalized = normalizeSuggestion(suggestion);

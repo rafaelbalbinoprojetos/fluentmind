@@ -149,7 +149,7 @@ export default function Layout() {
   const navigate = useNavigate();
   const isChatbotRoute = location.pathname === "/chatbot";
   const navId = "primary-navigation";
-  const { user, session, signOut, updateUserMetadata, subscription } = useAuth();
+  const { user, session, signOut, updateUserMetadata, userPreferences, subscription } = useAuth();
   const userMetadata = React.useMemo(() => user?.user_metadata ?? {}, [user]);
   const fallbackPlan = userMetadata.plan ?? "free";
   const fallbackTrialStatus = userMetadata.trial_status ?? "eligible";
@@ -177,7 +177,7 @@ export default function Layout() {
     [isMasterUser],
   );
   const hasSeenWelcome = userMetadata.has_seen_welcome === true;
-  const mobileNavPreference = userMetadata.mobile_nav_paths;
+  const mobileNavPreference = userPreferences?.mobileNavPaths ?? userMetadata.mobile_nav_paths;
   const mobileNavItems = React.useMemo(() => {
     const paths = normalizeMobileNavSelection(mobileNavPreference);
     return paths.map((path) => NAV_ITEMS_BY_PATH.get(path)).filter(Boolean);

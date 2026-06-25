@@ -103,7 +103,7 @@ function buildChallenge(deck) {
 }
 
 export default function DailyWorkoutPage() {
-  const { user, session } = useAuth();
+  const { user, session, userPreferences } = useAuth();
   const progression = useProgression();
   const [deck, setDeck] = useState(FALLBACK_DECK);
   const [loading, setLoading] = useState(true);
@@ -216,7 +216,7 @@ export default function DailyWorkoutPage() {
       if (!card.isFallback && session?.access_token) {
         const result = await generateMindBlockAudio({
           mindblockId: card.id,
-          voice: user?.user_metadata?.preferred_voice || "mineirinha",
+          voice: userPreferences?.assistantVoice || user?.user_metadata?.preferred_voice || "mineirinha",
           accessToken: session.access_token,
         });
         if (result?.audioUrl) {

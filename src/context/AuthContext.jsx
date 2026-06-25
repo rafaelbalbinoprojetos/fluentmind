@@ -5,6 +5,11 @@ import { fetchUltraAccessPassByUserId } from "../services/ultraAccess.js";
 import { translateAuthErrorMessage } from "../utils/authErrors.js";
 import { configureLearningEventsPersistence, hydrateLearningEvents } from "../services/learningEventEngine.js";
 import { configureProgressionPersistence, hydrateProgressionState } from "../services/progressionEngine.js";
+import {
+  buildPreferencesFromMetadata,
+  getOrCreateUserPreferences,
+  updateUserPreferences as persistUserPreferences,
+} from "../services/userPreferences.js";
 
 const AuthContext = createContext({
   user: null,
@@ -15,6 +20,8 @@ const AuthContext = createContext({
   signOut: async () => {},
   refreshUser: async () => {},
   updateUserMetadata: async () => {},
+  updateUserPreferences: async () => {},
+  userPreferences: null,
   subscription: {
     plan: "free",
     effectivePlan: "free",
@@ -46,6 +53,7 @@ export function AuthProvider({ children }) {
     expiresAt: null,
     isLifetime: false,
   });
+  const [userPreferences, setUserPreferences] = useState(null);
 
   useEffect(() => {
     let ignore = false;
@@ -155,6 +163,17 @@ export function AuthProvider({ children }) {
       return data.user;
     },
     [user],
+  );
+
+  const updateUserPreferences = useCallback(
+    async (patch) => {
+      const fallback = buildPreferencesFromMetadata(user?.user_metadata ?? {}, user);
+      const current = userPreferences ?? fallback;
+      const next = await persistUserPreferences(user?.id, patch, current);
+      setUserPreferences(next);
+      return next;
+    },
+    [user, userPreferences],
   );
 
   const signIn = useCallback(
@@ -315,16 +334,22 @@ export function AuthProvider({ children }) {
       configureProgressionPersistence(userId);
       configureLearningEventsPersistence(userId);
 
-      if (!userId) return;
+      if (!userId) {
+        setUserPreferences(null);
+        return;
+      }
 
       try {
-        await Promise.all([
+        const [, , preferences] = await Promise.all([
           hydrateProgressionState(userId),
           hydrateLearningEvents(userId),
+          getOrCreateUserPreferences(user),
         ]);
+        if (!ignore) setUserPreferences(preferences);
       } catch (syncError) {
         if (!ignore) {
           console.warn("[auth] Falha ao sincronizar progresso do usuario:", syncError);
+          setUserPreferences(buildPreferencesFromMetadata(user?.user_metadata ?? {}, user));
         }
       }
     }
@@ -334,7 +359,7 @@ export function AuthProvider({ children }) {
     return () => {
       ignore = true;
     };
-  }, [user?.id]);
+  }, [user]);
 
   const metadata = useMemo(() => user?.user_metadata ?? {}, [user]);
 
@@ -369,6 +394,11 @@ export function AuthProvider({ children }) {
     };
   }, [metadata, lifetimeAccess, isMasterUser, ultraAccess]);
 
+  const effectiveUserPreferences = useMemo(
+    () => userPreferences ?? buildPreferencesFromMetadata(metadata, user),
+    [metadata, user, userPreferences],
+  );
+
   const value = useMemo(
     () => ({
       user,
@@ -379,6 +409,8 @@ export function AuthProvider({ children }) {
       signOut,
       refreshUser,
       updateUserMetadata,
+      updateUserPreferences,
+      userPreferences: effectiveUserPreferences,
       subscription,
       isMasterUser: subscription.isMasterUser,
       hasLifetimeAccess: subscription.hasLifetimeAccess,
@@ -393,6 +425,8 @@ export function AuthProvider({ children }) {
       signOut,
       subscription,
       updateUserMetadata,
+      updateUserPreferences,
+      effectiveUserPreferences,
       user,
       lifetimeLoading,
     ],

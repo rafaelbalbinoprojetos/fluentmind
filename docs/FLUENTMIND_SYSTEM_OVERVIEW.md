@@ -54,12 +54,17 @@ api/
 
 src/
   components/
+    NeuralBrain.jsx
+    EvolvingBrain.jsx
   context/
   data/
+    achievementsMock.js
   layout/
   lib/
   pages/
   services/
+    progressionEngine.js
+    learningEventEngine.js
   utils/
 
 supabase/
@@ -104,6 +109,9 @@ Rotas protegidas por autenticacao:
 - `src/context/AuthContext.jsx`: contexto de autenticacao Supabase.
 - `src/lib/supabase.js`: inicializacao do cliente Supabase no frontend.
 - `src/index.css`: estilos globais, tema, cards, chatbot, biblioteca, revisao e demais componentes.
+- `src/components/NeuralBrain.jsx`: cerebro neural premium usado para representar crescimento, XP, conexoes e mastery.
+- `src/components/EvolvingBrain.jsx`: visual auxiliar de progressao ligado ao motor local de XP.
+- `src/hooks/useProgression.js`: hook para consumir XP, achievements, missoes e estado de evolucao.
 
 ## Paginas implementadas
 
@@ -111,18 +119,28 @@ Rotas protegidas por autenticacao:
 
 Arquivo: `src/components/dashboard/FluentMindDashboard.jsx`
 
-Mostra:
+Funcao:
 
-- boas-vindas personalizadas;
-- estatisticas reais quando disponiveis;
-- expressoes salvas;
-- playlists;
-- horas/atividade;
-- streak;
-- meta do dia;
-- progresso semanal;
-- acoes rapidas;
-- recentes e revisoes pendentes.
+- ser a tela principal de evolucao intelectual do usuario;
+- reforcar a narrativa "seu cerebro esta crescendo";
+- transformar estatisticas em progresso, missoes e atividade viva.
+
+Blocos principais:
+
+- Hero premium com saudacao personalizada, frase dinamica, level, XP, proximo nivel e barra de evolucao;
+- `NeuralBrain` 3D-like em SVG com pulsacao, particulas, conexoes neurais e intensidade baseada em progresso;
+- `Today's Brain Mission` com progresso, tarefas do dia e recompensas de XP;
+- `Your Growth` com MindBlocks, Neural Connections, Streak e Mastery Score;
+- `Brain Insights` com mensagens inteligentes sobre evolucao do usuario;
+- `Your Brain Activity` com feed de eventos recentes;
+- `Recent Expressions` com cards reduzidos e focados em uso rapido;
+- Quick Actions no final da pagina para nao competir com o progresso.
+
+Fontes de dados:
+
+- Supabase: perfil, MindBlocks, playlists, revisoes e atividade diaria;
+- `progressionEngine.js`: XP, level, missoes e achievements locais;
+- `learningEventEngine.js`: eventos de aprendizado que alimentam feed e Neural Universe.
 
 ### Minha Biblioteca
 
@@ -227,8 +245,16 @@ Arquivo: `src/pages/NeuralUniverse.jsx`
 
 Funcao atual:
 
-- visualizacao conceitual das conexoes de aprendizado;
-- ainda pode evoluir para usar dados totalmente reais.
+- visualizacao dinamica das conexoes de aprendizado;
+- leitura dos eventos locais criados pelo `learningEventEngine.js`;
+- criacao de nos e conexoes a partir de MindBlocks, revisoes, erros corrigidos, playlists, conversa com Neo e audio;
+- fallback com dados mockados quando ainda nao ha atividade suficiente;
+- seed/clear de eventos para demonstracao e testes internos;
+- replay cronologico do crescimento neural.
+
+Proxima evolucao natural:
+
+- persistir eventos em tabela Supabase para manter o universo neural sincronizado entre dispositivos.
 
 ### Configuracoes
 
@@ -246,7 +272,9 @@ Funcionalidades:
 - voz preferida;
 - modo de salvamento de MindBlocks;
 - tom do chat;
-- configuracao de navegacao mobile.
+- configuracao de navegacao mobile;
+- reset do Progression Engine local;
+- seed e limpeza de Learning Events para teste do Neural Universe.
 
 ## Services do frontend
 
@@ -348,6 +376,38 @@ Tabelas relacionadas:
 
 - `user_learning_profiles`;
 - `daily_activity`.
+
+### `src/services/progressionEngine.js`
+
+Responsavel por:
+
+- estado local de XP;
+- calculo de level;
+- missoes diarias;
+- achievements;
+- streak;
+- eventos de ganho de XP;
+- sincronizacao futura com Supabase.
+
+Chaves locais:
+
+- `fluentmind_progression_state`;
+- `fluentmind_achievements`;
+- `fluentmind_daily_missions`.
+
+### `src/services/learningEventEngine.js`
+
+Responsavel por:
+
+- registrar eventos de aprendizado relevantes;
+- normalizar eventos como `mindblock_saved`, `review_completed`, `mistake_corrected`, `playlist_created`, `audio_generated`, `conversation_message`, `practice_completed`;
+- alimentar o feed da dashboard;
+- alimentar o grafo do Neural Universe;
+- permitir seed e limpeza para testes.
+
+Chave local:
+
+- `fluentmind_learning_events`.
 
 ### `src/services/mindblockAudio.js`
 
@@ -753,6 +813,33 @@ Objetivo:
 - texto principal claro;
 - texto secundario em tons slate.
 
+### NeuralBrain V2
+
+Componente: `src/components/NeuralBrain.jsx`
+
+Representa:
+
+- level;
+- XP;
+- proximo nivel;
+- quantidade de nos;
+- conexoes neurais;
+- mastery;
+- humor visual do cerebro.
+
+Estados visuais:
+
+- `calm`;
+- `focused`;
+- `energized`;
+- `celebrating`.
+
+Usos atuais:
+
+- hero da dashboard;
+- estados de crescimento neural;
+- futuras animacoes de XP, review e salvamento.
+
 ### Mobile
 
 Melhorias feitas:
@@ -762,6 +849,9 @@ Melhorias feitas:
 - composer sempre acessivel;
 - bottom nav ajustada para nao cobrir campo de digitacao;
 - footer/legal removido da tela mobile do chatbot para nao prejudicar uso.
+- conteudos laterais do chatbot reduzidos/collapsaveis no mobile;
+- campo de digitacao preservado acima da barra inferior;
+- ajustes de tema claro/escuro para evitar texto sem contraste.
 
 ## Deploy
 
@@ -830,11 +920,19 @@ Observacao:
 - Perfil de aprendizado.
 - Configuracoes de mentor, voz, tom e metas.
 - Atividade diaria.
+- Progression Engine local com XP, level, missoes e achievements.
+- Learning Event Engine local para registrar atividade real do usuario.
+- Neural Universe dinamico baseado em eventos de aprendizado.
+- NeuralBrain V2 com animacoes, conexoes e estados visuais.
+- Dashboard premium focada em crescimento cerebral, missoes, feed e insights.
+- Seed/clear de eventos de aprendizado para testes de produto.
 - Controle de acesso ultra.
 - Politica de privacidade e termos.
 
 ## Pontos ainda em evolucao
 
+- Persistir Progression Engine e Learning Event Engine no Supabase.
+- Criar sessoes guiadas de pratica diaria conectando missoes, revisao, Neo, audio e XP.
 - Playlists sugeridas automaticamente pelo chatbot quando uma resposta gerar varias expressoes do mesmo tema.
 - Reproducao/geracao de audio individual para expressoes relacionadas dentro do detalhe do MindBlock.
 - Pratica oral real:
@@ -843,8 +941,8 @@ Observacao:
   - avaliar pronuncia;
   - corrigir naturalidade;
   - salvar erro ou MindBlock.
-- Neural Universe com dados totalmente reais.
-- Melhorias de analytics e progresso.
+- Sincronizar Neural Universe entre dispositivos com dados persistidos no banco.
+- Melhorias de analytics e progresso com metricas por tema, habilidade e frequencia.
 - Limpeza final de qualquer nomenclatura herdada do KORDEN que ainda apareca internamente.
 - Melhorar mensagens de erro serverless para diagnostico em producao.
 - Testes automatizados para services e fluxos principais.
@@ -860,14 +958,18 @@ Observacao:
 
 ## Proximo passo recomendado
 
-Implementar sugestao automatica de playlist tematica no chatbot:
+Implementar o `Daily Brain Workout`, uma sessao guiada de 5 a 8 minutos que transforma a dashboard em acao real.
 
-1. IA gera varias expressoes sobre um tema.
-2. API identifica tema provavel.
-3. Frontend oferece: "Salvar todos em uma playlist".
-4. Usuario escolhe criar nova playlist ou usar existente.
-5. MindBlocks sao salvos e vinculados em lote.
+Fluxo sugerido:
 
-Esse passo fecha bem o ciclo:
+1. Abrir a missao do dia a partir da dashboard.
+2. Revisar 3 MindBlocks vencidos.
+3. Ouvir 1 expressao com audio.
+4. Responder 1 desafio rapido do Neo.
+5. Corrigir automaticamente a resposta.
+6. Salvar novo MindBlock ou erro corrigido se fizer sentido.
+7. Concluir a sessao com XP, streak e evento neural.
 
-conversa -> varias expressoes -> playlist tematica -> audio -> revisao -> progresso.
+Esse passo fecha o ciclo mais importante do produto:
+
+dashboard -> missao -> pratica -> correcao -> XP -> revisao -> Neural Universe.

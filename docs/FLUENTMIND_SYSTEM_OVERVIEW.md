@@ -59,6 +59,7 @@ src/
   context/
   data/
     achievementsMock.js
+    learningJourney.js
   layout/
   lib/
   pages/
@@ -98,6 +99,7 @@ Rotas protegidas por autenticacao:
 
 - `/dashboard`: dashboard principal.
 - `/daily-workout`: sessao guiada diaria de treino cerebral.
+- `/learning-journey`: jornada guiada de aprendizado por capitulos.
 - `/biblioteca`: biblioteca de MindBlocks.
 - `/playlists`: gerenciamento de playlists.
 - `/insights`: revisao inteligente.
@@ -172,6 +174,56 @@ Fluxo:
 3. Listening Path.
 4. Practice Challenge.
 5. Session Complete.
+
+### Learning Journey
+
+Arquivos:
+
+- `src/pages/LearningJourney.jsx`
+- `src/data/learningJourney.js`
+
+Funcao:
+
+- conduzir o usuario por uma jornada estruturada de aprendizado;
+- responder automaticamente "o que estudar agora";
+- dividir o curso em capitulos;
+- criar MindBlocks reais a partir do capitulo;
+- registrar eventos neurais;
+- conceder XP;
+- desbloquear proximos capitulos;
+- preparar integracao contextual com Neo.
+
+Capitulos iniciais:
+
+1. About Me
+2. Daily Routine
+3. Questions
+4. Family
+5. Feelings
+6. Work English
+7. Technology
+8. Travel
+9. Small Talk
+10. Real Conversations
+
+Cada capitulo contem:
+
+- objetivo;
+- dificuldade;
+- duracao;
+- XP;
+- vocabulario;
+- MindBlocks;
+- checklist;
+- desafio final;
+- prompt contextual para Neo.
+
+Como adicionar novos capitulos:
+
+1. Abrir `src/data/learningJourney.js`.
+2. Adicionar um item em `learningJourneyChapters`.
+3. Definir `id`, `order`, `title`, `objective`, `difficulty`, `duration`, `xp`, `vocabulary`, `neoPrompt`, `finalChallenge` e `mindBlocks`.
+4. A pagina renderiza automaticamente o novo capitulo no roadmap.
 
 ### Minha Biblioteca
 

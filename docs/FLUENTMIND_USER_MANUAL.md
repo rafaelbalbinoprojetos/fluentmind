@@ -54,12 +54,13 @@ Este e o melhor caminho para usar o FluentMind todos os dias:
 
 1. Abrir a Dashboard.
 2. Ver a missao do dia.
-3. Fazer o Daily Brain Workout.
-4. Conversar com o Neo por alguns minutos.
-5. Salvar expressoes uteis como MindBlocks.
-6. Ouvir o audio das principais expressoes.
-7. Revisar cards vencidos.
-8. Consultar o Neural Universe para ver a evolucao.
+3. Abrir a Learning Journey para saber o que estudar agora.
+4. Fazer o Daily Brain Workout.
+5. Conversar com o Neo por alguns minutos.
+6. Salvar expressoes uteis como MindBlocks.
+7. Ouvir o audio das principais expressoes.
+8. Revisar cards vencidos.
+9. Consultar o Neural Universe para ver a evolucao.
 
 Tempo recomendado:
 
@@ -124,6 +125,61 @@ O que acontece durante a sessao:
 Melhor pratica:
 
 Faca o Daily Brain Workout antes de conversar livremente com o Neo. Isso aquece o cerebro e deixa a conversa mais produtiva.
+
+## Learning Journey
+
+A Learning Journey e o professor estruturado do FluentMind.
+
+Ela responde a pergunta:
+
+```text
+O que eu estudo agora?
+```
+
+Em vez de mostrar uma lista enorme de conteudos, ela conduz o usuario por capitulos.
+
+Capitulos iniciais:
+
+1. About Me
+2. Daily Routine
+3. Questions
+4. Family
+5. Feelings
+6. Work English
+7. Technology
+8. Travel
+9. Small Talk
+10. Real Conversations
+
+Cada capitulo possui:
+
+- objetivo;
+- dificuldade;
+- duracao estimada;
+- XP;
+- vocabulario;
+- MindBlocks;
+- listening;
+- speaking;
+- conversa com Neo;
+- desafio final;
+- recompensa.
+
+Como usar:
+
+1. Abra Learning Journey.
+2. Clique em Continue.
+3. Estude o capitulo atual.
+4. Marque Vocabulary.
+5. Adicione os MindBlocks a Biblioteca.
+6. Pratique listening/speaking.
+7. Converse com Neo usando o contexto do capitulo.
+8. Conclua o desafio final.
+9. Desbloqueie o proximo capitulo.
+
+Melhor pratica:
+
+Use a Learning Journey como o caminho principal do curso. Use Neo, Biblioteca, Revisao e Daily Workout como ferramentas de apoio.
 
 ## Neo: Mentor de Fluencia
 

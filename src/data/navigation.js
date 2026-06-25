@@ -1,5 +1,6 @@
 export const NAV_LINKS = [
   { id: "dashboard", to: "/dashboard", label: "Dashboard", shortLabel: "Inicio" },
+  { id: "learningJourney", to: "/learning-journey", label: "Learning Journey", shortLabel: "Jornada" },
   { id: "library", to: "/biblioteca", label: "Minha Biblioteca", shortLabel: "Biblioteca" },
   { id: "playlists", to: "/playlists", label: "Playlists", shortLabel: "Playlists" },
   { id: "insights", to: "/insights", label: "Revisao", shortLabel: "Revisao" },
@@ -14,6 +15,7 @@ export const NAV_LINKS = [
 
 export const MOBILE_NAV_ALLOWED_PATHS = [
   "/dashboard",
+  "/learning-journey",
   "/biblioteca",
   "/playlists",
   "/insights",
@@ -26,6 +28,7 @@ export const MOBILE_NAV_ALLOWED_PATHS = [
 
 export const DEFAULT_MOBILE_NAV_PATHS = [
   "/dashboard",
+  "/learning-journey",
   "/biblioteca",
   "/playlists",
   "/insights",

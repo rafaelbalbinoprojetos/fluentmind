@@ -66,21 +66,63 @@ const CATEGORIES = [
   "Movies",
 ];
 
+const FILTER_LABELS = {
+  All: "Tudo",
+  Favorites: "Favoritos",
+  Mastered: "Dominadas",
+  Learning: "Aprendendo",
+  "Review Due": "Para revisar",
+  Mistakes: "Erros",
+  "Recently Saved": "Recentes",
+};
+
+const STATUS_LABELS = {
+  "All statuses": "Todos os status",
+  new: "Novo",
+  learning: "Aprendendo",
+  mastered: "Dominado",
+  review_due: "Para revisar",
+};
+
+const SORT_LABELS = {
+  "Recently saved": "Salvas recentemente",
+  "Most reviewed": "Mais revisadas",
+  "Highest mastery": "Maior domínio",
+  "Lowest mastery": "Menor domínio",
+  "A-Z": "A-Z",
+};
+
+const CATEGORY_LABELS = {
+  "All categories": "Todas as categorias",
+  "Daily Fluency": "Fluência diária",
+  Work: "Trabalho",
+  Programming: "Programação",
+  Feelings: "Sentimentos",
+  Questions: "Perguntas",
+  Humor: "Humor",
+  "Grammar Pattern": "Padrão gramatical",
+  Pronunciation: "Pronúncia",
+  Listening: "Escuta",
+  Travel: "Viagem",
+  Gym: "Academia",
+  Movies: "Filmes",
+};
+
 const collectionTemplates = [
-  { id: "favorites", title: "Favorites", description: "Your most useful phrases.", icon: Star, tone: "favorite", filter: "Favorites" },
-  { id: "recent", title: "Recently Saved", description: "Fresh MindBlocks from this week.", icon: Clock3, tone: "accent", filter: "Recently Saved" },
-  { id: "review", title: "Review Due", description: "Ready to strengthen today.", icon: RotateCcw, tone: "warning", filter: "Review Due" },
-  { id: "mastered", title: "Mastered", description: "Expressions becoming natural.", icon: Check, tone: "success", filter: "Mastered" },
-  { id: "mistakes", title: "My Mistakes", description: "Turn errors into fluency.", icon: Zap, tone: "danger", filter: "Mistakes" },
-  { id: "daily", title: "Daily Fluency", description: "Speak naturally every day.", icon: MessageCircle, tone: "accent", category: "Daily Fluency" },
-  { id: "work", title: "Work English", description: "Meetings, shifts and reports.", icon: BookOpen, tone: "success", category: "Work" },
-  { id: "travel", title: "Travel", description: "Move through the world.", icon: Sparkles, tone: "favorite", category: "Travel" },
-  { id: "programming", title: "Programming", description: "Docs, SaaS and developer talk.", icon: Brain, tone: "accent", category: "Programming" },
-  { id: "feelings", title: "Feelings", description: "Say what you feel clearly.", icon: Heart, tone: "danger", category: "Feelings" },
+  { id: "favorites", title: "Favoritos", description: "Suas frases mais úteis.", icon: Star, tone: "favorite", filter: "Favorites" },
+  { id: "recent", title: "Salvos recentemente", description: "MindBlocks novos desta semana.", icon: Clock3, tone: "accent", filter: "Recently Saved" },
+  { id: "review", title: "Para revisar", description: "Prontos para fortalecer hoje.", icon: RotateCcw, tone: "warning", filter: "Review Due" },
+  { id: "mastered", title: "Dominadas", description: "Expressões ficando naturais.", icon: Check, tone: "success", filter: "Mastered" },
+  { id: "mistakes", title: "Meus erros", description: "Transforme erros em fluência.", icon: Zap, tone: "danger", filter: "Mistakes" },
+  { id: "daily", title: "Fluência diária", description: "Fale naturalmente todos os dias.", icon: MessageCircle, tone: "accent", category: "Daily Fluency" },
+  { id: "work", title: "Inglês para trabalho", description: "Reuniões, turnos e relatórios.", icon: BookOpen, tone: "success", category: "Work" },
+  { id: "travel", title: "Viagem", description: "Movimente-se pelo mundo.", icon: Sparkles, tone: "favorite", category: "Travel" },
+  { id: "programming", title: "Programação", description: "Docs, SaaS e conversa técnica.", icon: Brain, tone: "accent", category: "Programming" },
+  { id: "feelings", title: "Sentimentos", description: "Diga o que sente com clareza.", icon: Heart, tone: "danger", category: "Feelings" },
 ];
 
 function normalizeStatus(status) {
-  return status === "review_due" ? "Review Due" : status.charAt(0).toUpperCase() + status.slice(1);
+  return STATUS_LABELS[status] || (status === "review_due" ? "Para revisar" : status.charAt(0).toUpperCase() + status.slice(1));
 }
 
 function mockPronunciation(expression) {
@@ -336,7 +378,7 @@ export default function LibraryPage() {
         category: expression.category,
       }, "library");
     }
-    toast.success(expression.isFavorite ? "Removed from Favorites." : "Added to Favorites.");
+      toast.success(expression.isFavorite ? "Removido dos favoritos." : "Adicionado aos favoritos.");
   };
 
   const markMastered = (expression) => {
@@ -372,7 +414,7 @@ export default function LibraryPage() {
     if (selectedExpression?.id === expression.id) setSelectedExpression(null);
     try {
       await deleteMindBlock(expression.id);
-      toast.success("Expression deleted.");
+      toast.success("Expressão excluída.");
     } catch (error) {
       console.error("Erro ao excluir MindBlock:", error);
       setExpressions(previous);
@@ -565,7 +607,7 @@ export default function LibraryPage() {
         isFavorite: expressionWithPlaylist.isFavorite,
       }, "library");
       trackProgressionAction("saveMindBlock", { reason: "MindBlock saved", category: normalizedPayload.category });
-      toast.success(mode === "review" ? "Expression saved and moved to review." : "Expression saved as a new MindBlock.");
+      toast.success(mode === "review" ? "Expressão salva e enviada para revisão." : "Expressão salva como novo MindBlock.");
     } catch (error) {
       console.error("Erro ao salvar MindBlock:", error);
       toast.error(error.message || "Nao foi possivel salvar a expressao.");
@@ -587,7 +629,7 @@ export default function LibraryPage() {
       <section className="fm-card rounded-[30px] border p-5 shadow-lg backdrop-blur-xl">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">All Expressions</p>
+            <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Todas as expressões</p>
             <h2 className="mt-2 text-2xl font-semibold">
               {selectedPlaylistId ? playlists.find((item) => item.id === selectedPlaylistId)?.name || "Selected playlist" : "Your saved MindBlocks"}
             </h2>
@@ -676,30 +718,30 @@ function LibraryHeader({ search, onSearch, onAdd }) {
       <div>
         <div className="fm-chip inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]">
           <Library className="h-3.5 w-3.5" />
-          MindBlocks Library
+          Biblioteca de MindBlocks
         </div>
         <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">Minha Biblioteca</h1>
         <p className="fm-muted mt-2 max-w-3xl text-sm">
-          Your personal collection of expressions, mistakes, playlists and MindBlocks.
+          Sua coleção pessoal de expressões, erros corrigidos, playlists e MindBlocks.
         </p>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr),auto,auto,auto]">
         <label className="fm-input flex min-h-11 items-center gap-2 rounded-2xl border px-3">
           <Search className="fm-subtle h-4 w-4" />
-          <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Search expressions..." className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
+          <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Buscar expressões..." className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
         </label>
         <button type="button" onClick={onAdd} className="fm-gradient inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold shadow-md transition hover:-translate-y-0.5">
           <Plus className="h-4 w-4" />
-          Add Expression
+          Adicionar expressão
         </button>
         <button type="button" className="library-ghost-button">
           <Import className="h-4 w-4" />
-          Import
+          Importar
         </button>
         <button type="button" className="library-ghost-button">
           <RotateCcw className="h-4 w-4" />
-          Review all
+          Revisar tudo
         </button>
       </div>
     </header>
@@ -708,11 +750,11 @@ function LibraryHeader({ search, onSearch, onAdd }) {
 
 function LibraryHeroCard({ stats }) {
   const statItems = [
-    { label: "expressions", value: stats.expressions },
+    { label: "expressões", value: stats.expressions },
     { label: "playlists", value: stats.playlists },
-    { label: "mastered", value: stats.mastered },
-    { label: "due today", value: stats.dueToday },
-    { label: "favorites", value: stats.favorites },
+    { label: "dominadas", value: stats.mastered },
+    { label: "para hoje", value: stats.dueToday },
+    { label: "favoritas", value: stats.favorites },
   ];
 
   return (
@@ -725,8 +767,8 @@ function LibraryHeroCard({ stats }) {
       <div className="relative z-10 grid gap-6 xl:grid-cols-[1fr,auto] xl:items-center">
         <div>
           <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Stop translating. Start thinking.</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight">Your English mind is growing.</h2>
-          <p className="fm-muted mt-3 max-w-2xl text-sm leading-6">Every saved expression becomes a new MindBlock.</p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight">Sua mente em inglês está crescendo.</h2>
+          <p className="fm-muted mt-3 max-w-2xl text-sm leading-6">Cada expressão salva vira um novo MindBlock.</p>
           <div className="mt-6 grid gap-3 sm:grid-cols-5">
             {statItems.map((item) => (
               <div key={item.label} className="fm-inner rounded-2xl border p-4">
@@ -739,11 +781,11 @@ function LibraryHeroCard({ stats }) {
         <div className="flex flex-wrap gap-3">
           <button type="button" className="fm-gradient inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold shadow-md transition hover:-translate-y-0.5">
             <RotateCcw className="h-4 w-4" />
-            Start Review
+            Iniciar revisão
           </button>
           <Link to="/neural-universe" className="library-ghost-button">
             <Brain className="h-4 w-4" />
-            Open Neural Universe
+            Abrir Universo Neural
           </Link>
         </div>
       </div>
@@ -756,8 +798,8 @@ function QuickCollections({ collections, activeFilter, category, onSelect }) {
     <section>
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
-          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Quick Collections</p>
-          <h2 className="mt-2 text-2xl font-semibold">Choose a learning mood</h2>
+          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Coleções rápidas</p>
+          <h2 className="mt-2 text-2xl font-semibold">Escolha um foco de aprendizado</h2>
         </div>
       </div>
       <div className="library-scroll-row">
@@ -798,18 +840,18 @@ function PlaylistsSection({ playlists, selectedPlaylistId, onCreateDefault, onSe
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Playlists</p>
-          <h2 className="mt-2 text-2xl font-semibold">Organize expressions by situation, goal or emotion.</h2>
+          <h2 className="mt-2 text-2xl font-semibold">Organize expressões por situação, objetivo ou emoção.</h2>
         </div>
         {visiblePlaylists.length === 0 ? (
           <button type="button" onClick={onCreateDefault} className="library-ghost-button">
             <FolderPlus className="h-4 w-4" />
-            Create first playlist
+            Criar primeira playlist
           </button>
         ) : null}
       </div>
       {visiblePlaylists.length === 0 ? (
         <p className="fm-muted mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm">
-          Create a playlist to group your MindBlocks by routine, work, travel or any learning goal.
+          Crie uma playlist para agrupar MindBlocks por rotina, trabalho, viagem ou qualquer objetivo de estudo.
         </p>
       ) : (
         <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -837,12 +879,12 @@ function PlaylistCard({ playlist, index, active, onSelect }) {
         </div>
         <h3 className="mt-4 text-base font-semibold">{playlist.name}</h3>
         <p className="fm-subtle mt-1 text-xs">{playlist.description}</p>
-        <div className="fm-muted mt-3 text-xs font-semibold">{playlist.count} expressions • {playlist.minutes} min</div>
+        <div className="fm-muted mt-3 text-xs font-semibold">{playlist.count} expressões • {playlist.minutes} min</div>
       </button>
       <div className="mt-4 flex gap-2">
-        <button type="button" onClick={onSelect} className="library-mini-button" aria-label={`Open ${playlist.name}`}><Play className="h-3.5 w-3.5 fill-current" /></button>
-        <button type="button" onClick={onSelect} className="library-mini-button" aria-label={`Review ${playlist.name}`}><RotateCcw className="h-3.5 w-3.5" /></button>
-        <button type="button" className="library-mini-button" aria-label={`More ${playlist.name}`}><MoreHorizontal className="h-3.5 w-3.5" /></button>
+        <button type="button" onClick={onSelect} className="library-mini-button" aria-label={`Abrir ${playlist.name}`}><Play className="h-3.5 w-3.5 fill-current" /></button>
+        <button type="button" onClick={onSelect} className="library-mini-button" aria-label={`Revisar ${playlist.name}`}><RotateCcw className="h-3.5 w-3.5" /></button>
+        <button type="button" className="library-mini-button" aria-label={`Mais opções de ${playlist.name}`}><MoreHorizontal className="h-3.5 w-3.5" /></button>
       </div>
     </article>
   );
@@ -854,26 +896,26 @@ function LibraryFilters({ activeFilter, setActiveFilter, category, setCategory, 
       <div className="flex gap-2 overflow-x-auto pb-1">
         {FILTERS.map((item) => (
           <button key={item} type="button" onClick={() => setActiveFilter(item)} className={`library-filter-chip ${activeFilter === item ? "is-active" : ""}`}>
-            {item}
+            {FILTER_LABELS[item] || item}
           </button>
         ))}
       </div>
       <div className="grid gap-2 sm:grid-cols-3">
-        <SelectControl icon={Filter} value={category} onChange={setCategory} options={CATEGORIES} ariaLabel="Filter by category" />
-        <SelectControl icon={Flame} value={status} onChange={setStatus} options={STATUSES} ariaLabel="Filter by status" />
-        <SelectControl icon={ChevronDown} value={sort} onChange={setSort} options={SORTS} ariaLabel="Sort expressions" />
+        <SelectControl icon={Filter} value={category} onChange={setCategory} options={CATEGORIES} labels={CATEGORY_LABELS} ariaLabel="Filtrar por categoria" />
+        <SelectControl icon={Flame} value={status} onChange={setStatus} options={STATUSES} labels={STATUS_LABELS} ariaLabel="Filtrar por status" />
+        <SelectControl icon={ChevronDown} value={sort} onChange={setSort} options={SORTS} labels={SORT_LABELS} ariaLabel="Ordenar expressões" />
       </div>
     </div>
   );
 }
 
-function SelectControl({ icon, value, onChange, options, ariaLabel }) {
+function SelectControl({ icon, value, onChange, options, labels = {}, ariaLabel }) {
   const Icon = icon;
   return (
     <label className="fm-input flex min-h-11 items-center gap-2 rounded-2xl border px-3">
       <Icon className="fm-subtle h-4 w-4" />
       <select value={value} onChange={(event) => onChange(event.target.value)} aria-label={ariaLabel} className="min-w-0 flex-1 bg-transparent text-sm outline-none">
-        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+        {options.map((option) => <option key={option} value={option}>{labels[option] || option}</option>)}
       </select>
     </label>
   );
@@ -897,21 +939,21 @@ function ExpressionCard({
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-base font-semibold">🇺🇸 {expression.expression}</h3>
           <StatusBadge status={expression.status} />
-          {expression.mistake ? <span className="library-badge danger">Correction</span> : null}
-          {expression.isReviewDue ? <span className="library-badge warning">Due</span> : null}
+          {expression.mistake ? <span className="library-badge danger">Correção</span> : null}
+          {expression.isReviewDue ? <span className="library-badge warning">Pendente</span> : null}
         </div>
         <p className="fm-muted mt-1 text-sm">🇧🇷 {expression.translation}</p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
           <span className="library-badge">{expression.category}</span>
           <span className="library-badge">{expression.difficulty}</span>
-          <span className="library-badge">Next: {expression.nextReviewAt}</span>
+          <span className="library-badge">Próxima: {expression.nextReviewAt}</span>
         </div>
       </button>
 
       <div className="grid gap-3 sm:w-72">
         <div>
           <div className="fm-muted flex items-center justify-between text-xs font-semibold">
-            <span>Mastery</span>
+            <span>Domínio</span>
             <span>{expression.mastery}%</span>
           </div>
           <div className="fm-progress-track mt-2 h-2 overflow-hidden rounded-full">
@@ -924,16 +966,16 @@ function ExpressionCard({
             onClick={onAudio}
             disabled={audioLoading}
             className={`library-action-button ${hasAudio ? "is-active" : ""}`}
-            aria-label={hasAudio ? "Listen saved audio" : "Generate audio"}
-            title={hasAudio ? "Listen saved audio" : "Generate audio"}
+            aria-label={hasAudio ? "Ouvir áudio salvo" : "Gerar áudio"}
+            title={hasAudio ? "Ouvir áudio salvo" : "Gerar áudio"}
           >
             {audioLoading ? <Sparkles className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
           </button>
-          <button type="button" className="library-action-button" aria-label="Practice"><MessageCircle className="h-4 w-4" /></button>
-          <button type="button" onClick={onReview} className="library-action-button" aria-label="Review"><RotateCcw className="h-4 w-4" /></button>
-          <button type="button" onClick={onFavorite} className={`library-action-button ${expression.isFavorite ? "is-favorite" : ""}`} aria-label="Favorite"><Star className="h-4 w-4" /></button>
-          <button type="button" onClick={onMastered} className="library-action-button" aria-label="Mark as mastered"><Check className="h-4 w-4" /></button>
-          <button type="button" onClick={onDelete} className="library-action-button danger" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
+          <button type="button" className="library-action-button" aria-label="Praticar"><MessageCircle className="h-4 w-4" /></button>
+          <button type="button" onClick={onReview} className="library-action-button" aria-label="Revisar"><RotateCcw className="h-4 w-4" /></button>
+          <button type="button" onClick={onFavorite} className={`library-action-button ${expression.isFavorite ? "is-favorite" : ""}`} aria-label="Favoritar"><Star className="h-4 w-4" /></button>
+          <button type="button" onClick={onMastered} className="library-action-button" aria-label="Marcar como dominada"><Check className="h-4 w-4" /></button>
+          <button type="button" onClick={onDelete} className="library-action-button danger" aria-label="Excluir"><Trash2 className="h-4 w-4" /></button>
         </div>
       </div>
     </article>
@@ -984,12 +1026,12 @@ function ExpressionDetailDrawer({
       category: block.category,
       source: "library-detail",
     }));
-    toast.success("Practice with Neo is ready.");
+    toast.success("Prática com Neo preparada.");
   };
 
   return createPortal(
     <div className="library-drawer-wrap" role="dialog" aria-modal="true">
-      <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Close drawer" />
+      <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Fechar painel" />
       <aside className="library-drawer">
         <div className="mindblock-drawer-header">
           <div className="min-w-0">
@@ -1005,11 +1047,11 @@ function ExpressionDetailDrawer({
               type="button"
               onClick={onFavorite}
               className={`mindblock-favorite-button ${block.isFavorite ? "is-favorite" : ""}`}
-              aria-label="Favorite"
+              aria-label="Favoritar"
             >
               <Star className="h-4 w-4" />
             </button>
-            <button type="button" onClick={onClose} className="library-close-button" aria-label="Close">
+            <button type="button" onClick={onClose} className="library-close-button" aria-label="Fechar">
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -1027,28 +1069,28 @@ function ExpressionDetailDrawer({
         <div className="mindblock-action-grid">
           <button type="button" className="library-panel-action" onClick={onAudio} disabled={audioLoading}>
             {audioLoading ? <Sparkles className="h-4 w-4 animate-spin" /> : <Headphones className="h-4 w-4" />}
-            {audioLoading ? "Generating..." : hasAudio ? "Listen" : "Generate audio"}
+            {audioLoading ? "Gerando..." : hasAudio ? "Ouvir" : "Gerar áudio"}
           </button>
-          <button type="button" className="library-panel-action" onClick={() => toast("Pronunciation practice coming soon.")}>
-            <Zap className="h-4 w-4" /> Repeat
+          <button type="button" className="library-panel-action" onClick={() => toast("Prática de pronúncia em breve.")}>
+            <Zap className="h-4 w-4" /> Repetir
           </button>
           <Link to="/chatbot" onClick={prepareNeo} className="library-panel-action">
-            <MessageCircle className="h-4 w-4" /> Practice with Neo
+            <MessageCircle className="h-4 w-4" /> Praticar com Neo
           </Link>
           <button type="button" onClick={onReview} className="library-panel-action">
-            <RotateCcw className="h-4 w-4" /> Review now
+            <RotateCcw className="h-4 w-4" /> Revisar agora
           </button>
           <button type="button" onClick={onFavorite} className={`library-panel-action ${block.isFavorite ? "is-favorite" : ""}`}>
-            <Star className="h-4 w-4" /> {block.isFavorite ? "Favorited" : "Favorite"}
+            <Star className="h-4 w-4" /> {block.isFavorite ? "Favoritado" : "Favoritar"}
           </button>
         </div>
 
         <section className="mindblock-mastery-card">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="fm-subtle text-xs font-semibold uppercase tracking-[0.12em]">Mastery</p>
+              <p className="fm-subtle text-xs font-semibold uppercase tracking-[0.12em]">Domínio</p>
               <h3>{block.mastery}%</h3>
-              <p className="fm-muted text-sm">{block.strength} connection in your mental library.</p>
+              <p className="fm-muted text-sm">Conexão {block.strength.toLowerCase()} na sua biblioteca mental.</p>
             </div>
             <Flame className="h-8 w-8 text-orange-300" />
           </div>
@@ -1056,16 +1098,16 @@ function ExpressionDetailDrawer({
             <div className="fm-progress-fill h-full rounded-full" style={{ width: `${block.mastery}%` }} />
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <PanelMetric label="Reviewed" value={`${block.timesReviewed}x`} />
-            <PanelMetric label="Last" value={block.lastReviewedAt} />
-            <PanelMetric label="Next" value={block.nextReviewAt} />
+            <PanelMetric label="Revisado" value={`${block.timesReviewed}x`} />
+            <PanelMetric label="Última" value={block.lastReviewedAt} />
+            <PanelMetric label="Próxima" value={block.nextReviewAt} />
           </div>
         </section>
 
         <section className="mindblock-section">
-          <h3>Natural Usage</h3>
-          <p>{block.notes || "Use this expression in real conversation when it fits the context naturally."}</p>
-          <h3 className="text-sm font-semibold">Examples</h3>
+          <h3>Uso natural</h3>
+          <p>{block.notes || "Use esta expressão em uma conversa real quando ela fizer sentido no contexto."}</p>
+          <h3 className="text-sm font-semibold">Exemplos</h3>
           <div className="mt-3 space-y-2">
             {(block.examples || []).map((example) => (
               <p key={example} className="mindblock-example">{example}</p>
@@ -1074,7 +1116,7 @@ function ExpressionDetailDrawer({
         </section>
 
         <section className="mindblock-section">
-          <h3>MindBlock Pattern</h3>
+          <h3>Padrão do MindBlock</h3>
           <div className="mindblock-pattern">{block.pattern}</div>
           <p>{block.patternExplanation}</p>
           {block.variations.length ? (
@@ -1087,7 +1129,7 @@ function ExpressionDetailDrawer({
         </section>
 
         <section className="mindblock-section">
-          <h3>Related Expressions</h3>
+          <h3>Expressões relacionadas</h3>
           <div className="mindblock-related-grid">
             {block.related.length ? block.related.map((related) => (
               <button
@@ -1099,26 +1141,26 @@ function ExpressionDetailDrawer({
                 <span>{related.expression}</span>
                 <small>{related.translation}</small>
               </button>
-            )) : <p>No related MindBlocks yet.</p>}
+            )) : <p>Nenhum MindBlock relacionado ainda.</p>}
           </div>
         </section>
 
         {block.commonMistake ? (
           <section className="library-mistake-box">
-            <h3 className="text-sm font-semibold">Common Mistake</h3>
-            <p className="mt-2 text-sm text-rose-200">Wrong: {block.commonMistake.wrong}</p>
-            <p className="mt-1 text-sm text-emerald-200">Correct: {block.commonMistake.correct}</p>
-            <p className="fm-muted mt-2 text-sm">{block.commonMistake.explanation || "Notice the structure and repeat the correct version as one block."}</p>
+            <h3 className="text-sm font-semibold">Erro comum</h3>
+            <p className="mt-2 text-sm text-rose-200">Original: {block.commonMistake.wrong}</p>
+            <p className="mt-1 text-sm text-emerald-200">Correto: {block.commonMistake.correct}</p>
+            <p className="fm-muted mt-2 text-sm">{block.commonMistake.explanation || "Observe a estrutura e repita a versão correta como um bloco único."}</p>
           </section>
         ) : (
           <section className="mindblock-section">
-            <h3>Common Mistake</h3>
-            <p>No mistakes linked to this MindBlock yet.</p>
+            <h3>Erro comum</h3>
+            <p>Nenhum erro vinculado a este MindBlock ainda.</p>
           </section>
         )}
 
         <section className="mindblock-section">
-          <h3 className="text-sm font-semibold">Saved in playlists</h3>
+          <h3 className="text-sm font-semibold">Salvo em playlists</h3>
           <div className="mt-3 flex flex-wrap gap-2">
             {block.playlists.map((playlist) => (
               <button
@@ -1126,7 +1168,7 @@ function ExpressionDetailDrawer({
                 type="button"
                 className="library-badge"
                 onClick={() => onRemoveFromPlaylist(playlist.id)}
-                title={`Remove from ${playlist.name}`}
+                title={`Remover de ${playlist.name}`}
               >
                 {playlist.name}
                 <X className="h-3 w-3" />
@@ -1141,9 +1183,9 @@ function ExpressionDetailDrawer({
                 if (event.target.value) onAddToPlaylist(event.target.value);
               }}
               className="min-w-0 flex-1 bg-transparent text-sm outline-none"
-              aria-label="Add MindBlock to playlist"
+              aria-label="Adicionar MindBlock à playlist"
             >
-              <option value="">Add to playlist...</option>
+              <option value="">Adicionar à playlist...</option>
               {playlists
                 .filter((playlist) => !block.playlists.some((saved) => saved.id === playlist.id))
                 .map((playlist) => <option key={playlist.id} value={playlist.id}>{playlist.name}</option>)}
@@ -1152,36 +1194,36 @@ function ExpressionDetailDrawer({
         </section>
 
         <section className="mindblock-section">
-          <h3>Personal Notes</h3>
+          <h3>Notas pessoais</h3>
           <textarea value={note} onChange={(event) => setNote(event.target.value)} className="mindblock-notes" rows={4} />
           <button type="button" className="library-panel-action mt-3" onClick={() => onSaveNote(note)}>
-            <Check className="h-4 w-4" /> Save note
+            <Check className="h-4 w-4" /> Salvar nota
           </button>
         </section>
 
         <section className="mindblock-neural-preview">
           <div className="mindblock-neural-line">
-            <span>Core</span>
+            <span>Núcleo</span>
             <i />
             <span>{block.category}</span>
             <i />
-            <span>Expression</span>
+            <span>Expressão</span>
           </div>
-          <p className="fm-muted mt-3 text-sm">This MindBlock is connected to your language universe through category, pattern and usage context.</p>
+          <p className="fm-muted mt-3 text-sm">Este MindBlock está conectado ao seu universo de idioma por categoria, padrão e contexto de uso.</p>
           <Link to="/neural-universe" className="library-panel-action mt-4">
-            <Brain className="h-4 w-4" /> Open in Neural Universe
+            <Brain className="h-4 w-4" /> Abrir no Universo Neural
           </Link>
         </section>
 
         <div className="mindblock-footer-actions">
           <button type="button" onClick={onMastered} className="library-panel-action">
-            <Check className="h-4 w-4" /> Mark as mastered
+            <Check className="h-4 w-4" /> Marcar como dominada
           </button>
           <button type="button" onClick={onReview} className="library-panel-action">
-            <RotateCcw className="h-4 w-4" /> Move to review
+            <RotateCcw className="h-4 w-4" /> Enviar para revisão
           </button>
           <button type="button" onClick={onDelete} className="library-panel-action danger">
-            <Trash2 className="h-4 w-4" /> Delete expression
+            <Trash2 className="h-4 w-4" /> Excluir expressão
           </button>
         </div>
       </aside>
@@ -1229,7 +1271,7 @@ function AddExpressionModal({ playlists, onCreateDefaultPlaylist, onClose, onSav
 
   const submit = async (mode) => {
     if (!form.expression.trim() || !form.translation.trim()) {
-      toast.error("Add the English expression and Portuguese translation.");
+      toast.error("Informe a expressão em inglês e a tradução em português.");
       return;
     }
     let payload = form;
@@ -1248,43 +1290,43 @@ function AddExpressionModal({ playlists, onCreateDefaultPlaylist, onClose, onSav
 
   return createPortal(
     <div className="library-modal-wrap" role="dialog" aria-modal="true">
-      <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Close modal" />
+      <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Fechar modal" />
       <section className="library-modal">
         <div className="library-modal-header">
           <div>
-            <p className="fm-chip inline-flex rounded-full border px-3 py-1 text-xs font-semibold">New MindBlock</p>
-            <h2 className="mt-4 text-2xl font-semibold">Add Expression</h2>
+            <p className="fm-chip inline-flex rounded-full border px-3 py-1 text-xs font-semibold">Novo MindBlock</p>
+            <h2 className="mt-4 text-2xl font-semibold">Adicionar expressão</h2>
           </div>
-          <button type="button" onClick={onClose} className="library-close-button" aria-label="Close">
+          <button type="button" onClick={onClose} className="library-close-button" aria-label="Fechar">
             <X className="h-5 w-5" />
           </button>
         </div>
         <div className="library-modal-body grid gap-3 sm:grid-cols-2">
-          <Input label="English expression" value={form.expression} onChange={(value) => update("expression", value)} />
-          <Input label="Portuguese translation" value={form.translation} onChange={(value) => update("translation", value)} />
-          <Select label="Category" value={form.category} onChange={(value) => update("category", value)} options={CATEGORIES.filter((item) => item !== "All categories")} />
+          <Input label="Expressão em inglês" value={form.expression} onChange={(value) => update("expression", value)} />
+          <Input label="Tradução em português" value={form.translation} onChange={(value) => update("translation", value)} />
+          <Select label="Categoria" value={form.category} onChange={(value) => update("category", value)} options={CATEGORIES.filter((item) => item !== "All categories")} labels={CATEGORY_LABELS} />
           <Select
             label="Playlist"
             value={form.playlist}
             onChange={(value) => update("playlist", value)}
             options={playlists.length > 0 ? playlists.map((item) => ({ label: item.name, value: item.id })) : [{ label: "Daily Fluency", value: "" }]}
           />
-          <Select label="Difficulty" value={form.difficulty} onChange={(value) => update("difficulty", value)} options={["A1", "A2", "B1", "B2"]} />
+          <Select label="Dificuldade" value={form.difficulty} onChange={(value) => update("difficulty", value)} options={["A1", "A2", "B1", "B2"]} />
           <Input label="Tags" value={form.tags} onChange={(value) => update("tags", value)} placeholder="work, routine, meeting" />
           <label className="sm:col-span-2">
-            <span className="fm-subtle text-xs font-semibold uppercase tracking-[0.12em]">Notes</span>
+            <span className="fm-subtle text-xs font-semibold uppercase tracking-[0.12em]">Notas</span>
             <textarea value={form.notes} onChange={(event) => update("notes", event.target.value)} rows={3} className="fm-input mt-2 w-full rounded-2xl border p-3 text-sm outline-none" />
           </label>
           <label className="fm-inner flex items-center gap-3 rounded-2xl border p-3">
             <input type="checkbox" checked={form.isFavorite} onChange={(event) => update("isFavorite", event.target.checked)} />
-            <span className="text-sm font-semibold">Add to Favorites</span>
+            <span className="text-sm font-semibold">Adicionar aos favoritos</span>
           </label>
         </div>
         <div className="library-modal-footer flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onClose} className="library-ghost-button">Cancel</button>
-          <button type="button" onClick={() => submit("review")} className="library-ghost-button">Save and review</button>
+          <button type="button" onClick={onClose} className="library-ghost-button">Cancelar</button>
+          <button type="button" onClick={() => submit("review")} className="library-ghost-button">Salvar e revisar</button>
           <button type="button" onClick={() => submit("save")} className="fm-gradient inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold shadow-md">
-            Save expression
+            Salvar expressão
           </button>
         </div>
       </section>
@@ -1302,14 +1344,14 @@ function Input({ label, value, onChange, placeholder }) {
   );
 }
 
-function Select({ label, value, onChange, options }) {
+function Select({ label, value, onChange, options, labels = {} }) {
   return (
     <label>
       <span className="fm-subtle text-xs font-semibold uppercase tracking-[0.12em]">{label}</span>
       <select value={value} onChange={(event) => onChange(event.target.value)} className="fm-input mt-2 min-h-11 w-full rounded-2xl border px-3 text-sm outline-none">
         {options.map((option) => {
           const valueProp = typeof option === "string" ? option : option.value;
-          const labelProp = typeof option === "string" ? option : option.label;
+          const labelProp = typeof option === "string" ? (labels[option] || option) : option.label;
           return <option key={valueProp} value={valueProp}>{labelProp}</option>;
         })}
       </select>
@@ -1321,11 +1363,11 @@ function EmptyLibraryState({ onAdd }) {
   return (
     <div className="library-empty-state">
       <Brain className="fm-secondary mx-auto h-12 w-12" />
-      <h3 className="mt-4 text-xl font-semibold">Your library is empty.</h3>
-      <p className="fm-muted mx-auto mt-2 max-w-md text-sm">Start by saving your first real expression from a conversation with Neo.</p>
+      <h3 className="mt-4 text-xl font-semibold">Sua biblioteca está vazia.</h3>
+      <p className="fm-muted mx-auto mt-2 max-w-md text-sm">Comece salvando sua primeira expressão real em uma conversa com Neo.</p>
       <div className="mt-5 flex flex-wrap justify-center gap-3">
-        <Link to="/chatbot" className="fm-gradient rounded-2xl px-4 py-3 text-sm font-semibold">Start Conversation</Link>
-        <button type="button" onClick={onAdd} className="library-ghost-button">Add manually</button>
+        <Link to="/chatbot" className="fm-gradient rounded-2xl px-4 py-3 text-sm font-semibold">Iniciar conversa</Link>
+        <button type="button" onClick={onAdd} className="library-ghost-button">Adicionar manualmente</button>
       </div>
     </div>
   );

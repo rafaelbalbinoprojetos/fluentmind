@@ -1,16 +1,16 @@
 export const NAV_LINKS = [
-  { id: "dashboard", to: "/dashboard", label: "Dashboard", shortLabel: "Inicio" },
-  { id: "learningJourney", to: "/learning-journey", label: "Learning Journey", shortLabel: "Jornada" },
+  { id: "dashboard", to: "/dashboard", label: "Início", shortLabel: "Início" },
+  { id: "learningJourney", to: "/learning-journey", label: "Jornada Guiada", shortLabel: "Jornada" },
   { id: "library", to: "/biblioteca", label: "Minha Biblioteca", shortLabel: "Biblioteca" },
   { id: "playlists", to: "/playlists", label: "Playlists", shortLabel: "Playlists" },
-  { id: "insights", to: "/insights", label: "Revisao", shortLabel: "Revisao" },
-  { id: "chatbot", to: "/chatbot", label: "Chatbot", shortLabel: "Chat" },
+  { id: "insights", to: "/insights", label: "Revisão", shortLabel: "Revisão" },
+  { id: "chatbot", to: "/chatbot", label: "Conversar com Neo", shortLabel: "Neo" },
   { id: "conversations", to: "/conversas", label: "Conversas", shortLabel: "Conversas" },
   { id: "mistakes", to: "/meus-erros", label: "Meus Erros", shortLabel: "Erros" },
-  { id: "neuralUniverse", to: "/neural-universe", label: "Neural Universe", shortLabel: "Universe" },
-  { id: "users", to: "/usuarios", label: "Usuarios", shortLabel: "Usuarios" },
+  { id: "neuralUniverse", to: "/neural-universe", label: "Universo Neural", shortLabel: "Universo" },
+  { id: "users", to: "/usuarios", label: "Usuários", shortLabel: "Usuários" },
   { id: "landing", to: "/", label: "Descubra", shortLabel: "Descubra" },
-  { id: "settings", to: "/configuracoes", label: "Configuracoes", shortLabel: "Config" },
+  { id: "settings", to: "/configuracoes", label: "Configurações", shortLabel: "Config" },
 ];
 
 export const MOBILE_NAV_ALLOWED_PATHS = [

@@ -40,26 +40,26 @@ import { buildActivityByDate, getOrCreateLearningProfile, listDailyActivity } fr
 import { getLearningEvents, LEARNING_EVENTS_UPDATED } from "../../services/learningEventEngine.js";
 
 const progressBars = [
-  { day: "Mon", value: 54 },
-  { day: "Tue", value: 72 },
-  { day: "Wed", value: 48 },
-  { day: "Thu", value: 84 },
-  { day: "Fri", value: 66 },
-  { day: "Sat", value: 92 },
-  { day: "Sun", value: 78 },
+  { day: "Seg", value: 54 },
+  { day: "Ter", value: 72 },
+  { day: "Qua", value: 48 },
+  { day: "Qui", value: 84 },
+  { day: "Sex", value: 66 },
+  { day: "Sab", value: 92 },
+  { day: "Dom", value: 78 },
 ];
 
-const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const dayLabels = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"];
 
 const quickActions = [
-  { label: "New Conversation", shortcut: "N", description: "Practice with AI", icon: MessageCircle, to: "/chatbot" },
-  { label: "Daily Workout", shortcut: "W", description: "Train today's path", icon: Target, to: "/daily-workout" },
-  { label: "Quick Review", shortcut: "R", description: "Strengthen memory", icon: RotateCcw, to: "/insights" },
-  { label: "Add Expression", shortcut: "S", description: "Capture a MindBlock", icon: Plus, to: "/biblioteca" },
-  { label: "Explore Neural Universe", shortcut: "U", description: "See your brain map", icon: Brain, to: "/neural-universe" },
+  { label: "Nova conversa", shortcut: "N", description: "Pratique com IA", icon: MessageCircle, to: "/chatbot" },
+  { label: "Treino do dia", shortcut: "T", description: "Siga o caminho de hoje", icon: Target, to: "/daily-workout" },
+  { label: "Revisão rápida", shortcut: "R", description: "Fortaleça a memória", icon: RotateCcw, to: "/insights" },
+  { label: "Adicionar expressão", shortcut: "S", description: "Salve um MindBlock", icon: Plus, to: "/biblioteca" },
+  { label: "Explorar Universo Neural", shortcut: "U", description: "Veja seu mapa mental", icon: Brain, to: "/neural-universe" },
 ];
 
-const weekDays = ["M", "T", "W", "T", "F", "S", "S"];
+const weekDays = ["S", "T", "Q", "Q", "S", "S", "D"];
 
 const motivationalMessages = [
   "🧠 Your brain grows with every expression.",
@@ -94,12 +94,12 @@ const SAVED_EXPRESSION_KEY = "fluentmind_mock_saved_expression";
 function getGreeting() {
   const hour = new Date().getHours();
   if (hour < 12) {
-    return "Good morning";
+    return "Bom dia";
   }
   if (hour < 18) {
-    return "Good afternoon";
+    return "Boa tarde";
   }
-  return "Good evening";
+  return "Boa noite";
 }
 
 function getDayIndex(length, offset = 0) {
@@ -111,31 +111,31 @@ function getDayIndex(length, offset = 0) {
 
 function getAdaptiveDashboardMessage(context) {
   if (context.goalProgress >= 100) {
-    return { title: "🎉 Amazing!", subtitle: "Ready for one more challenge?", brainState: "goal-complete" };
+    return { title: "🎉 Excelente!", subtitle: "Pronto para mais um desafio?", brainState: "goal-complete" };
   }
   if (context.streakDays >= 7) {
-    return { title: "🔥 Don't break the chain.", subtitle: "One week stronger than before.", brainState: "streak" };
+    return { title: "🔥 Não quebre a sequência.", subtitle: "Uma semana mais forte que antes.", brainState: "streak" };
   }
   if (context.daysInactive >= 7) {
-    return { title: "😴 Your brain misses today's practice.", subtitle: "Let's wake up your mind.", brainState: "sleeping" };
+    return { title: "😴 Seu cérebro sentiu falta da prática.", subtitle: "Vamos acordar sua fluência.", brainState: "sleeping" };
   }
   if (context.daysInactive >= 2) {
-    return { title: "😴 Your future self is waiting.", subtitle: "A small MindBlock is enough to restart.", brainState: "inactive" };
+    return { title: "😴 Seu eu do futuro está esperando.", subtitle: "Um pequeno MindBlock já reinicia o ritmo.", brainState: "inactive" };
   }
   if (context.pendingReviews >= 20) {
-    return { title: "📚 Your memory needs reinforcement.", subtitle: "Reviewing today protects yesterday's progress.", brainState: "review-complete" };
+    return { title: "📚 Sua memória precisa de reforço.", subtitle: "Revisar hoje protege o progresso de ontem.", brainState: "review-complete" };
   }
   if (context.studiedTodayMinutes >= 45) {
-    return { title: "⚡ You're on fire today.", subtitle: "Your brain is building fluent reflexes.", brainState: "goal-complete" };
+    return { title: "⚡ Você está em ritmo forte hoje.", subtitle: "Seu cérebro está criando reflexos de fluência.", brainState: "goal-complete" };
   }
-  return { title: "☀️ Let's make today count.", subtitle: motivationalMessages[getDayIndex(motivationalMessages.length)], brainState: "idle" };
+  return { title: "☀️ Vamos fazer o dia contar.", subtitle: motivationalMessages[getDayIndex(motivationalMessages.length)], brainState: "idle" };
 }
 
 function getDisplayName(user, profile) {
   return profile?.display_name
     || user?.user_metadata?.display_name
     || user?.email?.split("@")[0]
-    || "there";
+    || "aluno";
 }
 
 function hasActivity(row) {
@@ -203,10 +203,10 @@ function buildStats({ mindBlocks, playlists }, context) {
   const hours = context.weeklyStudyMinutes > 0 ? `${(context.weeklyStudyMinutes / 60).toFixed(1)}h` : "0h";
 
   return [
-    { label: "Expressions", value: String(mindBlocks?.length ?? 0), change: `${context.goalDone}/${context.dailyGoal} today`, icon: BookOpen },
-    { label: "Playlists", value: String(playlists?.length ?? 0), change: "active sets", icon: Library },
-    { label: "Hours Studied", value: hours, change: `${context.studiedTodayMinutes} min today`, icon: Clock3 },
-    { label: "Streak", value: String(context.streakDays), change: "days in a row", icon: Zap, tone: "warning" },
+    { label: "Expressões", value: String(mindBlocks?.length ?? 0), change: `${context.goalDone}/${context.dailyGoal} hoje`, icon: BookOpen },
+    { label: "Playlists", value: String(playlists?.length ?? 0), change: "listas ativas", icon: Library },
+    { label: "Horas estudadas", value: hours, change: `${context.studiedTodayMinutes} min hoje`, icon: Clock3 },
+    { label: "Sequência", value: String(context.streakDays), change: "dias seguidos", icon: Zap, tone: "warning" },
   ];
 }
 
@@ -229,7 +229,7 @@ function buildTodayExpression(mindBlocks) {
     return {
       phrase: source.expression,
       translation: source.translation,
-      category: source.isReviewDue || source.status === "review_due" ? "Review Due" : source.category,
+      category: source.isReviewDue || source.status === "review_due" ? "Revisão pendente" : source.category,
       sourceMindBlockId: source.id,
     };
   }
@@ -459,7 +459,7 @@ function DailyMissionCenter({ progression, dailyExpression }) {
     ...progression.dailyMissions.slice(0, 3),
     {
       id: "today-expression",
-      title: "Learn Today's Expression",
+      title: "Aprender a expressão de hoje",
       description: dailyExpression.phrase,
       progress: dailyExpression.sourceMindBlockId ? 1 : 0,
       target: 1,
@@ -472,11 +472,11 @@ function DailyMissionCenter({ progression, dailyExpression }) {
     <motion.section className="fm-mission-center" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
       <div className="fm-section-heading">
         <div>
-          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Today&apos;s Brain Mission</p>
-          <h2>Train one stronger neural path today.</h2>
+          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Missão cerebral de hoje</p>
+          <h2>Treine uma conexão mais forte hoje.</h2>
         </div>
         <div className="fm-mission-score">
-          <span>Mission Progress</span>
+          <span>Progresso da missão</span>
           <strong>{missionProgress}%</strong>
         </div>
       </div>
@@ -504,12 +504,12 @@ function DailyMissionCenter({ progression, dailyExpression }) {
       </div>
 
       <Link to="/daily-workout" className="fm-primary-button mt-5 inline-flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-black">
-        Start Daily Brain Workout <ChevronRight className="h-4 w-4" />
+        Iniciar treino do dia <ChevronRight className="h-4 w-4" />
       </Link>
 
       {missionProgress >= 100 ? (
         <motion.div className="fm-mission-complete" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}>
-          <strong>Brain Growth Completed</strong>
+          <strong>Crescimento cerebral concluído</strong>
           <span>+150 XP</span>
         </motion.div>
       ) : null}
@@ -521,18 +521,18 @@ function GrowthSection({ mindBlocks, playlists, progression, context, learningEv
   const weeklyEvents = learningEvents.filter((event) => Date.now() - new Date(event.createdAt).getTime() <= 1000 * 60 * 60 * 24 * 7);
   const neuralConnections = Math.max(0, mindBlocks.length * 6 + learningEvents.length * 3 + playlists.length * 4);
   const cards = [
-    { label: "MindBlocks", value: mindBlocks.length, change: `+${weeklyEvents.filter((event) => event.type === "expression_saved").length} this week`, icon: Brain, tone: "violet" },
-    { label: "Neural Connections", value: neuralConnections, change: `+${weeklyEvents.length * 3} this week`, icon: Zap, tone: "cyan" },
-    { label: "Current Streak", value: context.streakDays, suffix: " days", change: "keep the chain alive", icon: Flame, tone: "orange" },
-    { label: "Mastery Score", value: context.fluentmindScore, suffix: "%", change: `${progression.currentLevelName}`, icon: Target, tone: "green" },
+    { label: "MindBlocks", value: mindBlocks.length, change: `+${weeklyEvents.filter((event) => event.type === "expression_saved").length} esta semana`, icon: Brain, tone: "violet" },
+    { label: "Conexões neurais", value: neuralConnections, change: `+${weeklyEvents.length * 3} esta semana`, icon: Zap, tone: "cyan" },
+    { label: "Sequência atual", value: context.streakDays, suffix: " dias", change: "mantenha o ritmo vivo", icon: Flame, tone: "orange" },
+    { label: "Domínio", value: context.fluentmindScore, suffix: "%", change: `${progression.currentLevelName}`, icon: Target, tone: "green" },
   ];
 
   return (
     <section className="fm-growth-section">
       <div className="fm-section-heading">
         <div>
-          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Your Growth</p>
-          <h2>Your brain is becoming more fluent.</h2>
+          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Sua evolução</p>
+          <h2>Seu cérebro está ficando mais fluente.</h2>
         </div>
       </div>
       <div className="fm-growth-grid">
@@ -583,18 +583,18 @@ function BrainInsights({ mindBlocks, context, learningEvents }) {
   const strongestCategory = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "Daily Fluency";
   const reviewEvents = learningEvents.filter((event) => event.type === "review_completed" || event.type === "mistake_reviewed").length;
   const insights = [
-    `You are strongest in ${strongestCategory}.`,
-    `${strongestCategory} is becoming your largest cluster.`,
-    reviewEvents > 2 ? `You reviewed ${reviewEvents} neural paths recently.` : "Your next leap will come from short review sessions.",
-    context.pendingReviews > 0 ? `${context.pendingReviews} MindBlocks are asking for reinforcement.` : "Your memory queue is calm today.",
+    `Seu ponto mais forte é ${strongestCategory}.`,
+    `${strongestCategory} está se tornando seu maior grupo de aprendizado.`,
+    reviewEvents > 2 ? `Você revisou ${reviewEvents} caminhos neurais recentemente.` : "Seu próximo salto virá de revisões curtas.",
+    context.pendingReviews > 0 ? `${context.pendingReviews} MindBlocks pedem reforço.` : "Sua fila de memória está tranquila hoje.",
   ];
 
   return (
     <article className="fm-brain-insights">
       <div className="fm-section-heading compact">
         <div>
-          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Brain Insights</p>
-          <h2>Neo sees patterns in your growth.</h2>
+          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Insights do cérebro</p>
+          <h2>Neo identifica padrões na sua evolução.</h2>
         </div>
       </div>
       <div className="fm-insight-list">
@@ -611,26 +611,26 @@ function BrainInsights({ mindBlocks, context, learningEvents }) {
 
 function ActivityFeed({ learningEvents, progression, mindBlocks }) {
   const fallbackActivities = [
-    { id: "fallback-expression", title: "New expression saved", body: mindBlocks[0]?.expression || "I'm looking forward to it.", time: "10 minutes ago", icon: Brain },
-    { id: "fallback-streak", title: `Streak reached ${progression.streak || 1} days`, body: "Your consistency is shaping recall.", time: "Yesterday", icon: Flame },
-    { id: "fallback-universe", title: "Neural Universe expanded", body: `+${Math.max(1, learningEvents.length)} nodes`, time: "Today", icon: Sparkles },
+    { id: "fallback-expression", title: "Nova expressão salva", body: mindBlocks[0]?.expression || "I'm looking forward to it.", time: "10 minutos atrás", icon: Brain },
+    { id: "fallback-streak", title: `Sequência chegou a ${progression.streak || 1} dias`, body: "Sua consistência está moldando a memória.", time: "Ontem", icon: Flame },
+    { id: "fallback-universe", title: "Universo Neural expandido", body: `+${Math.max(1, learningEvents.length)} nós`, time: "Hoje", icon: Sparkles },
   ];
   const eventItems = learningEvents.slice(-6).reverse().map((event) => {
     const payload = event.payload || {};
     const map = {
-      expression_saved: ["New expression saved", payload.expression, Brain],
-      correction_saved: ["Correction strengthened", `${payload.wrongText} -> ${payload.correctText}`, Check],
-      conversation_completed: ["Conversation completed", `${payload.xpEarned || 15} XP earned`, MessageCircle],
-      review_completed: ["Review completed", payload.expression, RotateCcw],
-      expression_mastered: ["MindBlock mastered", payload.expression, Target],
-      favorite_added: ["Favorite neural path", payload.expression, Star],
-      playlist_created: ["New cluster created", payload.name, Library],
+      expression_saved: ["Nova expressão salva", payload.expression, Brain],
+      correction_saved: ["Correção fortalecida", `${payload.wrongText} -> ${payload.correctText}`, Check],
+      conversation_completed: ["Conversa concluída", `${payload.xpEarned || 15} XP ganhos`, MessageCircle],
+      review_completed: ["Revisão concluída", payload.expression, RotateCcw],
+      expression_mastered: ["MindBlock dominado", payload.expression, Target],
+      favorite_added: ["Caminho neural favorito", payload.expression, Star],
+      playlist_created: ["Novo grupo criado", payload.name, Library],
     };
-    const [title, body, icon] = map[event.type] || ["Brain activity", event.type, Sparkles];
+    const [title, body, icon] = map[event.type] || ["Atividade cerebral", event.type, Sparkles];
     return {
       id: event.id,
       title,
-      body: body || "Your FluentMind evolved.",
+      body: body || "Seu FluentMind evoluiu.",
       time: formatActivityTime(event.createdAt),
       icon,
     };
@@ -641,8 +641,8 @@ function ActivityFeed({ learningEvents, progression, mindBlocks }) {
     <article className="fm-activity-feed">
       <div className="fm-section-heading compact">
         <div>
-          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Your Brain Activity</p>
-          <h2>A living history of your fluency.</h2>
+          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Atividade do cérebro</p>
+          <h2>Um histórico vivo da sua fluência.</h2>
         </div>
       </div>
       <div className="fm-activity-list">
@@ -664,10 +664,10 @@ function ActivityFeed({ learningEvents, progression, mindBlocks }) {
 function formatActivityTime(date) {
   const diff = Date.now() - new Date(date).getTime();
   const minutes = Math.max(1, Math.round(diff / 60000));
-  if (minutes < 60) return `${minutes} minutes ago`;
+  if (minutes < 60) return `${minutes} min atrás`;
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} hours ago`;
-  return `${Math.round(hours / 24)} days ago`;
+  if (hours < 24) return `${hours} h atrás`;
+  return `${Math.round(hours / 24)} dias atrás`;
 }
 
 function ModernRecentExpressions({ expressions }) {
@@ -675,11 +675,11 @@ function ModernRecentExpressions({ expressions }) {
     <section className="fm-modern-expressions">
       <div className="fm-section-heading">
         <div>
-          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Recent Expressions</p>
-          <h2>Small blocks. Big fluency.</h2>
+          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Expressões recentes</p>
+          <h2>Pequenos blocos. Grande fluência.</h2>
         </div>
         <Link to="/biblioteca" className="fm-secondary inline-flex items-center gap-1 text-xs font-semibold">
-          Open Library <ChevronRight className="h-3.5 w-3.5" />
+          Abrir biblioteca <ChevronRight className="h-3.5 w-3.5" />
         </Link>
       </div>
       <div className="fm-expression-strip">
@@ -708,8 +708,8 @@ function PremiumQuickActions() {
     <article className="fm-card fm-quick-premium rounded-[30px] border p-6 shadow-md backdrop-blur-xl">
       <div className="fm-section-heading compact">
         <div>
-          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Quick Actions</p>
-          <h2>Choose your next neural rep.</h2>
+          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Ações rápidas</p>
+          <h2>Escolha o próximo treino neural.</h2>
         </div>
       </div>
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -738,12 +738,12 @@ function FirstLearningExperience({ displayName, onComplete }) {
       <div className="fm-card-glow absolute inset-y-0 right-0 w-1/2" />
       <div className="relative grid gap-6 lg:grid-cols-[1fr,auto] lg:items-center">
         <div>
-          <p className="fm-chip inline-flex rounded-full border px-3 py-1 text-xs font-semibold">Your journey starts today</p>
+          <p className="fm-chip inline-flex rounded-full border px-3 py-1 text-xs font-semibold">Sua jornada começa hoje</p>
           <h2 className="mt-4 text-2xl font-semibold tracking-tight">👋 Welcome, {displayName}.</h2>
-          <p className="fm-muted mt-2 text-sm">Before exploring menus, build your first useful MindBlock.</p>
+          <p className="fm-muted mt-2 text-sm">Antes de explorar os menus, crie seu primeiro MindBlock útil.</p>
 
           <div className="fm-inner mt-5 rounded-2xl border p-5">
-            <p className="fm-subtle text-xs font-semibold uppercase tracking-[0.14em]">Today&apos;s first expression</p>
+            <p className="fm-subtle text-xs font-semibold uppercase tracking-[0.14em]">Primeira expressão de hoje</p>
             <p className="mt-3 text-xl font-semibold">🇺🇸 Nice to meet you.</p>
             <p className="fm-muted mt-1 text-sm">🇧🇷 Prazer em conhecer você.</p>
           </div>
@@ -752,15 +752,15 @@ function FirstLearningExperience({ displayName, onComplete }) {
         <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
           <button type="button" className="fm-chip inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition hover:-translate-y-0.5">
             <Play className="h-4 w-4 fill-current" />
-            Listen
+            Ouvir
           </button>
           <button type="button" className="fm-chip inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition hover:-translate-y-0.5" onClick={onComplete}>
             <Star className="h-4 w-4" />
-            Save
+            Salvar
           </button>
           <Link to="/chatbot" onClick={onComplete} className="fm-gradient inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold shadow-md transition hover:-translate-y-0.5">
             <MessageCircle className="h-4 w-4" />
-            Practice with Neo
+            Praticar com Neo
           </Link>
         </div>
       </div>
@@ -796,7 +796,7 @@ function DashboardHeader({ greeting, displayName, adaptiveMessage }) {
       <div>
         <div className="fm-chip inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]">
           <Sparkles className="h-3.5 w-3.5" />
-          MindBlocks Method
+          Método MindBlocks
         </div>
         <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
           {greeting}, {displayName}! <span className="inline-block">👋</span>
@@ -809,7 +809,7 @@ function DashboardHeader({ greeting, displayName, adaptiveMessage }) {
         <Search className="fm-subtle h-4 w-4" />
         <input
           type="search"
-          placeholder="Search expressions, playlists..."
+          placeholder="Buscar expressões, playlists..."
           className="min-w-0 flex-1 bg-transparent text-sm focus:outline-none"
         />
       </form>
@@ -846,19 +846,19 @@ function TodayExpression({ expression }) {
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:justify-end">
           <button type="button" className="fm-live-action" onClick={() => saveExpressionContext(REPEAT_CONTEXT_KEY)}>
             <Play className="h-4 w-4 fill-current" />
-            Listen
+            Ouvir
           </button>
           <button type="button" className="fm-live-action" onClick={() => saveExpressionContext(SAVED_EXPRESSION_KEY)}>
             <Star className="h-4 w-4" />
-            Save
+            Salvar
           </button>
           <button type="button" className="fm-live-action" title="Prepared for future voice recognition" onClick={() => saveExpressionContext(REPEAT_CONTEXT_KEY)}>
             <Mic2 className="h-4 w-4" />
-            Repeat
+            Repetir
           </button>
           <Link to={primaryAction} className="fm-live-action fm-live-action-primary" onClick={() => saveExpressionContext(NEO_CONTEXT_KEY)}>
             <MessageCircle className="h-4 w-4" />
-            {expression.sourceMindBlockId ? "Review" : "Neo"}
+            {expression.sourceMindBlockId ? "Revisar" : "Neo"}
           </Link>
         </div>
       </div>
@@ -923,9 +923,9 @@ function StreakCard({ streakDays }) {
     <article className="fm-card rounded-[30px] border p-6 shadow-md backdrop-blur-xl">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="fm-muted text-sm font-semibold">Your Streak</p>
+            <p className="fm-muted text-sm font-semibold">Sua sequência</p>
           <p className="mt-3 text-5xl font-semibold tracking-tight">{streakDays}</p>
-          <p className="fm-warning mt-1 text-sm">days thinking in English</p>
+          <p className="fm-warning mt-1 text-sm">dias pensando em inglês</p>
         </div>
         <span className="fm-warning-chip flex h-14 w-14 items-center justify-center rounded-3xl">
           <Zap className="h-7 w-7" />
@@ -943,8 +943,8 @@ function StreakCard({ streakDays }) {
       </div>
       <div className="fm-inner mt-5 rounded-2xl border p-4">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-sm font-semibold">Next reward</span>
-          <span className="fm-chip rounded-full border px-2.5 py-1 text-[11px] font-semibold">Level 4</span>
+          <span className="text-sm font-semibold">Próxima recompensa</span>
+          <span className="fm-chip rounded-full border px-2.5 py-1 text-[11px] font-semibold">Nível 4</span>
         </div>
         <div className="fm-progress-track mt-3 h-2 rounded-full">
           <div className="fm-progress-fill h-full w-[72%] rounded-full" />
@@ -956,17 +956,17 @@ function StreakCard({ streakDays }) {
 
 function SmartDailyPlan({ context }) {
   const plan = [
-    { label: "Review expressions", value: String(Math.max(3, context.pendingReviews || 0)), icon: RotateCcw },
-    { label: "Listening practice", value: `${Math.max(8, Math.round(context.studiedTodayMinutes / 2) || 8)} min`, icon: Headphones },
-    { label: "Conversation warmup", value: "5 min", icon: MessageCircle },
+    { label: "Revisar expressões", value: String(Math.max(3, context.pendingReviews || 0)), icon: RotateCcw },
+    { label: "Praticar escuta", value: `${Math.max(8, Math.round(context.studiedTodayMinutes / 2) || 8)} min`, icon: Headphones },
+    { label: "Aquecimento de conversa", value: "5 min", icon: MessageCircle },
   ];
 
   return (
     <article className="fm-card rounded-[30px] border p-5 shadow-md backdrop-blur-xl">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="fm-muted text-sm font-semibold">Smart Daily Plan</p>
-          <h2 className="mt-2 text-xl font-semibold">Estimated {Math.max(15, context.studiedTodayMinutes + 12)} min</h2>
+          <p className="fm-muted text-sm font-semibold">Plano inteligente do dia</p>
+          <h2 className="mt-2 text-xl font-semibold">Estimativa: {Math.max(15, context.studiedTodayMinutes + 12)} min</h2>
         </div>
         <CalendarCheck2 className="fm-secondary h-5 w-5" />
       </div>
@@ -992,11 +992,11 @@ function RecentExpressionList({ expressions }) {
     <article className="fm-card rounded-[30px] border p-6 shadow-md backdrop-blur-xl">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold">Recent Expressions</h2>
-          <p className="fm-subtle mt-1 text-sm">Saved from conversations and corrections.</p>
+          <h2 className="text-lg font-semibold">Expressões recentes</h2>
+          <p className="fm-subtle mt-1 text-sm">Salvas de conversas e correções.</p>
         </div>
         <Link to="/biblioteca" className="fm-secondary inline-flex items-center gap-1 text-xs font-semibold hover:brightness-125">
-          View all <ChevronRight className="h-3.5 w-3.5" />
+          Ver tudo <ChevronRight className="h-3.5 w-3.5" />
         </Link>
       </div>
       <div className="mt-5 space-y-3">
@@ -1013,7 +1013,7 @@ function RecentExpressionList({ expressions }) {
               <p className="fm-muted mt-1 text-xs">{item.translation}</p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <span className="fm-chip inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold">{item.category}</span>
-                <span className="fm-subtle text-[11px] font-semibold">{item.mastery}% mastery</span>
+                <span className="fm-subtle text-[11px] font-semibold">{item.mastery}% domínio</span>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -1033,7 +1033,7 @@ function RecentExpressionList({ expressions }) {
             <p className="text-sm font-semibold">Nenhum MindBlock salvo ainda.</p>
             <p className="fm-muted mt-1 text-xs">Converse com Neo ou salve sua primeira expressão para alimentar sua biblioteca.</p>
             <Link to="/chatbot" className="fm-secondary mt-3 inline-flex items-center gap-1 text-xs font-semibold">
-              Start with Neo <ChevronRight className="h-3.5 w-3.5" />
+              Começar com Neo <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
         )}
@@ -1059,9 +1059,9 @@ function ProgressionOverview({ progression }) {
           showLabel={false}
         />
         <div>
-          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.16em]">Progression Engine</p>
-          <h2>Level {progression.currentLevel} — {progression.currentLevelName}</h2>
-          <p>{remainingXp} XP until your next neural path.</p>
+          <p className="fm-accent text-xs font-semibold uppercase tracking-[0.16em]">Motor de progresso</p>
+          <h2>Nível {progression.currentLevel} — {progression.currentLevelName}</h2>
+          <p>Faltam {remainingXp} XP para o próximo caminho neural.</p>
           <div className="progression-xp-track">
             <div className="progression-xp-fill" style={{ width: `${xpPercent}%` }} />
           </div>
@@ -1071,8 +1071,8 @@ function ProgressionOverview({ progression }) {
       <article className="progression-missions">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2>Daily Missions</h2>
-            <p>Small actions that strengthen today&apos;s brain.</p>
+            <h2>Missões diárias</h2>
+            <p>Pequenas ações que fortalecem o cérebro hoje.</p>
           </div>
           <span className="fm-chip rounded-full border px-3 py-1 text-xs font-semibold">
             {progression.dailyMissions.filter((mission) => mission.completed).length}/{progression.dailyMissions.length}
@@ -1095,8 +1095,8 @@ function ProgressionOverview({ progression }) {
       </article>
 
       <article className="progression-achievements">
-        <h2>Recent Achievements</h2>
-        <p>Unlocked proof of your fluency path.</p>
+        <h2>Conquistas recentes</h2>
+        <p>Provas desbloqueadas da sua evolução.</p>
         <div className="progression-achievement-list">
           {recentAchievements.length ? recentAchievements.map((achievement) => (
             <div key={achievement.id} className="progression-achievement-item">
@@ -1108,8 +1108,8 @@ function ProgressionOverview({ progression }) {
             </div>
           )) : (
             <div className="progression-achievement-item">
-              <header><span>No achievements yet</span><strong>0 XP</strong></header>
-              <small>Save, review or practice to unlock your first badge.</small>
+              <header><span>Nenhuma conquista ainda</span><strong>0 XP</strong></header>
+              <small>Salve, revise ou pratique para desbloquear o primeiro selo.</small>
             </div>
           )}
         </div>
@@ -1123,11 +1123,11 @@ function ProgressCard({ progressBars, context }) {
     <article className="fm-card rounded-[30px] border p-6 shadow-md backdrop-blur-xl">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold">Your Progress</h2>
-          <p className="fm-subtle mt-1 text-sm">Weekly consistency and FluentMind Score.</p>
+          <h2 className="text-lg font-semibold">Seu progresso</h2>
+          <p className="fm-subtle mt-1 text-sm">Consistência semanal e pontuação FluentMind.</p>
         </div>
         <div className="fm-success-chip rounded-2xl border px-4 py-3 text-right">
-          <p className="text-xs font-semibold">Score</p>
+          <p className="text-xs font-semibold">Pontuação</p>
           <p className="text-2xl font-semibold">{context.fluentmindScore}</p>
         </div>
       </div>
@@ -1144,10 +1144,10 @@ function ProgressCard({ progressBars, context }) {
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <ProgressPill icon={BookMarked} label="Reviewed" value={String(context.weeklyReviewed)} />
-        <ProgressPill icon={Headphones} label="Study min" value={String(context.weeklyStudyMinutes)} />
-        <ProgressPill icon={MessageCircle} label="Today goal" value={`${context.goalProgress}%`} />
-        <ProgressPill icon={Brain} label="Pending" value={String(context.pendingReviews)} />
+        <ProgressPill icon={BookMarked} label="Revisadas" value={String(context.weeklyReviewed)} />
+        <ProgressPill icon={Headphones} label="Min. estudo" value={String(context.weeklyStudyMinutes)} />
+        <ProgressPill icon={MessageCircle} label="Meta hoje" value={`${context.goalProgress}%`} />
+        <ProgressPill icon={Brain} label="Pendentes" value={String(context.pendingReviews)} />
       </div>
     </article>
   );
@@ -1166,7 +1166,7 @@ function ProgressPill({ icon, label, value }) {
 function QuickActions() {
   return (
     <article className="fm-card rounded-[30px] border p-6 shadow-md backdrop-blur-xl">
-      <h2 className="text-lg font-semibold">Quick Actions</h2>
+      <h2 className="text-lg font-semibold">Ações rápidas</h2>
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {quickActions.map((action) => (
           <Link

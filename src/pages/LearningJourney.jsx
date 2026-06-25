@@ -179,7 +179,7 @@ export default function LearningJourneyPage() {
       mindBlocks: selectedChapter.mindBlocks.length,
       nextChapterId: nextChapter?.id || null,
     }, "learning_journey");
-    toast.success(nextChapter ? "New Chapter Unlocked" : "Learning Journey completed");
+    toast.success(nextChapter ? "Novo capítulo desbloqueado" : "Jornada concluída");
   };
 
   const neoUrl = `/chatbot?journey=${encodeURIComponent(selectedChapter.id)}&topic=${encodeURIComponent(selectedChapter.title)}&prompt=${encodeURIComponent(selectedChapter.neoPrompt)}`;
@@ -190,10 +190,10 @@ export default function LearningJourneyPage() {
         <section className="fm-card overflow-hidden rounded-[34px] border p-5 shadow-2xl sm:p-8">
           <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:items-center">
             <div>
-              <p className="fm-accent text-xs font-black uppercase tracking-[0.22em]">Learning Journey</p>
-              <h1 className="mt-3 text-4xl font-black leading-tight sm:text-6xl">Your path to thinking in English.</h1>
+              <p className="fm-accent text-xs font-black uppercase tracking-[0.22em]">Jornada Guiada</p>
+              <h1 className="mt-3 text-4xl font-black leading-tight sm:text-6xl">Seu caminho para pensar em inglês.</h1>
               <p className="fm-muted mt-4 max-w-2xl text-base leading-7 sm:text-lg">
-                Continue where you stopped. FluentMind chooses the next step, guides the lesson and turns each chapter into MindBlocks, review, XP and neural growth.
+                Continue de onde parou. O FluentMind escolhe o próximo passo, guia a lição e transforma cada capítulo em MindBlocks, revisão, XP e crescimento neural.
               </p>
               <div className="mt-7 flex flex-wrap gap-3">
                 <button
@@ -201,17 +201,17 @@ export default function LearningJourneyPage() {
                   onClick={() => setSelectedChapterId(activeChapter.id)}
                   className="fm-primary-button inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-black"
                 >
-                  Continue <ArrowRight className="h-4 w-4" />
+                  Continuar <ArrowRight className="h-4 w-4" />
                 </button>
                 <Link to={neoUrl} className="fm-ghost-button inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-black">
-                  Practice with Neo <MessageCircle className="h-4 w-4" />
+                  Praticar com Neo <MessageCircle className="h-4 w-4" />
                 </Link>
               </div>
             </div>
 
             <aside className="rounded-[30px] border border-[var(--border-soft)] bg-white/[0.04] p-5">
               <div className="flex items-center justify-between">
-                <span className="fm-muted text-xs font-black uppercase tracking-[0.18em]">Overall Progress</span>
+                <span className="fm-muted text-xs font-black uppercase tracking-[0.18em]">Progresso geral</span>
                 <Route className="h-5 w-5 text-cyan-300" />
               </div>
               <strong className="mt-4 block text-5xl font-black">{overallProgress}%</strong>
@@ -219,8 +219,8 @@ export default function LearningJourneyPage() {
                 <div className="h-full rounded-full bg-gradient-to-r from-violet-500 via-cyan-400 to-emerald-300" style={{ width: `${overallProgress}%` }} />
               </div>
               <div className="mt-5 grid grid-cols-2 gap-3">
-                <JourneyMetric label="Current Level" value={progression.currentLevel} />
-                <JourneyMetric label="Journey XP" value={`${earnedJourneyXp}/${totalXp}`} />
+                <JourneyMetric label="Nível atual" value={progression.currentLevel} />
+                <JourneyMetric label="XP da jornada" value={`${earnedJourneyXp}/${totalXp}`} />
               </div>
             </aside>
           </div>
@@ -229,11 +229,11 @@ export default function LearningJourneyPage() {
         <section className="fm-card rounded-[30px] border p-4 sm:p-6">
           <div className="mb-5 flex items-center justify-between gap-4">
             <div>
-              <p className="fm-accent text-xs font-black uppercase tracking-[0.18em]">Roadmap</p>
-              <h2 className="mt-1 text-2xl font-black">The next step is already chosen.</h2>
+              <p className="fm-accent text-xs font-black uppercase tracking-[0.18em]">Roteiro</p>
+              <h2 className="mt-1 text-2xl font-black">O próximo passo já está escolhido.</h2>
             </div>
             <span className="fm-chip hidden rounded-full px-4 py-2 text-sm font-bold sm:inline-flex">
-              {completedSet.size}/{learningJourneyChapters.length} chapters
+              {completedSet.size}/{learningJourneyChapters.length} capítulos
             </span>
           </div>
           <div className="learning-roadmap grid gap-3 lg:grid-cols-10">
@@ -292,22 +292,22 @@ export default function LearningJourneyPage() {
 
           <aside className="space-y-5">
             <section className="fm-card rounded-[30px] border p-5">
-              <p className="fm-muted text-xs font-black uppercase tracking-[0.18em]">Current Chapter</p>
+              <p className="fm-muted text-xs font-black uppercase tracking-[0.18em]">Capítulo atual</p>
               <h2 className="mt-3 text-2xl font-black">{activeChapter.title}</h2>
               <p className="fm-muted mt-2 text-sm">{activeChapter.objective}</p>
               <div className="mt-5 space-y-3">
-                <SideMetric icon={Target} label="Estimated Fluency" value={`${Math.min(95, 12 + completedSet.size * 8)}%`} />
-                <SideMetric icon={Zap} label="Current XP" value={progression.totalXp} />
-                <SideMetric icon={Clock3} label="Weekly Goal" value="3 chapters steps" />
+                <SideMetric icon={Target} label="Fluência estimada" value={`${Math.min(95, 12 + completedSet.size * 8)}%`} />
+                <SideMetric icon={Zap} label="XP atual" value={progression.totalXp} />
+                <SideMetric icon={Clock3} label="Meta semanal" value="3 passos de capítulo" />
               </div>
             </section>
 
             <section className="fm-card rounded-[30px] border p-5">
-              <p className="fm-muted text-xs font-black uppercase tracking-[0.18em]">Chapter Reward</p>
+              <p className="fm-muted text-xs font-black uppercase tracking-[0.18em]">Recompensa do capítulo</p>
               <div className="mt-4 rounded-[26px] border border-violet-400/25 bg-violet-500/[0.08] p-5">
                 <Trophy className="h-8 w-8 text-cyan-300" />
                 <strong className="mt-4 block text-2xl font-black">+{selectedChapter.xp} XP</strong>
-                <p className="fm-muted mt-2 text-sm">+{selectedChapter.mindBlocks.length} MindBlocks and new neural connections.</p>
+                <p className="fm-muted mt-2 text-sm">+{selectedChapter.mindBlocks.length} MindBlocks e novas conexões neurais.</p>
               </div>
             </section>
           </aside>
@@ -322,7 +322,7 @@ function ChapterDetail({ chapter, checklist, progressPercent, saving, neoUrl, on
     <div>
       <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
         <div>
-          <p className="fm-accent text-xs font-black uppercase tracking-[0.18em]">Chapter {chapter.order}</p>
+          <p className="fm-accent text-xs font-black uppercase tracking-[0.18em]">Capítulo {chapter.order}</p>
           <h2 className="mt-2 text-4xl font-black leading-tight sm:text-5xl">{chapter.title}</h2>
           <p className="fm-muted mt-4 max-w-2xl text-lg leading-8">{chapter.intro}</p>
           <div className="mt-5 flex flex-wrap gap-2">
@@ -332,7 +332,7 @@ function ChapterDetail({ chapter, checklist, progressPercent, saving, neoUrl, on
           </div>
         </div>
         <div className="min-w-[180px] rounded-[26px] border border-[var(--border-soft)] bg-white/[0.04] p-4">
-          <span className="fm-muted text-xs font-black uppercase tracking-[0.16em]">Chapter Progress</span>
+          <span className="fm-muted text-xs font-black uppercase tracking-[0.16em]">Progresso do capítulo</span>
           <strong className="mt-2 block text-4xl font-black">{progressPercent}%</strong>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/20 dark:bg-white/10">
             <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-cyan-300" style={{ width: `${progressPercent}%` }} />
@@ -341,7 +341,7 @@ function ChapterDetail({ chapter, checklist, progressPercent, saving, neoUrl, on
       </div>
 
       <div className="mt-8 grid gap-4 lg:grid-cols-2">
-        <LessonSection title="Vocabulary" icon={BookOpen} actionLabel="Mark vocabulary done" onAction={() => onStep("vocabulary")}>
+        <LessonSection title="Vocabulário" icon={BookOpen} actionLabel="Marcar vocabulário concluído" onAction={() => onStep("vocabulary")}>
           <div className="flex flex-wrap gap-2">
             {chapter.vocabulary.map((word) => (
               <span key={word} className="rounded-full border border-[var(--border-soft)] bg-white/[0.04] px-3 py-2 text-sm font-bold">{word}</span>
@@ -349,7 +349,7 @@ function ChapterDetail({ chapter, checklist, progressPercent, saving, neoUrl, on
           </div>
         </LessonSection>
 
-        <LessonSection title="MindBlocks" icon={Brain} actionLabel={saving ? "Saving..." : "Add to Biblioteca"} onAction={onAddMindBlocks}>
+        <LessonSection title="MindBlocks" icon={Brain} actionLabel={saving ? "Salvando..." : "Adicionar à Biblioteca"} onAction={onAddMindBlocks}>
           <div className="space-y-3">
             {chapter.mindBlocks.slice(0, 5).map(([expression, translation]) => (
               <div key={expression} className="rounded-2xl border border-[var(--border-soft)] bg-white/[0.03] p-3">
@@ -360,17 +360,17 @@ function ChapterDetail({ chapter, checklist, progressPercent, saving, neoUrl, on
           </div>
         </LessonSection>
 
-        <LessonSection title="Listening and Speaking" icon={Headphones} actionLabel="Mark listening done" onAction={() => {
+        <LessonSection title="Escuta e fala" icon={Headphones} actionLabel="Marcar escuta concluída" onAction={() => {
           onStep("listening");
           onStep("review");
         }}>
-          <p className="fm-muted text-sm leading-6">Listen to the chapter MindBlocks in your Biblioteca, repeat them out loud, then come back and mark this step.</p>
+          <p className="fm-muted text-sm leading-6">Ouça os MindBlocks do capítulo na Biblioteca, repita em voz alta e volte para marcar esta etapa.</p>
         </LessonSection>
 
-        <LessonSection title="Conversation" icon={MessageCircle} actionLabel="Mark conversation done" onAction={() => onStep("conversation")}>
+        <LessonSection title="Conversa" icon={MessageCircle} actionLabel="Marcar conversa concluída" onAction={() => onStep("conversation")}>
           <p className="fm-muted text-sm leading-6">{chapter.neoPrompt}</p>
           <Link to={neoUrl} className="fm-primary-button mt-4 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-black">
-            Practice with Neo <ChevronRight className="h-4 w-4" />
+            Praticar com Neo <ChevronRight className="h-4 w-4" />
           </Link>
         </LessonSection>
       </div>
@@ -378,12 +378,12 @@ function ChapterDetail({ chapter, checklist, progressPercent, saving, neoUrl, on
       <section className="mt-6 rounded-[30px] border border-cyan-400/20 bg-cyan-400/[0.06] p-5">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <p className="fm-accent text-xs font-black uppercase tracking-[0.18em]">Final Challenge</p>
+            <p className="fm-accent text-xs font-black uppercase tracking-[0.18em]">Desafio final</p>
             <h3 className="mt-2 text-2xl font-black">{chapter.finalChallenge}</h3>
-            <p className="fm-muted mt-2 text-sm">Complete enough steps, then finish the chapter to unlock the next one.</p>
+            <p className="fm-muted mt-2 text-sm">Complete etapas suficientes e finalize o capítulo para desbloquear o próximo.</p>
           </div>
           <button type="button" onClick={onComplete} className="fm-primary-button inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 font-black">
-            {isComplete ? "Completed" : "Complete Chapter"} <Sparkles className="h-4 w-4" />
+            {isComplete ? "Concluído" : "Concluir capítulo"} <Sparkles className="h-4 w-4" />
           </button>
         </div>
       </section>

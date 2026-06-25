@@ -74,9 +74,9 @@ export default function MistakesPage() {
       await createMindBlock({
         expression: mistake.correctedText,
         translation: mistake.originalText,
-        category: "My Mistakes",
-        source: "Corrected Mistake",
-        notes: mistake.explanation || "Saved from a corrected mistake.",
+        category: "Meus Erros",
+        source: "Erro corrigido",
+        notes: mistake.explanation || "Salvo a partir de um erro corrigido.",
         context: mistake.explanation,
         isFavorite: true,
         meta: {
@@ -88,8 +88,8 @@ export default function MistakesPage() {
             explanation: mistake.explanation,
           },
           pattern: `${mistake.correctedText.split(" ").slice(0, 4).join(" ")} + context`,
-          patternExplanation: "Review the corrected version as a complete MindBlock.",
-          personalNotes: mistake.explanation || "Saved from a corrected mistake.",
+          patternExplanation: "Revise a versão corrigida como um MindBlock completo.",
+          personalNotes: mistake.explanation || "Salvo a partir de um erro corrigido.",
         },
       }, { userId: user.id, mode: "review" });
       await recordDailyActivity(user.id, {
@@ -157,7 +157,7 @@ export default function MistakesPage() {
       <section className="fm-card rounded-[30px] border p-6 shadow-lg">
         <div className="grid gap-5 lg:grid-cols-[1fr,auto] lg:items-end">
           <div>
-            <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Corrections Library</p>
+            <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Biblioteca de correções</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight">Meus Erros</h1>
             <p className="fm-muted mt-2 max-w-3xl text-sm">
               Transforme erros corrigidos pelo Neo em revisão ativa, MindBlocks e progresso pessoal.
@@ -165,7 +165,7 @@ export default function MistakesPage() {
           </div>
           <Link to="/chatbot" className="fm-gradient inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold">
             <MessageCircle className="h-4 w-4" />
-            Practice with Neo
+            Praticar com Neo
           </Link>
         </div>
 
@@ -206,10 +206,10 @@ export default function MistakesPage() {
                 <div className="grid gap-4 lg:grid-cols-[1fr,auto] lg:items-start">
                   <div>
                     <div className="flex flex-wrap gap-2">
-                      <span className="library-badge danger">Mistake</span>
+                      <span className="library-badge danger">Erro</span>
                       <span className="library-badge">{mistake.level}</span>
                       <span className={`library-badge ${mistake.isReviewDue ? "warning" : "success"}`}>
-                        {mistake.isReviewDue ? "Review due" : mistake.status}
+                        {mistake.isReviewDue ? "Para revisar" : mistake.status}
                       </span>
                     </div>
                     <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -218,29 +218,29 @@ export default function MistakesPage() {
                         <p className="mt-2 text-sm font-semibold">{mistake.originalText}</p>
                       </div>
                       <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-300">Correct</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-300">Correto</p>
                         <p className="mt-2 text-sm font-semibold">{mistake.correctedText}</p>
                       </div>
                     </div>
                     {mistake.explanation ? <p className="fm-muted mt-3 text-sm">{mistake.explanation}</p> : null}
                     <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                      <MistakeMetric label="Mastery" value={`${mistake.mastery}%`} compact />
-                      <MistakeMetric label="Reviewed" value={`${mistake.timesReviewed}x`} compact />
-                      <MistakeMetric label="Next" value={mistake.nextReviewAt} compact />
+                      <MistakeMetric label="Domínio" value={`${mistake.mastery}%`} compact />
+                      <MistakeMetric label="Revisado" value={`${mistake.timesReviewed}x`} compact />
+                      <MistakeMetric label="Próxima" value={mistake.nextReviewAt} compact />
                     </div>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2 lg:w-52 lg:grid-cols-1">
                     <button type="button" disabled={savingId === mistake.id} onClick={() => saveAsMindBlock(mistake)} className="library-panel-action">
-                      <Plus className="h-4 w-4" /> Save MindBlock
+                      <Plus className="h-4 w-4" /> Salvar MindBlock
                     </button>
                     <button type="button" disabled={savingId === mistake.id} onClick={() => markReviewed(mistake, "good")} className="library-panel-action">
-                      <RotateCcw className="h-4 w-4" /> Reviewed
+                      <RotateCcw className="h-4 w-4" /> Revisado
                     </button>
                     <button type="button" disabled={savingId === mistake.id} onClick={() => markReviewed(mistake, "easy")} className="library-panel-action">
-                      <Check className="h-4 w-4" /> Master easier
+                      <Check className="h-4 w-4" /> Dominei fácil
                     </button>
                     <button type="button" disabled={savingId === mistake.id} onClick={() => removeMistake(mistake)} className="library-panel-action danger">
-                      <Trash2 className="h-4 w-4" /> Delete
+                      <Trash2 className="h-4 w-4" /> Excluir
                     </button>
                   </div>
                 </div>

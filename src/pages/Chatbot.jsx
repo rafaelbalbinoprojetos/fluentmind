@@ -51,7 +51,7 @@ const welcomeMessages = [
     role: "neo",
     createdAt: "Agora",
     content:
-      "Good morning, Rafael. Today we can strengthen your English without translating word by word.\n\nTell me one sentence you want to say naturally, and I will turn it into a MindBlock.",
+      "Bom dia, Rafael. Hoje podemos fortalecer seu inglês sem traduzir palavra por palavra.\n\nMe diga uma frase que você quer falar com naturalidade, e eu transformo isso em um MindBlock.",
     detectedExpression: "I'm getting used to it.",
   },
 ];
@@ -59,83 +59,83 @@ const welcomeMessages = [
 const neoModes = [
   {
     id: "conversation",
-    title: "Conversation",
-    description: "Practice real-life English naturally.",
+    title: "Conversa",
+    description: "Pratique inglês da vida real naturalmente.",
     prompt: "Great choice. Let's practice real conversation. I will ask simple questions and correct only what matters.",
   },
   {
     id: "correction",
-    title: "Correct my English",
-    description: "Write anything and I will correct it gently.",
+    title: "Corrigir meu inglês",
+    description: "Escreva algo e eu corrijo com calma.",
     prompt: "Perfect. Send me any English sentence and I will correct it gently, with a short explanation and a reusable MindBlock.",
   },
   {
     id: "explain",
-    title: "Explain like I'm five",
-    description: "Simple explanations with daily-life analogies.",
+    title: "Explicar simples",
+    description: "Explicações simples com exemplos do dia a dia.",
     prompt: "Nice. Tell me what sounds confusing and I will explain it simply, with daily examples.",
   },
   {
     id: "mindblocks",
-    title: "Build MindBlocks",
-    description: "Turn useful phrases into saved mental blocks.",
+    title: "Criar MindBlocks",
+    description: "Transforme frases úteis em blocos mentais salvos.",
     prompt: "Excellent. Give me a topic and I will turn it into practical MindBlocks you can save and review.",
   },
   {
     id: "pronunciation",
-    title: "Pronunciation",
-    description: "Practice speaking and rhythm.",
+    title: "Pronúncia",
+    description: "Pratique fala, ritmo e entonação.",
     prompt: "Pronunciation mode is ready as a guided practice. Type a phrase and I will show rhythm, stress and a practice path.",
   },
   {
     id: "listening",
-    title: "Listening",
-    description: "Train your ear with short expressions.",
+    title: "Escuta",
+    description: "Treine o ouvido com expressões curtas.",
     prompt: "Let's train your ear. I will give you short expressions and help you notice natural rhythm.",
   },
   {
     id: "review",
-    title: "Review due",
-    description: "Strengthen expressions that are fading.",
+    title: "Revisão pendente",
+    description: "Reforce expressões que estão enfraquecendo.",
     prompt: "Let's strengthen what is fading. I can turn your saved expressions into quick review prompts.",
   },
   {
     id: "challenge",
-    title: "Random challenge",
-    description: "One small challenge to improve today.",
+    title: "Desafio aleatório",
+    description: "Um pequeno desafio para evoluir hoje.",
     prompt: "Here is today's challenge: write one natural sentence about your routine. I will make it sound more fluent.",
   },
 ];
 
 const quickPromptChips = [
-  { label: "Correct this", text: "Correct this sentence and explain simply: " },
-  { label: "Make it natural", text: "Make this sound natural in English: " },
-  { label: "Explain simply", text: "Explain this simply with examples: " },
-  { label: "Give examples", text: "Give me natural examples for: " },
-  { label: "Save this", text: "Turn this into a MindBlock: " },
-  { label: "Practice with me", text: "Practice this with me step by step: " },
+  { label: "Corrigir", text: "Correct this sentence and explain simply: " },
+  { label: "Soar natural", text: "Make this sound natural in English: " },
+  { label: "Explicar simples", text: "Explain this simply with examples: " },
+  { label: "Dar exemplos", text: "Give me natural examples for: " },
+  { label: "Salvar isso", text: "Turn this into a MindBlock: " },
+  { label: "Praticar comigo", text: "Practice this with me step by step: " },
 ];
 
 const neoMoods = {
-  curious: { label: "Curious", line: "Let's explore something new today." },
-  focused: { label: "Focused", line: "Let's strengthen what you learned yesterday." },
-  excited: { label: "Excited", line: "Your brain is building new English paths." },
-  proud: { label: "Proud", line: "You are turning mistakes into fluency." },
-  helper: { label: "Helper", line: "I will keep it simple and practical." },
+  curious: { label: "Curioso", line: "Vamos explorar algo novo hoje." },
+  focused: { label: "Focado", line: "Vamos fortalecer o que você aprendeu ontem." },
+  excited: { label: "Animado", line: "Seu cérebro está criando novos caminhos em inglês." },
+  proud: { label: "Orgulhoso", line: "Você está transformando erros em fluência." },
+  helper: { label: "Ajudante", line: "Vou manter tudo simples e prático." },
 };
 
 const defaultNeoMemory = [
-  "Your goal is Work English.",
-  "You like technology.",
-  "You're building FluentMind.",
-  "You want to think directly in English.",
+  "Seu objetivo é inglês para trabalho.",
+  "Você gosta de tecnologia.",
+  "Você está construindo o FluentMind.",
+  "Você quer pensar direto em inglês.",
 ];
 
 const dailyMissions = [
-  "Save 3 expressions",
-  "Practice pronunciation",
-  "Finish 1 review",
-  "Speak with Neo for 5 minutes",
+  "Salvar 3 expressões",
+  "Praticar pronúncia",
+  "Finalizar 1 revisão",
+  "Conversar com Neo por 5 minutos",
 ];
 
 function getAssistantName(user) {
@@ -1047,7 +1047,7 @@ function NeoMemoryCard({ entries, onEdit }) {
           {entries.slice(0, 4).map((entry) => <li key={entry}>{entry}</li>)}
         </ul>
       </div>
-      <button type="button" onClick={onEdit}>Edit Memory</button>
+      <button type="button" onClick={onEdit}>Editar memória</button>
     </section>
   );
 }
@@ -1063,19 +1063,19 @@ function NeoComposer({ input, setInput, onSubmit, onVoice, onChip }) {
         ))}
       </div>
       <div className="neo-composer-row">
-        <button type="button" className="neo-icon-button" aria-label="Attach context" onClick={() => toast("Attachments will be available soon.")}>
+        <button type="button" className="neo-icon-button" aria-label="Anexar contexto" onClick={() => toast("Anexos estarão disponíveis em breve.")}>
           <Paperclip className="h-4 w-4" />
         </button>
-        <button type="button" className="neo-icon-button" onClick={onVoice} aria-label="Voice mode">
+        <button type="button" className="neo-icon-button" onClick={onVoice} aria-label="Modo voz">
           <Mic className="h-4 w-4" />
         </button>
         <textarea
           value={input}
           onChange={(event) => setInput(event.target.value)}
           rows={1}
-          placeholder="Ask Neo to correct, explain, save or practice a phrase..."
+          placeholder="Peça para o Neo corrigir, explicar, salvar ou praticar uma frase..."
         />
-        <button type="submit" className="neo-send-button" aria-label="Send">
+        <button type="submit" className="neo-send-button" aria-label="Enviar">
           <Send className="h-4 w-4" />
         </button>
       </div>
@@ -1099,23 +1099,23 @@ function LearningPanel({
     <aside className={`neo-right-sidebar neo-learning-panel ${open ? "is-open" : ""}`}>
       <div className="neo-panel-header">
         <div>
-          <p>Learning Panel</p>
-          <h2>Session intelligence</h2>
+          <p>Painel de estudo</p>
+          <h2>Inteligência da sessão</h2>
         </div>
-        <button type="button" onClick={onClose} aria-label="Close learning panel"><X className="h-4 w-4" /></button>
+        <button type="button" onClick={onClose} aria-label="Fechar painel de estudo"><X className="h-4 w-4" /></button>
       </div>
 
       <section className="neo-intel-card">
-        <p>Current session</p>
+        <p>Sessão atual</p>
         <div className="neo-panel-stats">
-          <span>Mode <strong>{summary.mode}</strong></span>
-          <span>Messages <strong>{summary.messages}</strong></span>
+          <span>Modo <strong>{summary.mode}</strong></span>
+          <span>Mensagens <strong>{summary.messages}</strong></span>
           <span>MindBlocks <strong>{summary.mindBlocks}</strong></span>
-          <span>Corrections <strong>{summary.corrections}</strong></span>
-          <span>Review items <strong>{summary.reviewItems}</strong></span>
-          <span>Session XP <strong>{summary.xp}</strong></span>
-          <span>Progress <strong>{summary.progress}%</strong></span>
-          <span>Neural Growth <strong>{summary.progress + summary.mindBlocks}%</strong></span>
+          <span>Correções <strong>{summary.corrections}</strong></span>
+          <span>Itens de revisão <strong>{summary.reviewItems}</strong></span>
+          <span>XP da sessão <strong>{summary.xp}</strong></span>
+          <span>Progresso <strong>{summary.progress}%</strong></span>
+          <span>Crescimento neural <strong>{summary.progress + summary.mindBlocks}%</strong></span>
         </div>
         <div className="fm-progress-track mt-3 h-2 overflow-hidden rounded-full">
           <div className="fm-progress-fill h-full rounded-full" style={{ width: `${summary.progress}%` }} />
@@ -1123,7 +1123,7 @@ function LearningPanel({
       </section>
 
       <section className="neo-intel-card">
-        <p>Conversation Score</p>
+        <p>Pontuação da conversa</p>
         <div className="neo-score-list">
           {Object.entries(score).map(([key, value]) => (
             <div key={key}>
@@ -1136,26 +1136,26 @@ function LearningPanel({
       </section>
 
       <section className="neo-intel-card">
-        <p>Useful expressions</p>
+        <p>Expressões úteis</p>
         <div className="neo-panel-expression-list">
           {expressions.slice(0, 5).map((item) => (
             <article key={item.expression}>
               <strong>{item.expression}</strong>
               {item.translation ? <small>{item.translation}</small> : null}
               <div>
-                <button type="button" onClick={() => onMockAction("Generate Audio", item)}>Listen</button>
-                <button type="button" onClick={() => onSaveExpression(item)} disabled={saving}>Save</button>
-                <button type="button" onClick={() => onPracticeExpression(item)}>Practice</button>
-                <button type="button" onClick={() => onMockAction("Add to Review", item)}>Review</button>
+                <button type="button" onClick={() => onMockAction("Generate Audio", item)}>Ouvir</button>
+                <button type="button" onClick={() => onSaveExpression(item)} disabled={saving}>Salvar</button>
+                <button type="button" onClick={() => onPracticeExpression(item)}>Praticar</button>
+                <button type="button" onClick={() => onMockAction("Add to Review", item)}>Revisar</button>
               </div>
             </article>
           ))}
-          {expressions.length === 0 ? <small>No expressions detected yet.</small> : null}
+          {expressions.length === 0 ? <small>Nenhuma expressão detectada ainda.</small> : null}
         </div>
       </section>
 
       <section className="neo-intel-card">
-        <p>Corrections</p>
+        <p>Correções</p>
         <div className="neo-correction-mini-list">
           {corrections.slice(0, 4).map((item) => (
             <div key={`${item.wrong}-${item.correct}`}>
@@ -1163,21 +1163,21 @@ function LearningPanel({
               <strong>{item.correct}</strong>
             </div>
           ))}
-          {corrections.length === 0 ? <small>No corrections found yet.</small> : null}
+          {corrections.length === 0 ? <small>Nenhuma correção encontrada ainda.</small> : null}
         </div>
       </section>
 
       <section className="neo-intel-card">
-        <p>Suggested next steps</p>
+        <p>Próximos passos sugeridos</p>
         <div className="neo-next-steps">
-          <Link to="/insights">Review 3 saved expressions</Link>
-          <button type="button" onClick={() => toast("Pronunciation practice will be available soon.")}>Practice pronunciation</button>
-          <Link to="/neural-universe">Open Neural Universe</Link>
+          <Link to="/insights">Revisar 3 expressões salvas</Link>
+          <button type="button" onClick={() => toast("Prática de pronúncia estará disponível em breve.")}>Praticar pronúncia</button>
+          <Link to="/neural-universe">Abrir Universo Neural</Link>
         </div>
       </section>
 
       <section className="neo-intel-card">
-        <p>Today's Mission</p>
+        <p>Missão de hoje</p>
         <div className="neo-mission-list">
           {dailyMissions.map((mission, index) => (
             <div key={mission}>
@@ -1189,11 +1189,11 @@ function LearningPanel({
       </section>
 
       <section className="neo-intel-card">
-        <p>Neural activity</p>
+        <p>Atividade neural</p>
         <div className="neo-neural-line">
-          <span>Core</span>
+          <span>Núcleo</span>
           <i />
-          <span>Conversation</span>
+          <span>Conversa</span>
           <i />
           <span>MindBlock</span>
         </div>
@@ -1205,27 +1205,27 @@ function LearningPanel({
 function NeoSessionSummary({ summary, onClose }) {
   return (
     <div className="neo-modal-wrap" role="dialog" aria-modal="true">
-      <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Close summary" />
+      <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Fechar resumo" />
       <section className="neo-summary-modal">
         <header>
           <div>
-            <p>Conversation Summary</p>
-            <h2>Today you practiced</h2>
+            <p>Resumo da conversa</p>
+            <h2>Hoje você praticou</h2>
           </div>
           <button type="button" onClick={onClose}><X className="h-5 w-5" /></button>
         </header>
         <div className="neo-summary-grid">
-          <span>Learned <strong>{summary.mindBlocks || 5} expressions</strong></span>
-          <span>Corrected <strong>{summary.corrections || 2} mistakes</strong></span>
-          <span>Created <strong>{summary.mindBlocks || 3} MindBlocks</strong></span>
-          <span>Earned <strong>{summary.xp} XP</strong></span>
-          <span>Studied <strong>{Math.max(1, Math.ceil(summary.messages * 1.5))} minutes</strong></span>
+          <span>Aprendeu <strong>{summary.mindBlocks || 5} expressões</strong></span>
+          <span>Corrigiu <strong>{summary.corrections || 2} erros</strong></span>
+          <span>Criou <strong>{summary.mindBlocks || 3} MindBlocks</strong></span>
+          <span>Ganhou <strong>{summary.xp} XP</strong></span>
+          <span>Estudou <strong>{Math.max(1, Math.ceil(summary.messages * 1.5))} minutos</strong></span>
         </div>
         <footer>
-          <button type="button" onClick={() => toast.success("Summary saved locally.")}>Save Summary</button>
-          <Link to="/insights">Review Tomorrow</Link>
-          <Link to="/biblioteca">Open Library</Link>
-          <Link to="/neural-universe">Open Neural Universe</Link>
+          <button type="button" onClick={() => toast.success("Resumo salvo localmente.")}>Salvar resumo</button>
+          <Link to="/insights">Revisar amanhã</Link>
+          <Link to="/biblioteca">Abrir biblioteca</Link>
+          <Link to="/neural-universe">Abrir Universo Neural</Link>
         </footer>
       </section>
     </div>
@@ -1258,7 +1258,7 @@ function NeoChatHeader({
           <NeoAvatar state={avatarState} />
           <div>
             <h1>{assistantName}</h1>
-            <p>Your personal fluency mentor</p>
+            <p>Seu mentor pessoal de fluência</p>
           </div>
         </div>
         <div className="neo-status-row">
@@ -1273,7 +1273,7 @@ function NeoChatHeader({
       </div>
 
       <div className="neo-header-actions">
-        <button type="button" onClick={onClear}><MessageCircle className="h-4 w-4" /> New conversation</button>
+        <button type="button" onClick={onClear}><MessageCircle className="h-4 w-4" /> Nova conversa</button>
         <button type="button" className={voiceMode ? "is-active" : ""} onClick={onToggleVoice}><Mic className="h-4 w-4" /> Voice Mode</button>
         <button type="button" className={focusMode ? "is-active" : ""} onClick={onToggleFocus}><Focus className="h-4 w-4" /> Focus Mode</button>
         <Link to="/conversas" className="neo-header-link">
@@ -1281,10 +1281,10 @@ function NeoChatHeader({
           History
           {activeSessionId ? <span className="sr-only">current conversation saved</span> : null}
         </Link>
-        <Link to="/configuracoes" className="neo-header-link"><Settings className="h-4 w-4" /> Settings</Link>
-        <button type="button" className="neo-panel-toggle" onClick={onTogglePanel}><PanelRight className="h-4 w-4" /> Learning Panel</button>
-        <button type="button" onClick={onEndSession}><Check className="h-4 w-4" /> End Session</button>
-        <button type="button" onClick={onClear}><Trash2 className="h-4 w-4" /> Clear</button>
+        <Link to="/configuracoes" className="neo-header-link"><Settings className="h-4 w-4" /> Configurações</Link>
+        <button type="button" className="neo-panel-toggle" onClick={onTogglePanel}><PanelRight className="h-4 w-4" /> Painel de estudo</button>
+        <button type="button" onClick={onEndSession}><Check className="h-4 w-4" /> Encerrar sessão</button>
+        <button type="button" onClick={onClear}><Trash2 className="h-4 w-4" /> Limpar</button>
       </div>
     </header>
   );
@@ -1322,22 +1322,22 @@ function NeoMessage({
       {isNeo ? <div className="neo-message-avatar"><Brain className="h-5 w-5" /></div> : null}
       <div className="neo-message-stack">
         <div className="neo-message-meta">
-          <span>{isNeo ? assistantName : "You"}</span>
+          <span>{isNeo ? assistantName : "Você"}</span>
           <small>{message.createdAt}</small>
         </div>
         <div className="neo-message-bubble">
           <RichMessage content={message.content} />
           {!isNeo ? (
             <div className="neo-user-message-actions">
-              <button type="button" onClick={() => onCopy(message.content)}><Copy className="h-3.5 w-3.5" /> Copy</button>
-              <button type="button" onClick={() => toast("Message editing will be available soon.")}><Edit3 className="h-3.5 w-3.5" /> Edit</button>
+              <button type="button" onClick={() => onCopy(message.content)}><Copy className="h-3.5 w-3.5" /> Copiar</button>
+              <button type="button" onClick={() => toast("Edição de mensagem estará disponível em breve.")}><Edit3 className="h-3.5 w-3.5" /> Editar</button>
             </div>
           ) : null}
           {hasSuggestion ? (
             <div className="neo-detected-badge">
               <div className="neo-detected-heading">
                 <Sparkles className="h-3.5 w-3.5" />
-                <span>Useful expression detected</span>
+                <span>Expressão útil detectada</span>
               </div>
               <div className="neo-suggestion-list">
                 {suggestions.map((suggestion) => {
@@ -1353,8 +1353,8 @@ function NeoMessage({
                       ) : (
                         <div className="neo-suggestion-actions">
                           <button type="button" onClick={() => onQuickSave(suggestion)} disabled={saving}>Salvar</button>
-                          <button type="button" onClick={() => onMockAction("Generate Audio", suggestion)} disabled={saving}>Listen</button>
-                          <button type="button" onClick={() => onMockAction("Practice Pronunciation", suggestion)} disabled={saving}>Practice</button>
+                          <button type="button" onClick={() => onMockAction("Generate Audio", suggestion)} disabled={saving}>Ouvir</button>
+                          <button type="button" onClick={() => onMockAction("Practice Pronunciation", suggestion)} disabled={saving}>Praticar</button>
                           <button type="button" onClick={() => onEdit(suggestion)} disabled={saving}>Editar</button>
                           <button type="button" onClick={() => onIgnore(suggestion)} disabled={saving}>Ignorar</button>
                         </div>
@@ -1367,36 +1367,36 @@ function NeoMessage({
           ) : null}
           {message.correction ? (
             <div className="neo-correction-card">
-              <p>Correction detected</p>
-              <span>Wrong: {message.correction.wrong}</span>
-              <strong>Correct: {message.correction.correct}</strong>
+              <p>Correção detectada</p>
+              <span>Original: {message.correction.wrong}</span>
+              <strong>Correto: {message.correction.correct}</strong>
               {message.correction.explanation ? <small>{message.correction.explanation}</small> : null}
               <div className="neo-correction-actions">
                 <button type="button" onClick={() => onSaveCorrection(message.correction)} disabled={correctionSaved}>
-                  {correctionSaved ? "Saved in Meus Erros" : "Save correction"}
+                  {correctionSaved ? "Salvo em Meus Erros" : "Salvar correção"}
                 </button>
-                <button type="button" onClick={() => onMockAction("Add to Review", message.correction)}>Add to review</button>
-                <button type="button" onClick={() => onMockAction("Practice Pronunciation", message.correction)}>Practice again</button>
+                <button type="button" onClick={() => onMockAction("Add to Review", message.correction)}>Adicionar à revisão</button>
+                <button type="button" onClick={() => onMockAction("Practice Pronunciation", message.correction)}>Praticar de novo</button>
               </div>
             </div>
           ) : null}
           {isNeo ? (
             <details className="neo-response-tools">
-              <summary><Sparkles className="h-3.5 w-3.5" /> Actions and practice</summary>
+              <summary><Sparkles className="h-3.5 w-3.5" /> Ações e prática</summary>
               <div className="neo-response-actions">
-                <button type="button" onClick={() => (primarySuggestion ? onQuickSave(primarySuggestion) : toast("No MindBlock detected in this response."))}>
-                  <Sparkles className="h-3.5 w-3.5" /> Save MindBlock
+                <button type="button" onClick={() => (primarySuggestion ? onQuickSave(primarySuggestion) : toast("Nenhum MindBlock detectado nesta resposta."))}>
+                  <Sparkles className="h-3.5 w-3.5" /> Salvar MindBlock
                 </button>
-                <button type="button" onClick={() => (message.correction ? onSaveCorrection(message.correction) : toast("No correction detected in this response."))}>
-                  <X className="h-3.5 w-3.5" /> Save Correction
+                <button type="button" onClick={() => (message.correction ? onSaveCorrection(message.correction) : toast("Nenhuma correção detectada nesta resposta."))}>
+                  <X className="h-3.5 w-3.5" /> Salvar correção
                 </button>
-                <button type="button" onClick={() => onMockAction("Generate Audio", primarySuggestion)}><Volume2 className="h-3.5 w-3.5" /> Generate Audio</button>
-                <button type="button" onClick={() => onMockAction("Practice Pronunciation", primarySuggestion)}><Mic className="h-3.5 w-3.5" /> Practice</button>
-                <button type="button" onClick={() => onMockAction("Add to Review", primarySuggestion)}><RotateCcw className="h-3.5 w-3.5" /> Add to Review</button>
+                <button type="button" onClick={() => onMockAction("Generate Audio", primarySuggestion)}><Volume2 className="h-3.5 w-3.5" /> Gerar áudio</button>
+                <button type="button" onClick={() => onMockAction("Practice Pronunciation", primarySuggestion)}><Mic className="h-3.5 w-3.5" /> Praticar</button>
+                <button type="button" onClick={() => onMockAction("Add to Review", primarySuggestion)}><RotateCcw className="h-3.5 w-3.5" /> Adicionar à revisão</button>
                 <button type="button" onClick={() => onMockAction("Add to Playlist", primarySuggestion)}><BookOpen className="h-3.5 w-3.5" /> Playlist</button>
-                <button type="button" onClick={() => onMockAction("Add to Neural Universe", primarySuggestion)}><Brain className="h-3.5 w-3.5" /> Neural</button>
-                <button type="button" onClick={() => onMockAction("Favorite", primarySuggestion)}><Heart className="h-3.5 w-3.5" /> Favorite</button>
-                <button type="button" onClick={() => onCopy(message.content)}><Clipboard className="h-3.5 w-3.5" /> Copy</button>
+                <button type="button" onClick={() => onMockAction("Add to Neural Universe", primarySuggestion)}><Brain className="h-3.5 w-3.5" /> Universo Neural</button>
+                <button type="button" onClick={() => onMockAction("Favorite", primarySuggestion)}><Heart className="h-3.5 w-3.5" /> Favoritar</button>
+                <button type="button" onClick={() => onCopy(message.content)}><Clipboard className="h-3.5 w-3.5" /> Copiar</button>
               </div>
             </details>
           ) : null}
@@ -1423,15 +1423,15 @@ function QuickPractice({ suggestion, answer, checked, onAnswer, onCheck }) {
 
   return (
     <section className="neo-quick-practice">
-      <p>Practice Challenge</p>
-      <span>Create one sentence using:</span>
+      <p>Desafio prático</p>
+      <span>Crie uma frase usando:</span>
       <strong>{seed}</strong>
       <div>
-        <input value={answer} onChange={(event) => onAnswer(event.target.value)} placeholder="Type your sentence..." />
-        <button type="button" onClick={onCheck} disabled={!answer.trim()}>Check</button>
+        <input value={answer} onChange={(event) => onAnswer(event.target.value)} placeholder="Digite sua frase..." />
+        <button type="button" onClick={onCheck} disabled={!answer.trim()}>Verificar</button>
       </div>
       {checked ? (
-        <small>{answer.toLowerCase().includes(seed.toLowerCase().split(" ")[0]) ? "Good. Keep the sentence natural and complete." : `Try including "${seed}" in your sentence.`}</small>
+        <small>{answer.toLowerCase().includes(seed.toLowerCase().split(" ")[0]) ? "Bom. Mantenha a frase natural e completa." : `Tente incluir "${seed}" na sua frase.`}</small>
       ) : null}
     </section>
   );
@@ -1499,7 +1499,7 @@ function NeoTypingIndicator() {
   return (
     <div className="neo-typing">
       <Brain className="h-4 w-4" />
-      <span>Neo is building your MindBlocks...</span>
+      <span>Neo está construindo seus MindBlocks...</span>
       <i /><i /><i />
     </div>
   );
@@ -1510,12 +1510,12 @@ function VoiceModePanel({ assistantName, onClose }) {
     <section className="neo-voice-panel">
       <button type="button" className="neo-close-voice" onClick={onClose}><X className="h-4 w-4" /></button>
       <div className="neo-voice-brain"><Brain className="h-16 w-16" /></div>
-      <p>Listening</p>
-      <h2>Speak naturally. {assistantName} will turn your voice into MindBlocks.</h2>
+      <p>Escutando</p>
+      <h2>Fale naturalmente. {assistantName} vai transformar sua voz em MindBlocks.</h2>
       <div className="neo-voice-states">
-        <span>Listening</span>
-        <span>Thinking</span>
-        <span>Responding</span>
+        <span>Escutando</span>
+        <span>Pensando</span>
+        <span>Respondendo</span>
       </div>
     </section>
   );
@@ -1530,7 +1530,7 @@ function SaveMindBlockModal({ suggestion, playlists, saving, onClose, onSave }) 
     playlist: playlists[0]?.id ?? "",
     difficulty: "B1",
     tags: "conversation, natural",
-    notes: "Saved from a conversation with Neo.",
+    notes: "Salvo a partir de uma conversa com Neo.",
     usage: normalizedSuggestion.usage,
     examples: normalizedSuggestion.examples,
     relatedExpressions: normalizedSuggestion.relatedExpressions,
@@ -1548,37 +1548,37 @@ function SaveMindBlockModal({ suggestion, playlists, saving, onClose, onSave }) 
 
   return (
     <div className="neo-modal-wrap" role="dialog" aria-modal="true">
-      <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Close modal" />
+      <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Fechar modal" />
       <section className="neo-save-modal">
         <div className="neo-save-header">
           <div>
-            <p>New MindBlock</p>
-            <h2>Save expression</h2>
+            <p>Novo MindBlock</p>
+            <h2>Salvar expressão</h2>
           </div>
           <button type="button" onClick={onClose}><X className="h-5 w-5" /></button>
         </div>
         <div className="neo-save-body">
-          <NeoField label="Expression" value={form.expression} onChange={(value) => update("expression", value)} />
-          <NeoField label="Translation" value={form.translation} onChange={(value) => update("translation", value)} />
-          <NeoField label="Category" value={form.category} onChange={(value) => update("category", value)} />
+          <NeoField label="Expressão" value={form.expression} onChange={(value) => update("expression", value)} />
+          <NeoField label="Tradução" value={form.translation} onChange={(value) => update("translation", value)} />
+          <NeoField label="Categoria" value={form.category} onChange={(value) => update("category", value)} />
           <label>
             <span>Playlist</span>
             <select value={form.playlist} onChange={(event) => update("playlist", event.target.value)}>
-              {playlists.length === 0 ? <option value="">Create default playlist</option> : null}
+              {playlists.length === 0 ? <option value="">Criar playlist padrão</option> : null}
               {playlists.map((playlist) => <option key={playlist.id} value={playlist.id}>{playlist.name}</option>)}
             </select>
           </label>
-          <NeoField label="Difficulty" value={form.difficulty} onChange={(value) => update("difficulty", value)} />
+          <NeoField label="Dificuldade" value={form.difficulty} onChange={(value) => update("difficulty", value)} />
           <NeoField label="Tags" value={form.tags} onChange={(value) => update("tags", value)} />
           <label className="sm:col-span-2">
-            <span>Notes</span>
+            <span>Notas</span>
             <textarea value={form.notes} onChange={(event) => update("notes", event.target.value)} rows={3} />
           </label>
           {[
-            ["favorite", "Favorite"],
-            ["generateAudio", "Generate audio automatically"],
-            ["review", "Add to review queue"],
-            ["neural", "Add to Neural Universe"],
+            ["favorite", "Favoritar"],
+            ["generateAudio", "Gerar áudio automaticamente"],
+            ["review", "Adicionar à fila de revisão"],
+            ["neural", "Adicionar ao Universo Neural"],
           ].map(([key, label]) => (
             <label key={key} className="neo-check-row">
               <input type="checkbox" checked={form[key]} onChange={(event) => update(key, event.target.checked)} />
@@ -1587,9 +1587,9 @@ function SaveMindBlockModal({ suggestion, playlists, saving, onClose, onSave }) 
           ))}
         </div>
         <footer className="neo-save-footer">
-          <button type="button" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="button" onClick={onClose} disabled={saving}>Cancelar</button>
           <button type="button" className="fm-gradient" onClick={() => onSave(form)} disabled={saving}>
-            <Check className="h-4 w-4" /> {saving ? "Saving..." : "Save MindBlock"}
+            <Check className="h-4 w-4" /> {saving ? "Salvando..." : "Salvar MindBlock"}
           </button>
         </footer>
       </section>

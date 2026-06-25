@@ -29,13 +29,15 @@ import {
 } from "../data/learningJourney.js";
 import { createMindBlock } from "../services/mindblocks.js";
 import { recordLearningEvent } from "../services/learningEventEngine.js";
-import { addXp, trackProgressionAction } from "../services/progressionEngine.js";
+import { addXp, getProgressionState, trackProgressionAction, updateProgressionState } from "../services/progressionEngine.js";
 
 function canUseStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
 
 function loadJourneyProgress() {
+  const progressionJourney = getProgressionState()?.learningJourney;
+  if (progressionJourney) return { ...getInitialJourneyProgress(), ...progressionJourney };
   if (!canUseStorage()) return getInitialJourneyProgress();
   try {
     const parsed = JSON.parse(window.localStorage.getItem(LEARNING_JOURNEY_KEY) || "null");
@@ -46,8 +48,13 @@ function loadJourneyProgress() {
 }
 
 function saveJourneyProgress(progress) {
-  if (!canUseStorage()) return progress;
-  window.localStorage.setItem(LEARNING_JOURNEY_KEY, JSON.stringify(progress));
+  if (canUseStorage()) {
+    window.localStorage.setItem(LEARNING_JOURNEY_KEY, JSON.stringify(progress));
+  }
+  updateProgressionState((state) => ({
+    ...state,
+    learningJourney: progress,
+  }));
   return progress;
 }
 
@@ -89,6 +96,15 @@ export default function LearningJourneyPage() {
     saveJourneyProgress(journeyProgress);
   }, [journeyProgress]);
 
+  useEffect(() => {
+    if (!progression.learningJourney) return;
+    const remoteProgress = { ...getInitialJourneyProgress(), ...progression.learningJourney };
+    if (remoteProgress.lastUpdatedAt && remoteProgress.lastUpdatedAt !== journeyProgress.lastUpdatedAt) {
+      setJourneyProgress(remoteProgress);
+      setSelectedChapterId(remoteProgress.activeChapterId || learningJourneyChapters[0].id);
+    }
+  }, [progression.learningJourney?.lastUpdatedAt, user?.id]);
+
   const completedSet = useMemo(() => new Set(journeyProgress.completedChapterIds || []), [journeyProgress.completedChapterIds]);
   const selectedChapter = learningJourneyChapters.find((chapter) => chapter.id === selectedChapterId) || learningJourneyChapters[0];
   const activeChapter = learningJourneyChapters.find((chapter) => chapter.id === journeyProgress.activeChapterId) || learningJourneyChapters[0];
@@ -104,17 +120,30 @@ export default function LearningJourneyPage() {
     .reduce((sum, chapter) => sum + chapter.xp, 0);
 
   const updateChapterStep = (stepId, value = true) => {
-    setJourneyProgress((current) => ({
-      ...current,
-      chapterProgress: {
-        ...current.chapterProgress,
-        [selectedChapter.id]: {
-          ...(current.chapterProgress?.[selectedChapter.id] || {}),
-          [stepId]: value,
+    const alreadyComplete = Boolean(journeyProgress.chapterProgress?.[selectedChapter.id]?.[stepId]);
+    setJourneyProgress((current) => {
+      return {
+        ...current,
+        chapterProgress: {
+          ...current.chapterProgress,
+          [selectedChapter.id]: {
+            ...(current.chapterProgress?.[selectedChapter.id] || {}),
+            [stepId]: value,
+          },
         },
-      },
-      lastUpdatedAt: new Date().toISOString(),
-    }));
+        lastUpdatedAt: new Date().toISOString(),
+      };
+    });
+
+    if (value && !alreadyComplete) {
+      addXp(2, `Etapa concluída: ${selectedChapter.title}`, { silent: true });
+      recordLearningEvent("learning_journey_step_completed", {
+        chapterId: selectedChapter.id,
+        title: selectedChapter.title,
+        stepId,
+        xp: 2,
+      }, "learning_journey");
+    }
   };
 
   const handleAddMindBlocks = async () => {
@@ -150,6 +179,11 @@ export default function LearningJourneyPage() {
   };
 
   const handleCompleteChapter = () => {
+    if (completedSet.has(selectedChapter.id)) {
+      toast("Capítulo já concluído.");
+      return;
+    }
+
     const currentChecklist = getChapterChecklist(selectedChapter, journeyProgress);
     const minimumReady = currentChecklist.filter((item) => item.complete).length >= 6;
     if (!minimumReady) {

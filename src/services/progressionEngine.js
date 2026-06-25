@@ -210,6 +210,12 @@ export function getProgressionState() {
   return normalizeState(safeParse(window.localStorage.getItem(PROGRESSION_STATE_KEY), defaultState()));
 }
 
+export function updateProgressionState(updater) {
+  const current = resetDailyMissionsIfNewDay(getProgressionState());
+  const next = normalizeState(typeof updater === "function" ? updater(current) : { ...current, ...updater });
+  return saveState(next);
+}
+
 function toProgressionRow(state, userId = activeProgressionUserId) {
   if (!userId) return null;
   return {

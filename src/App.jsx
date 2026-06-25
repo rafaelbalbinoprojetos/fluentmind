@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Layout from "./layout/Layout.jsx";
 import DashboardPage from "./pages/Dashboard.jsx";
+import DailyWorkoutPage from "./pages/DailyWorkout.jsx";
 import LibraryPage from "./pages/Library.jsx";
 import PlaylistsPage from "./pages/Playlists.jsx";
 import InsightsPage from "./pages/Insights.jsx";
@@ -33,6 +34,7 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
             <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="daily-workout" element={<DailyWorkoutPage />} />
             <Route path="biblioteca" element={<LibraryPage />} />
             <Route path="playlists" element={<PlaylistsPage />} />
             <Route path="insights" element={<InsightsPage />} />

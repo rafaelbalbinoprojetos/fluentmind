@@ -53,10 +53,10 @@ const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const quickActions = [
   { label: "New Conversation", shortcut: "N", description: "Practice with AI", icon: MessageCircle, to: "/chatbot" },
+  { label: "Daily Workout", shortcut: "W", description: "Train today's path", icon: Target, to: "/daily-workout" },
   { label: "Quick Review", shortcut: "R", description: "Strengthen memory", icon: RotateCcw, to: "/insights" },
   { label: "Add Expression", shortcut: "S", description: "Capture a MindBlock", icon: Plus, to: "/biblioteca" },
   { label: "Explore Neural Universe", shortcut: "U", description: "See your brain map", icon: Brain, to: "/neural-universe" },
-  { label: "Practice Pronunciation", shortcut: "M", description: "Train sound and rhythm", icon: Mic2, to: "/chatbot" },
 ];
 
 const weekDays = ["M", "T", "W", "T", "F", "S", "S"];
@@ -502,6 +502,10 @@ function DailyMissionCenter({ progression, dailyExpression }) {
           </motion.article>
         ))}
       </div>
+
+      <Link to="/daily-workout" className="fm-primary-button mt-5 inline-flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-black">
+        Start Daily Brain Workout <ChevronRight className="h-4 w-4" />
+      </Link>
 
       {missionProgress >= 100 ? (
         <motion.div className="fm-mission-complete" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}>

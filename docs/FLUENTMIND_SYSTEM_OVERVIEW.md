@@ -90,6 +90,7 @@ Rotas publicas:
 Rotas protegidas por autenticacao:
 
 - `/dashboard`: dashboard principal.
+- `/daily-workout`: sessao guiada diaria de treino cerebral.
 - `/biblioteca`: biblioteca de MindBlocks.
 - `/playlists`: gerenciamento de playlists.
 - `/insights`: revisao inteligente.
@@ -141,6 +142,29 @@ Fontes de dados:
 - Supabase: perfil, MindBlocks, playlists, revisoes e atividade diaria;
 - `progressionEngine.js`: XP, level, missoes e achievements locais;
 - `learningEventEngine.js`: eventos de aprendizado que alimentam feed e Neural Universe.
+
+### Daily Brain Workout
+
+Arquivo: `src/pages/DailyWorkout.jsx`
+
+Funcao:
+
+- transformar a missao da dashboard em uma sessao guiada de 5 a 8 minutos;
+- revisar ate 3 MindBlocks vencidos ou de baixa mastery;
+- tocar audio de uma expressao usando ElevenLabs quando houver MindBlock real;
+- usar fallback de voz do navegador para treino demonstrativo;
+- propor um desafio rapido de frase;
+- conceder XP via `progressionEngine.js`;
+- registrar eventos via `learningEventEngine.js`;
+- enviar o usuario para Revisao ou Neural Universe ao concluir.
+
+Fluxo:
+
+1. Warmup com o deck do dia.
+2. Smart Review.
+3. Listening Path.
+4. Practice Challenge.
+5. Session Complete.
 
 ### Minha Biblioteca
 

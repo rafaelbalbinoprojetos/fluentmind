@@ -1,5 +1,11 @@
+import { supabase, supabaseConfigured } from "../lib/supabase.js";
+
 export const LEARNING_EVENTS_KEY = "fluentmind_learning_events";
 export const LEARNING_EVENTS_UPDATED = "fluentmind:learning-events-updated";
+
+const EVENTS_TABLE = "learning_events";
+
+let activeLearningEventsUserId = null;
 
 const CATEGORY_KEYWORDS = [
   { category: "Work English", keywords: ["work", "factory", "shift", "job", "meeting", "deadline", "report"] },
@@ -97,6 +103,88 @@ export function getLearningEvents() {
   return safeParse(window.localStorage.getItem(LEARNING_EVENTS_KEY), []);
 }
 
+function toEventRow(event, userId = activeLearningEventsUserId) {
+  if (!userId) return null;
+  return {
+    id: event.id,
+    user_id: userId,
+    event_type: event.type,
+    source: event.source || "app",
+    payload: event.payload || {},
+    created_at: event.createdAt || new Date().toISOString(),
+  };
+}
+
+function fromEventRow(row) {
+  return {
+    id: row.id,
+    type: row.event_type,
+    source: row.source || "app",
+    payload: row.payload || {},
+    createdAt: row.created_at,
+  };
+}
+
+async function persistEvent(event) {
+  if (!activeLearningEventsUserId || !supabaseConfigured || !supabase) return;
+  const row = toEventRow(event);
+  if (!row) return;
+  const { error } = await supabase
+    .from(EVENTS_TABLE)
+    .upsert(row, { onConflict: "id" });
+  if (error) {
+    console.warn("[learning-events] Supabase persistence skipped:", error.message);
+  }
+}
+
+async function persistEvents(events) {
+  if (!activeLearningEventsUserId || !supabaseConfigured || !supabase || !events.length) return;
+  const rows = events.map((event) => toEventRow(event)).filter(Boolean);
+  if (!rows.length) return;
+  const { error } = await supabase
+    .from(EVENTS_TABLE)
+    .upsert(rows, { onConflict: "id" });
+  if (error) {
+    console.warn("[learning-events] Batch persistence skipped:", error.message);
+  }
+}
+
+export function configureLearningEventsPersistence(userId) {
+  activeLearningEventsUserId = userId || null;
+}
+
+export async function hydrateLearningEvents(userId = activeLearningEventsUserId) {
+  configureLearningEventsPersistence(userId);
+  if (!userId || !supabaseConfigured || !supabase) return getLearningEvents();
+
+  const localEvents = getLearningEvents();
+  const { data, error } = await supabase
+    .from(EVENTS_TABLE)
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true })
+    .limit(1000);
+
+  if (error) {
+    console.warn("[learning-events] Hydration skipped:", error.message);
+    if (localEvents.length) persistEvents(localEvents);
+    return localEvents;
+  }
+
+  if (!data?.length) {
+    if (localEvents.length) await persistEvents(localEvents);
+    return localEvents;
+  }
+
+  const merged = new Map();
+  localEvents.forEach((event) => merged.set(event.id, event));
+  data.map(fromEventRow).forEach((event) => merged.set(event.id, event));
+  const events = [...merged.values()].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  saveEvents(events);
+  if (localEvents.length) persistEvents(events);
+  return events;
+}
+
 export function recordLearningEvent(type, payload = {}, source = "app") {
   const event = {
     id: `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -107,10 +195,20 @@ export function recordLearningEvent(type, payload = {}, source = "app") {
   };
   const events = [...getLearningEvents(), event];
   saveEvents(events);
+  persistEvent(event);
   return event;
 }
 
 export function clearLearningEvents() {
+  if (activeLearningEventsUserId && supabaseConfigured && supabase) {
+    supabase
+      .from(EVENTS_TABLE)
+      .delete()
+      .eq("user_id", activeLearningEventsUserId)
+      .then(({ error }) => {
+        if (error) console.warn("[learning-events] Remote clear skipped:", error.message);
+      });
+  }
   return saveEvents([]);
 }
 
@@ -426,5 +524,6 @@ export function seedLearningEvents() {
   );
 
   saveEvents([...getLearningEvents(), ...seeded]);
+  persistEvents(seeded);
   return seeded;
 }

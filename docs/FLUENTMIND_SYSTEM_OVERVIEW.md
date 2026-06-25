@@ -71,6 +71,7 @@ supabase/
   corrected_mistakes.sql
   insights_schema.sql
   mindblocks_favorites.sql
+  progression_and_learning_events.sql
   ultra_access_grants.sql
 
 docs/
@@ -411,13 +412,18 @@ Responsavel por:
 - achievements;
 - streak;
 - eventos de ganho de XP;
-- sincronizacao futura com Supabase.
+- sincronizacao com Supabase quando o usuario esta autenticado;
+- fallback local quando Supabase/tabela/rede nao estiver disponivel.
 
 Chaves locais:
 
 - `fluentmind_progression_state`;
 - `fluentmind_achievements`;
 - `fluentmind_daily_missions`.
+
+Tabela relacionada:
+
+- `user_progression_state`.
 
 ### `src/services/learningEventEngine.js`
 
@@ -427,11 +433,17 @@ Responsavel por:
 - normalizar eventos como `mindblock_saved`, `review_completed`, `mistake_corrected`, `playlist_created`, `audio_generated`, `conversation_message`, `practice_completed`;
 - alimentar o feed da dashboard;
 - alimentar o grafo do Neural Universe;
-- permitir seed e limpeza para testes.
+- permitir seed e limpeza para testes;
+- sincronizar eventos com Supabase quando o usuario esta autenticado;
+- manter fallback local quando Supabase/tabela/rede nao estiver disponivel.
 
 Chave local:
 
 - `fluentmind_learning_events`.
+
+Tabela relacionada:
+
+- `learning_events`.
 
 ### `src/services/mindblockAudio.js`
 
@@ -678,6 +690,56 @@ Status aceitos:
 #### `mindblock_audio` ou coluna equivalente
 
 O sistema de audio depende de armazenamento no Supabase Storage e pode usar tabela/colunas de referencia conforme schema aplicado. O bucket principal configurado e usado e `mindblock-audio`.
+
+#### `user_progression_state`
+
+Estado agregado de progressao do usuario.
+
+Arquivo SQL: `supabase/progression_and_learning_events.sql`
+
+Campos principais:
+
+- `user_id`;
+- `state`;
+- `total_xp`;
+- `current_level`;
+- `streak`;
+- `last_activity_at`;
+- `updated_at`;
+- `created_at`.
+
+Uso:
+
+- XP;
+- level;
+- streak;
+- missoes diarias;
+- achievements;
+- estatisticas internas;
+- snapshot completo em JSON.
+
+#### `learning_events`
+
+Historico granular de eventos de aprendizado.
+
+Arquivo SQL: `supabase/progression_and_learning_events.sql`
+
+Campos principais:
+
+- `id`;
+- `user_id`;
+- `event_type`;
+- `source`;
+- `payload`;
+- `created_at`.
+
+Uso:
+
+- feed da dashboard;
+- Neural Universe;
+- analytics futuros;
+- reconstrucao historica da evolucao do usuario;
+- sincronizacao entre dispositivos.
 
 #### `ultra_access_grants`
 
@@ -944,8 +1006,8 @@ Observacao:
 - Perfil de aprendizado.
 - Configuracoes de mentor, voz, tom e metas.
 - Atividade diaria.
-- Progression Engine local com XP, level, missoes e achievements.
-- Learning Event Engine local para registrar atividade real do usuario.
+- Progression Engine com Supabase e fallback local para XP, level, missoes e achievements.
+- Learning Event Engine com Supabase e fallback local para registrar atividade real do usuario.
 - Neural Universe dinamico baseado em eventos de aprendizado.
 - NeuralBrain V2 com animacoes, conexoes e estados visuais.
 - Dashboard premium focada em crescimento cerebral, missoes, feed e insights.
@@ -955,8 +1017,8 @@ Observacao:
 
 ## Pontos ainda em evolucao
 
-- Persistir Progression Engine e Learning Event Engine no Supabase.
-- Criar sessoes guiadas de pratica diaria conectando missoes, revisao, Neo, audio e XP.
+- Reduzir dependencia restante de `localStorage` para dados que ainda sao preferencias locais.
+- Melhorar o Daily Brain Workout com correcao por IA no desafio final.
 - Playlists sugeridas automaticamente pelo chatbot quando uma resposta gerar varias expressoes do mesmo tema.
 - Reproducao/geracao de audio individual para expressoes relacionadas dentro do detalhe do MindBlock.
 - Pratica oral real:
@@ -982,18 +1044,16 @@ Observacao:
 
 ## Proximo passo recomendado
 
-Implementar o `Daily Brain Workout`, uma sessao guiada de 5 a 8 minutos que transforma a dashboard em acao real.
+Evoluir o `Daily Brain Workout` com correcao por IA no desafio final.
 
 Fluxo sugerido:
 
-1. Abrir a missao do dia a partir da dashboard.
-2. Revisar 3 MindBlocks vencidos.
-3. Ouvir 1 expressao com audio.
-4. Responder 1 desafio rapido do Neo.
-5. Corrigir automaticamente a resposta.
-6. Salvar novo MindBlock ou erro corrigido se fizer sentido.
-7. Concluir a sessao com XP, streak e evento neural.
+1. Usuario responde ao desafio.
+2. API avalia naturalidade, gramatica e aderencia ao padrao.
+3. Se houver erro, oferece salvar em `corrected_mistakes`.
+4. Se a frase for boa, oferece salvar como novo MindBlock.
+5. Resultado alimenta XP, Learning Events e Neural Universe.
 
 Esse passo fecha o ciclo mais importante do produto:
 
-dashboard -> missao -> pratica -> correcao -> XP -> revisao -> Neural Universe.
+missao -> resposta do usuario -> correcao inteligente -> XP -> revisao -> Neural Universe.

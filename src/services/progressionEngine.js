@@ -2,11 +2,16 @@ import React from "react";
 import toast from "react-hot-toast";
 import { ACHIEVEMENTS } from "../data/achievementsMock.js";
 import { recordLearningEvent } from "./learningEventEngine.js";
+import { supabase, supabaseConfigured } from "../lib/supabase.js";
 
 export const PROGRESSION_STATE_KEY = "fluentmind_progression_state";
 export const ACHIEVEMENTS_KEY = "fluentmind_achievements";
 export const DAILY_MISSIONS_KEY = "fluentmind_daily_missions";
 export const PROGRESSION_EVENT = "fluentmind:progression-updated";
+
+const PROGRESSION_TABLE = "user_progression_state";
+
+let activeProgressionUserId = null;
 
 const LEVEL_TITLES = [
   { level: 1, name: "New Thinker" },
@@ -196,12 +201,75 @@ function saveState(state) {
   window.localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(state.achievementsUnlocked));
   window.localStorage.setItem(DAILY_MISSIONS_KEY, JSON.stringify(state.dailyMissions));
   window.dispatchEvent(new CustomEvent(PROGRESSION_EVENT, { detail: state }));
+  persistProgressionState(state);
   return state;
 }
 
 export function getProgressionState() {
   if (!canUseStorage()) return defaultState();
   return normalizeState(safeParse(window.localStorage.getItem(PROGRESSION_STATE_KEY), defaultState()));
+}
+
+function toProgressionRow(state, userId = activeProgressionUserId) {
+  if (!userId) return null;
+  return {
+    user_id: userId,
+    state,
+    total_xp: Number(state.totalXp) || 0,
+    current_level: Number(state.currentLevel) || 1,
+    streak: Number(state.streak) || 0,
+    last_activity_at: state.lastActivityAt || null,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+async function persistProgressionState(state) {
+  if (!activeProgressionUserId || !supabaseConfigured || !supabase) return;
+  const row = toProgressionRow(state);
+  if (!row) return;
+  const { error } = await supabase
+    .from(PROGRESSION_TABLE)
+    .upsert(row, { onConflict: "user_id" });
+  if (error) {
+    console.warn("[progression] Supabase persistence skipped:", error.message);
+  }
+}
+
+export function configureProgressionPersistence(userId) {
+  activeProgressionUserId = userId || null;
+}
+
+export async function hydrateProgressionState(userId = activeProgressionUserId) {
+  configureProgressionPersistence(userId);
+  const localState = getProgressionState();
+  if (!userId || !supabaseConfigured || !supabase) return localState;
+
+  const { data, error } = await supabase
+    .from(PROGRESSION_TABLE)
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("[progression] Hydration skipped:", error.message);
+    persistProgressionState(localState);
+    return localState;
+  }
+
+  if (!data?.state) {
+    await persistProgressionState(localState);
+    return localState;
+  }
+
+  const remoteState = normalizeState(data.state);
+  const localTime = localState.lastActivityAt ? new Date(localState.lastActivityAt).getTime() : 0;
+  const remoteTime = data.updated_at ? new Date(data.updated_at).getTime() : 0;
+  const shouldKeepLocal = (localState.totalXp || 0) > (remoteState.totalXp || 0)
+    && localTime >= remoteTime;
+  const selectedState = shouldKeepLocal ? localState : remoteState;
+  saveState(selectedState);
+  if (shouldKeepLocal) persistProgressionState(selectedState);
+  return selectedState;
 }
 
 function showProgressToast(title, subtitle) {

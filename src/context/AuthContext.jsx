@@ -3,6 +3,8 @@ import { supabase, supabaseConfigured } from "../lib/supabase.js";
 import { isMasterEmail, sanitizeEmailInput } from "../config/accessControl.js";
 import { fetchUltraAccessPassByUserId } from "../services/ultraAccess.js";
 import { translateAuthErrorMessage } from "../utils/authErrors.js";
+import { configureLearningEventsPersistence, hydrateLearningEvents } from "../services/learningEventEngine.js";
+import { configureProgressionPersistence, hydrateProgressionState } from "../services/progressionEngine.js";
 
 const AuthContext = createContext({
   user: null,
@@ -304,6 +306,35 @@ export function AuthProvider({ children }) {
       ignore = true;
     };
   }, [normalizedEmail, isMasterUser]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function hydrateUserLearningState() {
+      const userId = user?.id ?? null;
+      configureProgressionPersistence(userId);
+      configureLearningEventsPersistence(userId);
+
+      if (!userId) return;
+
+      try {
+        await Promise.all([
+          hydrateProgressionState(userId),
+          hydrateLearningEvents(userId),
+        ]);
+      } catch (syncError) {
+        if (!ignore) {
+          console.warn("[auth] Falha ao sincronizar progresso do usuario:", syncError);
+        }
+      }
+    }
+
+    hydrateUserLearningState();
+
+    return () => {
+      ignore = true;
+    };
+  }, [user?.id]);
 
   const metadata = useMemo(() => user?.user_metadata ?? {}, [user]);
 

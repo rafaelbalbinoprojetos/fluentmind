@@ -600,7 +600,7 @@ export default function Layout() {
             ))}
           </nav>
 
-          <div className="fm-border fm-muted mt-auto border-t px-5 py-6 text-xs">
+          <div className="fm-border fm-muted mt-auto hidden border-t px-5 py-6 text-xs md:block">
             <p className="fm-subtle text-[11px] font-semibold uppercase tracking-[0.3em]">
               Segurança
             </p>
@@ -844,7 +844,7 @@ export default function Layout() {
           <PageTransition />
         </main>
 
-        <section className={`fm-footer relative z-10 border-t px-4 py-5 text-sm md:px-8 ${isChatbotRoute ? "hidden md:block" : ""}`}>
+        <section className="fm-footer relative z-10 hidden border-t px-4 py-5 text-sm md:block md:px-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="space-y-1">
               <p className="text-base font-semibold">Privacidade e continuidade</p>

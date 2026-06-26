@@ -213,7 +213,7 @@ function buildMindBlockMeta(form, assistantName) {
 }
 
 export default function ChatbotPage() {
-  const { user, session, userPreferences } = useAuth();
+  const { user, session, userPreferences, updateUserPreferences } = useAuth();
   const assistantName = userPreferences?.assistantName || getAssistantName(user);
   const mindBlockSaveMode = userPreferences?.mindBlockSaveMode || user?.user_metadata?.mindblock_save_mode || "ask";
   const displayName = userPreferences?.displayName?.trim() || user?.user_metadata?.display_name?.trim() || user?.email?.split("@")[0] || "Rafael";
@@ -272,13 +272,26 @@ export default function ChatbotPage() {
   };
 
   useEffect(() => {
+    const remoteMemory = userPreferences?.extra?.neoMemory;
+    if (Array.isArray(remoteMemory) && remoteMemory.length > 0) {
+      setMemoryEntries(remoteMemory);
+      return;
+    }
+
     try {
       const stored = JSON.parse(localStorage.getItem(NEO_MEMORY_KEY) || "[]");
-      if (Array.isArray(stored) && stored.length > 0) setMemoryEntries(stored);
+      if (Array.isArray(stored) && stored.length > 0) {
+        setMemoryEntries(stored);
+        if (user?.id) {
+          updateUserPreferences?.({ extra: { neoMemory: stored } }).catch((error) => {
+            console.warn("[neo-memory] Falha ao migrar memoria para Supabase:", error.message);
+          });
+        }
+      }
     } catch {
       setMemoryEntries(defaultNeoMemory);
     }
-  }, []);
+  }, [updateUserPreferences, user?.id, userPreferences?.extra?.neoMemory]);
 
   useEffect(() => {
     if (typing) {
@@ -438,9 +451,13 @@ export default function ChatbotPage() {
       .map((item) => item.trim())
       .filter(Boolean)
       .slice(0, 8);
-    setMemoryEntries(nextEntries.length ? nextEntries : defaultNeoMemory);
-    localStorage.setItem(NEO_MEMORY_KEY, JSON.stringify(nextEntries.length ? nextEntries : defaultNeoMemory));
-    toast.success("Neo memory updated locally.");
+    const memory = nextEntries.length ? nextEntries : defaultNeoMemory;
+    setMemoryEntries(memory);
+    localStorage.setItem(NEO_MEMORY_KEY, JSON.stringify(memory));
+    updateUserPreferences?.({ extra: { neoMemory: memory } }).catch((error) => {
+      console.warn("[neo-memory] Falha ao salvar memoria:", error.message);
+    });
+    toast.success("Memória do Neo atualizada.");
   };
 
   const applyQuickPrompt = (chip) => {

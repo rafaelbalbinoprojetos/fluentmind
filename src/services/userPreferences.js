@@ -133,7 +133,14 @@ export async function getOrCreateUserPreferences(user) {
 }
 
 export async function updateUserPreferences(userId, patch = {}, current = DEFAULT_USER_PREFERENCES) {
-  const next = { ...current, ...patch };
+  const next = {
+    ...current,
+    ...patch,
+    extra: {
+      ...(current.extra || {}),
+      ...(patch.extra || {}),
+    },
+  };
   if (!userId || !supabaseConfigured || !supabase) return next;
 
   const row = toPreferenceRow(userId, next);

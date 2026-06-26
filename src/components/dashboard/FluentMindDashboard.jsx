@@ -258,7 +258,7 @@ function buildWeeklyProgress(activity) {
 }
 
 export default function FluentMindDashboard() {
-  const { user, userPreferences } = useAuth();
+  const { user, userPreferences, updateUserPreferences } = useAuth();
   const [coachOpen, setCoachOpen] = useState(false);
   const [dashboardData, setDashboardData] = useState({
     profile: null,
@@ -269,6 +269,9 @@ export default function FluentMindDashboard() {
   });
   const [learningEvents, setLearningEvents] = useState(() => getLearningEvents());
   const [showFirstExperience, setShowFirstExperience] = useState(() => {
+    if (userPreferences?.extra?.firstDashboardExperience === true) {
+      return true;
+    }
     if (typeof window === "undefined") {
       return false;
     }
@@ -287,8 +290,17 @@ export default function FluentMindDashboard() {
 
   const completeFirstExperience = () => {
     window.localStorage.removeItem(FIRST_DASHBOARD_EXPERIENCE_KEY);
+    updateUserPreferences?.({ extra: { firstDashboardExperience: false } }).catch((error) => {
+      console.warn("[dashboard] Falha ao salvar primeira experiencia:", error.message);
+    });
     setShowFirstExperience(false);
   };
+
+  useEffect(() => {
+    if (userPreferences?.extra?.firstDashboardExperience === true) {
+      setShowFirstExperience(true);
+    }
+  }, [userPreferences?.extra?.firstDashboardExperience]);
 
   useEffect(() => {
     let isMounted = true;

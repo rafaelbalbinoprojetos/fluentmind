@@ -149,7 +149,7 @@ export default function Layout() {
   const navigate = useNavigate();
   const isChatbotRoute = location.pathname === "/chatbot";
   const navId = "primary-navigation";
-  const { user, session, signOut, updateUserMetadata, userPreferences, subscription } = useAuth();
+  const { user, session, signOut, updateUserMetadata, updateUserPreferences, userPreferences, subscription } = useAuth();
   const userMetadata = React.useMemo(() => user?.user_metadata ?? {}, [user]);
   const fallbackPlan = userMetadata.plan ?? "free";
   const fallbackTrialStatus = userMetadata.trial_status ?? "eligible";
@@ -176,7 +176,7 @@ export default function Layout() {
     () => NAV_ITEMS.filter((item) => item.id !== "users" || isMasterUser),
     [isMasterUser],
   );
-  const hasSeenWelcome = userMetadata.has_seen_welcome === true;
+  const hasSeenWelcome = userPreferences?.extra?.hasSeenWelcome === true || userMetadata.has_seen_welcome === true;
   const mobileNavPreference = userPreferences?.mobileNavPaths ?? userMetadata.mobile_nav_paths;
   const mobileNavItems = React.useMemo(() => {
     const paths = normalizeMobileNavSelection(mobileNavPreference);
@@ -278,6 +278,11 @@ export default function Layout() {
         payload.has_seen_welcome = true;
         result = "marked";
       }
+      if (markSeen && userPreferences?.extra?.hasSeenWelcome !== true) {
+        updateUserPreferences?.({ extra: { hasSeenWelcome: true } }).catch((error) => {
+          console.warn("[welcome] Falha ao salvar boas-vindas no Supabase:", error.message);
+        });
+      }
 
       const isEligibleStatus = !metadata.trial_status || metadata.trial_status === "eligible";
       const canActivate = activate && !alreadyPremium && !alreadyStarted && isEligibleStatus;
@@ -313,7 +318,7 @@ export default function Layout() {
       }
       return result;
     },
-    [hasLifetimeAccess, updateUserMetadata, user, userMetadata],
+    [hasLifetimeAccess, updateUserMetadata, updateUserPreferences, user, userMetadata, userPreferences?.extra?.hasSeenWelcome],
   );
 
   const handleWelcomeStart = React.useCallback(async () => {

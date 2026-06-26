@@ -9,27 +9,20 @@ import { recordDailyActivity } from "../services/learningProgress.js";
 import { listCorrectedMistakes, updateCorrectedMistake } from "../services/correctedMistakes.js";
 import { trackProgressionAction } from "../services/progressionEngine.js";
 import { recordLearningEvent } from "../services/learningEventEngine.js";
+import {
+  buildReviewSessionPlan,
+  buildReviewHistory,
+  calculateSmartReview,
+  getRecommendedReviewResult,
+  prioritizeReviewDeck,
+} from "../services/smartReview.js";
 
-const REVIEW_SCORES = {
-  again: { masteryDelta: -10, correct: false, toast: "No problem. Send it to another round." },
-  hard: { masteryDelta: 3, correct: false, toast: "Hard cards are where fluency grows." },
-  good: { masteryDelta: 9, correct: true, toast: "Nice. MindBlock strengthened." },
-  easy: { masteryDelta: 16, correct: true, toast: "Great. This one is becoming natural." },
+const RESULT_LABELS = {
+  again: "Again",
+  hard: "Hard",
+  good: "Good",
+  easy: "Easy",
 };
-
-function sortReviewDeck(expressions) {
-  const now = Date.now();
-  return [...expressions].sort((a, b) => {
-    const aDue = a.nextReviewAtRaw ? new Date(a.nextReviewAtRaw).getTime() : now;
-    const bDue = b.nextReviewAtRaw ? new Date(b.nextReviewAtRaw).getTime() : now;
-    const aIsDue = a.isReviewDue || a.status === "review_due" || aDue <= now;
-    const bIsDue = b.isReviewDue || b.status === "review_due" || bDue <= now;
-    if (aIsDue !== bIsDue) return aIsDue ? -1 : 1;
-    if (aDue !== bDue) return aDue - bDue;
-    if ((a.mastery ?? 0) !== (b.mastery ?? 0)) return (a.mastery ?? 0) - (b.mastery ?? 0);
-    return (a.timesReviewed ?? 0) - (b.timesReviewed ?? 0);
-  });
-}
 
 function toReviewCard(item, type) {
   if (type === "mistake") {
@@ -56,29 +49,6 @@ function toReviewCard(item, type) {
     answerLabel: "Resposta",
     helperText: "Digite, fale em voz alta ou responda mentalmente antes de revelar.",
   };
-}
-
-function calculateNextReview({ result, mastery, timesReviewed }) {
-  if (result === "again") return 0;
-  if (result === "hard") return Math.max(1, Math.min(3, Math.ceil((timesReviewed + 1) / 2)));
-  if (result === "good") {
-    if (mastery >= 80) return 10;
-    if (mastery >= 55) return 5;
-    return 2;
-  }
-  if (mastery >= 85) return 21;
-  if (mastery >= 65) return 14;
-  return 7;
-}
-
-function addDaysIso(days) {
-  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
-}
-
-function formatReviewInterval(days) {
-  if (days === 0) return "Today";
-  if (days === 1) return "Tomorrow";
-  return `In ${days} days`;
 }
 
 function normalizeForCompare(value) {
@@ -155,12 +125,13 @@ export default function InsightsPage() {
           listCorrectedMistakes(user.id),
         ]);
         if (ignore) return;
-        setDeck(sortReviewDeck([
+        const cards = [
           ...mindBlocks.map((item) => toReviewCard(item, "mindblock")),
           ...correctedMistakes
             .filter((item) => item.status !== "archived")
             .map((item) => toReviewCard(item, "mistake")),
-        ]));
+        ];
+        setDeck(prioritizeReviewDeck(cards, reviewEvents));
         setEvents(reviewEvents);
         setCardIndex(0);
         setShowAnswer(false);
@@ -188,17 +159,14 @@ export default function InsightsPage() {
 
   const currentCard = deck[cardIndex] ?? null;
   const progress = useMemo(() => buildProgress(events), [events]);
+  const reviewHistory = useMemo(() => buildReviewHistory(events), [events]);
+  const sessionPlan = useMemo(() => buildReviewSessionPlan(deck, events), [deck, events]);
   const reviewedCount = sessionStats.reviewed;
   const accuracy = sessionStats.reviewed ? Math.round((sessionStats.correct / sessionStats.reviewed) * 100) : 0;
   const currentCardKey = currentCard ? `${currentCard.reviewType}:${currentCard.id}` : null;
-  const dueCount = useMemo(() => {
-    const now = Date.now();
-    return deck.filter((item) => {
-      const dueTime = item.nextReviewAtRaw ? new Date(item.nextReviewAtRaw).getTime() : now;
-      return item.isReviewDue || item.status === "review_due" || dueTime <= now;
-    }).length;
-  }, [deck]);
+  const dueCount = sessionPlan.dueNow;
   const typedSimilarity = currentCard ? answerSimilarity(typedAnswer, currentCard.expectedText) : null;
+  const recommendedResult = getRecommendedReviewResult(typedSimilarity);
 
   useEffect(() => {
     if (!currentCardKey) return;
@@ -215,8 +183,8 @@ export default function InsightsPage() {
   const updateDeckAfterAnswer = (updatedCard, result) => {
     setDeck((current) => {
       const withoutCurrent = current.filter((item) => item.id !== updatedCard.id || item.reviewType !== updatedCard.reviewType);
-      if (result === "again") return [...withoutCurrent, updatedCard];
-      return withoutCurrent;
+      const nextCards = result === "again" ? [...withoutCurrent, updatedCard] : withoutCurrent;
+      return prioritizeReviewDeck(nextCards, events);
     });
     setCardIndex(0);
     setShowAnswer(false);
@@ -278,16 +246,11 @@ export default function InsightsPage() {
 
   const answerCard = async (result) => {
     if (!currentCard || !user?.id || savingResult) return;
-    const score = REVIEW_SCORES[result];
     const responseTimeMs = answerStartedAt ? Date.now() - answerStartedAt : null;
-    const nextMastery = Math.min(100, Math.max(0, (currentCard.mastery ?? 0) + score.masteryDelta));
-    const nextDays = calculateNextReview({
-      result,
-      mastery: nextMastery,
-      timesReviewed: currentCard.timesReviewed ?? 0,
-    });
-    const nextReviewAt = formatReviewInterval(nextDays);
-    const nextReviewAtIso = addDaysIso(nextDays);
+    const smartResult = calculateSmartReview(currentCard, result, { typedSimilarity, responseTimeMs });
+    const nextMastery = smartResult.nextMastery;
+    const nextReviewAt = smartResult.nextReviewLabel;
+    const nextReviewAtIso = smartResult.nextReviewAtIso;
 
     setSavingResult(true);
     try {
@@ -299,7 +262,7 @@ export default function InsightsPage() {
           timesReviewed: (currentCard.timesReviewed ?? 0) + 1,
           lastReviewedAt: new Date().toISOString(),
           nextReviewAt: nextReviewAtIso,
-          status: nextDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : "reviewed",
+          status: smartResult.intervalDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : "reviewed",
         });
         await recordDailyActivity(user.id, {
           expressions_reviewed: 1,
@@ -321,8 +284,8 @@ export default function InsightsPage() {
             timesReviewed: (currentCard.timesReviewed ?? 0) + 1,
             lastReviewedAt: "Today",
             nextReviewAt,
-            isReviewDue: nextDays === 0,
-            status: nextDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : "learning",
+            isReviewDue: smartResult.intervalDays === 0,
+            status: smartResult.intervalDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : "learning",
           }),
           recordDailyActivity(user.id, {
             expressions_reviewed: 1,
@@ -340,25 +303,31 @@ export default function InsightsPage() {
         mastery: nextMastery,
         timesReviewed: (currentCard.timesReviewed ?? 0) + 1,
         lastReviewedAt: "Today",
-        nextReviewAt: currentCard.reviewType === "mistake" ? formatReviewInterval(nextDays) : nextReviewAt,
+        nextReviewAt,
         nextReviewAtRaw: currentCard.reviewType === "mistake" ? nextReviewAtIso : persistedCard?.nextReviewAtRaw,
-        isReviewDue: nextDays === 0,
-        status: nextDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : currentCard.reviewType === "mistake" ? "reviewed" : "learning",
+        isReviewDue: smartResult.intervalDays === 0,
+        status: smartResult.intervalDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : currentCard.reviewType === "mistake" ? "reviewed" : "learning",
+        smartDueLabel: nextReviewAt,
+        smartPriorityLabel: smartResult.confidenceLabel,
       };
       setSessionStats((current) => ({
         ...current,
         reviewed: current.reviewed + 1,
-        correct: current.correct + (score.correct ? 1 : 0),
+        correct: current.correct + (smartResult.correct ? 1 : 0),
         [result]: current[result] + 1,
       }));
-      toast.success(score.toast);
+      toast.success(smartResult.toast);
       recordLearningEvent(currentCard.reviewType === "mistake" ? "mistake_reviewed" : "review_completed", {
         expressionId: currentCard.id,
         expression: currentCard.expression,
-        correct: score.correct,
+        correct: smartResult.correct,
         result,
         masteryBefore: currentCard.mastery ?? 0,
         masteryAfter: nextMastery,
+        intervalDays: smartResult.intervalDays,
+        nextReviewAt: nextReviewAtIso,
+        reviewReason: smartResult.reason,
+        typedSimilarity,
         category: currentCard.category,
       }, "review");
       trackProgressionAction("completeReviewCard", { reason: "Review card completed", category: currentCard.category });
@@ -445,9 +414,15 @@ export default function InsightsPage() {
           <div className="grid grid-cols-4 gap-2 text-center">
             <ReviewMetric label="Cards" value={deck.length} />
             <ReviewMetric label="Vencidos" value={dueCount} />
-            <ReviewMetric label="Feitos" value={reviewedCount} />
-            <ReviewMetric label="Acerto" value={`${accuracy}%`} />
+            <ReviewMetric label="Foco" value={sessionPlan.focusLabel} />
+            <ReviewMetric label="Tempo" value={`${sessionPlan.estimatedMinutes}m`} />
           </div>
+        </div>
+        <div className="mt-5 grid gap-2 text-center sm:grid-cols-4">
+          <ReviewMetric label="Feitos" value={reviewedCount} />
+          <ReviewMetric label="Acerto" value={`${accuracy}%`} />
+          <ReviewMetric label="Fracos" value={sessionPlan.weakCards} />
+          <ReviewMetric label="Correções" value={sessionPlan.mistakes} />
         </div>
       </header>
 
@@ -458,8 +433,11 @@ export default function InsightsPage() {
               <span className="library-badge accent">{currentCard.category}</span>
               <span className="library-badge">{currentCard.difficulty}</span>
               <span className="library-badge">{currentCard.reviewType === "mistake" ? "Erro corrigido" : "MindBlock"}</span>
-              {currentCard.isReviewDue || currentCard.status === "review_due" ? (
-                <span className="library-badge warning">Due today</span>
+              <span className={`library-badge ${currentCard.smartPriorityTone === "urgent" ? "warning" : currentCard.smartPriorityTone === "accent" ? "accent" : ""}`}>
+                {currentCard.smartPriorityLabel}
+              </span>
+              {currentCard.smartDueLabel ? (
+                <span className="library-badge">{currentCard.smartDueLabel}</span>
               ) : null}
             </div>
             <span className="fm-muted text-sm font-semibold">
@@ -483,6 +461,12 @@ export default function InsightsPage() {
                   rows={2}
                   placeholder={currentCard.reviewType === "mistake" ? "Type the corrected sentence..." : "Type your answer in English..."}
                 />
+                {recommendedResult ? (
+                  <span className="fm-muted mt-2 block text-xs">
+                    Sugestão pelo texto digitado: <strong>{RESULT_LABELS[recommendedResult]}</strong>
+                    {typedSimilarity !== null ? ` · ${typedSimilarity}% de correspondencia` : ""}
+                  </span>
+                ) : null}
               </label>
             ) : null}
             {!showAnswer && currentCard.reviewType === "mindblock" ? (
@@ -518,6 +502,11 @@ export default function InsightsPage() {
               {currentCard.reviewType === "mindblock" && progress[currentCard.id] ? (
                 <p className="mt-2 text-xs">
                   Histórico: {progress[currentCard.id].reviewed} revisão(ões) · {progress[currentCard.id].correct} acerto(s)
+                </p>
+              ) : null}
+              {currentCard.reviewType === "mindblock" && reviewHistory.get(currentCard.id)?.reviewed ? (
+                <p className="mt-2 text-xs">
+                  Taxa inteligente: {currentCard.smartCorrectRate ?? 0}% · lapsos: {currentCard.smartLapses ?? 0}
                 </p>
               ) : null}
               {currentCard.examples?.length ? (

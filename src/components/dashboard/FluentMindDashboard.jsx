@@ -87,10 +87,6 @@ const dailyExpressions = [
   { phrase: "I see what you mean.", translation: "Entendo o que você quer dizer.", category: "Conversation" },
 ];
 
-const NEO_CONTEXT_KEY = "fluentmind_neo_expression_context";
-const REPEAT_CONTEXT_KEY = "fluentmind_repeat_expression_context";
-const SAVED_EXPRESSION_KEY = "fluentmind_mock_saved_expression";
-
 function getGreeting() {
   const hour = new Date().getHours();
   if (hour < 12) {
@@ -831,18 +827,13 @@ function DashboardHeader({ greeting, displayName, adaptiveMessage }) {
 }
 
 function TodayExpression({ expression }) {
-  const saveExpressionContext = (key) => {
-    window.localStorage.setItem(
-      key,
-      JSON.stringify({
-        ...expression,
-        source: "dashboard_today_expression",
-        savedAt: new Date().toISOString(),
-      }),
-    );
-  };
-
   const primaryAction = expression.sourceMindBlockId ? "/insights" : "/chatbot";
+  const neoExpressionContext = {
+    expression: expression.phrase,
+    translation: expression.translation,
+    category: expression.category,
+    source: "dashboard_today_expression",
+  };
 
   return (
     <article className="fm-card rounded-[30px] border p-5 shadow-md backdrop-blur-xl">
@@ -857,19 +848,23 @@ function TodayExpression({ expression }) {
         </div>
 
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:justify-end">
-          <button type="button" className="fm-live-action" onClick={() => saveExpressionContext(REPEAT_CONTEXT_KEY)}>
+          <button type="button" className="fm-live-action">
             <Play className="h-4 w-4 fill-current" />
             Ouvir
           </button>
-          <button type="button" className="fm-live-action" onClick={() => saveExpressionContext(SAVED_EXPRESSION_KEY)}>
+          <Link to="/biblioteca" className="fm-live-action">
             <Star className="h-4 w-4" />
             Salvar
-          </button>
-          <button type="button" className="fm-live-action" title="Prepared for future voice recognition" onClick={() => saveExpressionContext(REPEAT_CONTEXT_KEY)}>
+          </Link>
+          <button type="button" className="fm-live-action" title="Preparado para prática de pronúncia">
             <Mic2 className="h-4 w-4" />
             Repetir
           </button>
-          <Link to={primaryAction} className="fm-live-action fm-live-action-primary" onClick={() => saveExpressionContext(NEO_CONTEXT_KEY)}>
+          <Link
+            to={primaryAction}
+            state={expression.sourceMindBlockId ? undefined : { neoExpressionContext }}
+            className="fm-live-action fm-live-action-primary"
+          >
             <MessageCircle className="h-4 w-4" />
             {expression.sourceMindBlockId ? "Revisar" : "Neo"}
           </Link>

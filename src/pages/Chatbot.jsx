@@ -25,6 +25,7 @@ import {
 import { useAuth } from "../context/AuthContext.jsx";
 import {
   Link,
+  useLocation,
 } from "react-router-dom";
 import {
   createConversationMessage,
@@ -41,8 +42,6 @@ import { recordLearningEvent } from "../services/learningEventEngine.js";
 import { normalizeMindBlockExpressionText } from "../utils/mindblockText.js";
 
 const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
-const NEO_LOCAL_FAVORITES_KEY = "fluentmind_neo_favorites";
-const NEO_LOCAL_NEURAL_KEY = "fluentmind_neo_neural_activity";
 const NEO_MEMORY_KEY = "fluentmind_neo_memory";
 
 const welcomeMessages = [
@@ -214,6 +213,7 @@ function buildMindBlockMeta(form, assistantName) {
 
 export default function ChatbotPage() {
   const { user, session, userPreferences, updateUserPreferences } = useAuth();
+  const location = useLocation();
   const assistantName = userPreferences?.assistantName || getAssistantName(user);
   const mindBlockSaveMode = userPreferences?.mindBlockSaveMode || user?.user_metadata?.mindblock_save_mode || "ask";
   const displayName = userPreferences?.displayName?.trim() || user?.user_metadata?.display_name?.trim() || user?.email?.split("@")[0] || "Rafael";
@@ -245,6 +245,7 @@ export default function ChatbotPage() {
   const [ignoredSuggestionIds, setIgnoredSuggestionIds] = useState([]);
   const [savedSuggestionIds, setSavedSuggestionIds] = useState([]);
   const [savedCorrectionIds, setSavedCorrectionIds] = useState([]);
+  const routeExpressionContext = location.state?.neoExpressionContext || null;
 
   const realMessages = messages.filter((message) => message.id !== "welcome-neo");
   const isGuidedStart = !activeSessionId && realMessages.length === 0 && !typing;
@@ -292,6 +293,33 @@ export default function ChatbotPage() {
       setMemoryEntries(defaultNeoMemory);
     }
   }, [updateUserPreferences, user?.id, userPreferences?.extra?.neoMemory]);
+
+  useEffect(() => {
+    if (!routeExpressionContext?.expression) return;
+    const prompt = `Vamos praticar este MindBlock: ${routeExpressionContext.expression}${
+      routeExpressionContext.translation ? ` (${routeExpressionContext.translation})` : ""
+    }.`;
+    setInput(prompt);
+    setSelectedMode("mindblocks");
+    setMessages((current) => {
+      const baseMessages = current[0]?.id === "welcome-neo" ? [] : current;
+      return [
+        ...baseMessages,
+        {
+          id: `route-context-${Date.now()}`,
+          role: "neo",
+          createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+          content: `Pronto. Vamos praticar "${routeExpressionContext.expression}" com exemplos, pronúncia e contexto natural.`,
+          suggestedMindBlocks: [{
+            expression: routeExpressionContext.expression,
+            translation: routeExpressionContext.translation || "",
+            category: routeExpressionContext.category || "Conversation",
+            source: routeExpressionContext.source || "navigation-context",
+          }],
+        },
+      ];
+    });
+  }, [routeExpressionContext?.expression]);
 
   useEffect(() => {
     if (typing) {
@@ -475,25 +503,27 @@ export default function ChatbotPage() {
 
   const runMockAction = (label, payload = null) => {
     if (label === "Favorite" && payload?.expression) {
-      const current = JSON.parse(localStorage.getItem(NEO_LOCAL_FAVORITES_KEY) || "[]");
-      localStorage.setItem(NEO_LOCAL_FAVORITES_KEY, JSON.stringify([...new Set([...current, payload.expression])]));
-      toast.success("Favorito salvo localmente.");
+      recordLearningEvent("favorite_added", {
+        expressionId: payload.id || payload.expression,
+        expression: payload.expression,
+        translation: payload.translation || "",
+        category: payload.category || "Conversation",
+      }, "neo_chat");
+      trackNeoProgress("addFavorite", 2, "Favorite expression");
+      toast.success("Favorito registrado no seu histórico.");
       return;
     }
 
     if (label === "Add to Neural Universe") {
-      const current = JSON.parse(localStorage.getItem(NEO_LOCAL_NEURAL_KEY) || "[]");
-      localStorage.setItem(NEO_LOCAL_NEURAL_KEY, JSON.stringify([
-        ...current,
-        {
-          id: `neo-${Date.now()}`,
-          type: "conversation_mindblock",
-          label: payload?.expression || "Neo conversation",
-          createdAt: new Date().toISOString(),
-        },
-      ]));
+      recordLearningEvent("expression_saved", {
+        expressionId: payload?.id || payload?.expression || `neo-${Date.now()}`,
+        expression: payload?.expression || "Neo conversation",
+        translation: payload?.translation || "",
+        category: payload?.category || "Conversation",
+        mastery: 10,
+      }, "neo_chat_neural_action");
       trackNeoProgress("saveMindBlock", 5, "New neural node created", { category: payload?.category });
-      toast.success("Conexao neural registrada localmente.");
+      toast.success("Conexão neural registrada.");
       return;
     }
 

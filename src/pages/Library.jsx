@@ -1019,16 +1019,6 @@ function ExpressionDetailDrawer({
     };
   }, []);
 
-  const prepareNeo = () => {
-    window.localStorage.setItem("fluentmind_neo_expression_context", JSON.stringify({
-      expression: block.expression,
-      translation: block.translation,
-      category: block.category,
-      source: "library-detail",
-    }));
-    toast.success("Prática com Neo preparada.");
-  };
-
   return createPortal(
     <div className="library-drawer-wrap" role="dialog" aria-modal="true">
       <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Fechar painel" />
@@ -1074,7 +1064,18 @@ function ExpressionDetailDrawer({
           <button type="button" className="library-panel-action" onClick={() => toast("Prática de pronúncia em breve.")}>
             <Zap className="h-4 w-4" /> Repetir
           </button>
-          <Link to="/chatbot" onClick={prepareNeo} className="library-panel-action">
+          <Link
+            to="/chatbot"
+            state={{
+              neoExpressionContext: {
+                expression: block.expression,
+                translation: block.translation,
+                category: block.category,
+                source: "library-detail",
+              },
+            }}
+            className="library-panel-action"
+          >
             <MessageCircle className="h-4 w-4" /> Praticar com Neo
           </Link>
           <button type="button" onClick={onReview} className="library-panel-action">

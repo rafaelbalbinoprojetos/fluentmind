@@ -22,6 +22,7 @@ import { listMindBlocks, updateMindBlock } from "../services/mindblocks.js";
 import { createReviewEvent } from "../services/reviewEvents.js";
 import { recordLearningEvent } from "../services/learningEventEngine.js";
 import { trackProgressionAction } from "../services/progressionEngine.js";
+import { checkAnswerWithAi } from "../services/answerCheck.js";
 
 const FALLBACK_DECK = [
   {
@@ -96,9 +97,10 @@ function buildChallenge(deck) {
 
   return {
     source,
-    prompt: `Create one sentence using "${firstTwoWords}".`,
-    helper: "Use a real detail from your day. Short and natural is enough.",
+    prompt: `Create your own sentence using "${expression.replace(/[.!?]+$/, "")}".`,
+    helper: "Talk about your real life: change the details, keep the structure. Short and natural is enough.",
     expectedPattern: firstTwoWords,
+    target: expression,
   };
 }
 
@@ -219,8 +221,9 @@ export default function DailyWorkoutPage() {
           voice: userPreferences?.assistantVoice || user?.user_metadata?.preferred_voice || "mineirinha",
           accessToken: session.access_token,
         });
-        if (result?.audioUrl) {
-          const audio = new Audio(result.audioUrl);
+        const audioUrl = result?.signedUrl || result?.audioUrl;
+        if (audioUrl) {
+          const audio = new Audio(audioUrl);
           await audio.play();
         }
       } else if ("speechSynthesis" in window) {
@@ -245,17 +248,41 @@ export default function DailyWorkoutPage() {
     }
   };
 
-  const handleCheckChallenge = () => {
-    const normalized = normalizeAnswer(challengeAnswer);
-    const expected = normalizeAnswer(challenge.expectedPattern);
-    const passed = normalized.length >= 12 && expected.split(" ").every((part) => normalized.includes(part));
-
-    setChallengeResult({
-      passed,
-      message: passed
-        ? "Great. You used the structure in a natural sentence."
-        : `Try again using "${challenge.expectedPattern}" inside a complete sentence.`,
-    });
+  const handleCheckChallenge = async () => {
+    if (!challengeAnswer.trim() || challengeResult?.checking) return;
+    setChallengeResult({ checking: true });
+    let passed;
+    let result;
+    try {
+      // A IA corrige como professor: estrutura usada certo, gramática e naturalidade.
+      const check = await checkAnswerWithAi({
+        mode: "sentence",
+        prompt: challenge.prompt,
+        expected: challenge.target,
+        answer: challengeAnswer,
+        level: userPreferences?.currentLevel || "A2",
+        accessToken: session?.access_token,
+      });
+      passed = check.verdict === "correct";
+      result = {
+        passed,
+        message: check.feedback || (passed ? "Great. You used the structure in a natural sentence." : "Almost. Check the structure and try again."),
+        corrected: check.verdict !== "correct" ? check.corrected : "",
+        alternative: check.alternative,
+      };
+    } catch {
+      // sem IA: conferência simples pela estrutura
+      const normalized = normalizeAnswer(challengeAnswer);
+      const expected = normalizeAnswer(challenge.expectedPattern);
+      passed = normalized.length >= 12 && expected.split(" ").every((part) => normalized.includes(part));
+      result = {
+        passed,
+        message: passed
+          ? "Great. You used the structure in a sentence. (Correção da IA indisponível agora.)"
+          : `Try again using "${challenge.expectedPattern}" inside a complete sentence.`,
+      };
+    }
+    setChallengeResult(result);
 
     if (passed) {
       trackProgressionAction("practicePronunciation", { reason: "Daily Brain Workout challenge", category: challenge.source.category });
@@ -517,18 +544,20 @@ function ChallengeStep({ challenge, answer, result, onAnswer, onCheck, onComplet
           placeholder="Example: I'm looking forward to practicing English today."
         />
         <div className="mt-4 flex flex-wrap gap-3">
-          <button type="button" onClick={onCheck} className="fm-primary-button inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-black">
-            <Send className="h-4 w-4" /> Check
+          <button type="button" disabled={result?.checking} onClick={onCheck} className="fm-primary-button inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-black">
+            <Send className="h-4 w-4" /> {result?.checking ? "Checking…" : "Check"}
           </button>
           <Link to="/chatbot" className="fm-ghost-button inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-black">
             Practice with Neo
           </Link>
         </div>
       </div>
-      {result ? (
+      {result && !result.checking ? (
         <div className={`mt-5 rounded-3xl border p-5 ${result.passed ? "border-emerald-400/40 bg-emerald-400/10" : "border-amber-400/40 bg-amber-400/10"}`}>
           <strong>{result.passed ? "Challenge passed" : "Almost there"}</strong>
           <p className="mt-2 text-sm">{result.message}</p>
+          {result.corrected ? <p className="mt-2 text-sm">Corrected: <em>{result.corrected}</em></p> : null}
+          {result.alternative ? <p className="mt-1 text-sm">Another natural way: <em>{result.alternative}</em></p> : null}
           {result.passed ? (
             <button type="button" onClick={onComplete} className="fm-primary-button mt-4 inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-black">
               Complete workout <Trophy className="h-4 w-4" />

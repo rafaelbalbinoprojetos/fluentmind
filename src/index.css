@@ -5776,3 +5776,41 @@ g.is-dimmed .neural-impulse {
     grid-template-columns: 1fr;
   }
 }
+
+/* Correção da resposta pela IA (revisão) */
+.review-ai-feedback {
+  margin-top: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(148, 163, 184, 0.08);
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  text-align: left;
+}
+.review-ai-feedback.correct { border-color: rgba(34, 197, 94, 0.45); background: rgba(34, 197, 94, 0.1); }
+.review-ai-feedback.almost { border-color: rgba(234, 179, 8, 0.45); background: rgba(234, 179, 8, 0.1); }
+.review-ai-feedback.wrong { border-color: rgba(239, 68, 68, 0.45); background: rgba(239, 68, 68, 0.1); }
+.review-answer-button.suggested { outline: 2px solid currentColor; outline-offset: 2px; }
+
+/* Speaking Lab */
+.speaking-progress { display: flex; gap: 0.4rem; }
+.speaking-progress span { flex: 1; height: 6px; border-radius: 999px; background: rgba(148, 163, 184, 0.25); }
+.speaking-progress span.done { background: #34d399; }
+.speaking-progress span.current { background: #22d3ee; }
+.speaking-steps { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
+.speaking-steps span { padding: 0.35rem 0.8rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700; border: 1px solid var(--border-soft); opacity: 0.6; }
+.speaking-steps span.active { opacity: 1; border-color: #22d3ee; color: #22d3ee; }
+.speaking-chip { padding: 0.4rem 0.8rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700; border: 1px solid var(--border-soft); }
+.speaking-chip.active { border-color: #22d3ee; color: #22d3ee; }
+.speaking-record { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.9rem 1.6rem; border-radius: 999px; font-weight: 900; color: #fff; background: linear-gradient(135deg, #8b5cf6, #22d3ee); }
+.speaking-record.recording { background: #ef4444; animation: speaking-pulse 1.2s ease-in-out infinite; }
+@keyframes speaking-pulse { 50% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0.15); } }
+.speaking-feedback { margin: 1rem auto 0; max-width: 36rem; padding: 0.9rem 1rem; border-radius: 18px; border: 1px solid rgba(148, 163, 184, 0.3); background: rgba(148, 163, 184, 0.08); display: grid; gap: 0.4rem; text-align: left; font-size: 0.9rem; }
+.speaking-feedback.good { border-color: rgba(34, 197, 94, 0.45); background: rgba(34, 197, 94, 0.1); }
+.speaking-feedback.almost { border-color: rgba(234, 179, 8, 0.45); background: rgba(234, 179, 8, 0.1); }
+.speaking-feedback.wrong { border-color: rgba(239, 68, 68, 0.45); background: rgba(239, 68, 68, 0.1); }
+.speaking-diff { font-size: 1.15rem; font-weight: 800; }
+.speaking-diff .ok { color: #34d399; }
+.speaking-diff .miss { color: #f87171; text-decoration: underline wavy; }

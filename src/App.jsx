@@ -7,6 +7,7 @@ import LearningHistoryPage from "./pages/LearningHistory.jsx";
 import LibraryPage from "./pages/Library.jsx";
 import PlaylistsPage from "./pages/Playlists.jsx";
 import InsightsPage from "./pages/Insights.jsx";
+import SpeakingLabPage from "./pages/SpeakingLab.jsx";
 import ChatbotPage from "./pages/Chatbot.jsx";
 import ConversationsPage from "./pages/Conversations.jsx";
 import MistakesPage from "./pages/Mistakes.jsx";
@@ -42,6 +43,7 @@ function App() {
             <Route path="biblioteca" element={<LibraryPage />} />
             <Route path="playlists" element={<PlaylistsPage />} />
             <Route path="insights" element={<InsightsPage />} />
+            <Route path="speaking" element={<SpeakingLabPage />} />
             <Route path="chatbot" element={<ChatbotPage />} />
             <Route path="conversas" element={<ConversationsPage />} />
             <Route path="meus-erros" element={<MistakesPage />} />

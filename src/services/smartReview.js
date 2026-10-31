@@ -1,3 +1,5 @@
+import { estimateFsrsState, replayFsrs, scheduleWithFsrs } from "./fsrs.js";
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const RESULT_BASE = {
@@ -200,10 +202,9 @@ export function getRecommendedReviewResult(typedSimilarity) {
   return "easy";
 }
 
-export function calculateSmartReview(card, result, { typedSimilarity = null, responseTimeMs = null } = {}) {
+export function calculateSmartReview(card, result, { typedSimilarity = null, responseTimeMs = null, reviewEvents = null } = {}) {
   const base = RESULT_BASE[result] ?? RESULT_BASE.good;
   const currentMastery = Number(card?.mastery ?? 0);
-  const timesReviewed = Number(card?.timesReviewed ?? 0);
   const typeDelta = card?.reviewType === "mistake" ? base.mistakeDelta : base.mindblockDelta;
   const similarityDelta =
     typedSimilarity === null
@@ -225,15 +226,11 @@ export function calculateSmartReview(card, result, { typedSimilarity = null, res
           : 0;
   const nextMastery = clamp(currentMastery + typeDelta + similarityDelta + speedDelta);
 
-  let intervalDays = 1;
-  if (result === "again") intervalDays = 0;
-  if (result === "hard") intervalDays = Math.max(1, Math.min(3, Math.ceil((timesReviewed + 1) / 2)));
-  if (result === "good") {
-    intervalDays = nextMastery >= 85 ? 14 : nextMastery >= 65 ? 7 : nextMastery >= 40 ? 3 : 2;
-  }
-  if (result === "easy") {
-    intervalDays = nextMastery >= 90 ? 30 : nextMastery >= 75 ? 21 : nextMastery >= 55 ? 14 : 7;
-  }
+  // Intervalo pelo FSRS: estado reconstruído do histórico do card (ou estimado, se não houver eventos).
+  const history = (reviewEvents || []).filter((event) => event?.mindblock_id === card?.id);
+  const fsrsState = (history.length ? replayFsrs(history) : null) ?? estimateFsrsState(card);
+  const fsrs = scheduleWithFsrs(fsrsState, result);
+  let intervalDays = fsrs.intervalDays;
   if (typedSimilarity !== null && typedSimilarity < 60 && result !== "again") {
     intervalDays = Math.min(intervalDays, 1);
   }
@@ -250,6 +247,8 @@ export function calculateSmartReview(card, result, { typedSimilarity = null, res
     nextReviewAtIso,
     nextReviewLabel: formatInterval(intervalDays),
     confidenceLabel,
-    reason: `Mastery ${currentMastery}% -> ${nextMastery}% · proxima revisao: ${formatInterval(intervalDays)}`,
+    stability: Number(fsrs.stability.toFixed(2)),
+    difficulty: Number(fsrs.difficulty.toFixed(2)),
+    reason: `Mastery ${currentMastery}% -> ${nextMastery}% · estabilidade ${fsrs.stability.toFixed(1)}d · proxima revisao: ${formatInterval(intervalDays)}`,
   };
 }

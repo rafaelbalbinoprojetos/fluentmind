@@ -415,7 +415,9 @@ Rules:
 - Keep the correction natural and close to the user's original intent.
 - Explanation must be in Portuguese, concise, and useful for a Brazilian learner.
 - Use level ${currentLevel || "A2"} unless another level is clearly more appropriate.
-- Do not correct capitalization or punctuation only.`,
+- Do not correct capitalization or punctuation only.
+- If there are several mistakes, report only the ONE that matters most for a ${currentLevel || "A2"} learner: first errors that change or block the meaning, then frequent grammar patterns (tense, word order, missing subject/auxiliary). Put that fix in "correct", keeping the rest of the sentence as the student wrote it.
+- Do not flag stylistic preferences or advanced vocabulary above the student's level when the sentence is already correct and understandable.`,
         },
         { role: "user", content: String(latestUserMessage) },
       ],

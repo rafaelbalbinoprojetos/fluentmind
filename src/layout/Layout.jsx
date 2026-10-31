@@ -21,6 +21,7 @@ const ICON_MAP = {
   library: LibraryIcon,
   playlists: LibraryIcon,
   insights: InsightsIcon,
+  speaking: ChatbotIcon,
   chatbot: ChatbotIcon,
   conversations: ChatbotIcon,
   mistakes: InsightsIcon,

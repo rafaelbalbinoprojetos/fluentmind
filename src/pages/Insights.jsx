@@ -16,6 +16,7 @@ import {
   getRecommendedReviewResult,
   prioritizeReviewDeck,
 } from "../services/smartReview.js";
+import { checkAnswerWithAi, localSimilarity } from "../services/answerCheck.js";
 
 const RESULT_LABELS = {
   again: "Again",
@@ -51,28 +52,6 @@ function toReviewCard(item, type) {
   };
 }
 
-function normalizeForCompare(value) {
-  return String(value || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\w\s']/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function answerSimilarity(answer, expected) {
-  const normalizedAnswer = normalizeForCompare(answer);
-  const normalizedExpected = normalizeForCompare(expected);
-  if (!normalizedAnswer || !normalizedExpected) return null;
-  if (normalizedAnswer === normalizedExpected) return 100;
-
-  const answerWords = new Set(normalizedAnswer.split(" ").filter(Boolean));
-  const expectedWords = new Set(normalizedExpected.split(" ").filter(Boolean));
-  const overlap = [...answerWords].filter((word) => expectedWords.has(word)).length;
-  return Math.round((overlap / Math.max(1, expectedWords.size)) * 100);
-}
-
 function buildProgress(events) {
   return events.reduce((acc, event) => {
     const id = event.mindblock_id;
@@ -100,6 +79,8 @@ export default function InsightsPage() {
   const [answerStartedAt, setAnswerStartedAt] = useState(null);
   const [typedAnswer, setTypedAnswer] = useState("");
   const [savingResult, setSavingResult] = useState(false);
+  // correção da resposta digitada pela IA: { loading, data, error }
+  const [aiCheck, setAiCheck] = useState(null);
   const audioRef = useRef(null);
   const [audioByMindBlock, setAudioByMindBlock] = useState({});
   const [audioLoadingId, setAudioLoadingId] = useState(null);
@@ -165,8 +146,35 @@ export default function InsightsPage() {
   const accuracy = sessionStats.reviewed ? Math.round((sessionStats.correct / sessionStats.reviewed) * 100) : 0;
   const currentCardKey = currentCard ? `${currentCard.reviewType}:${currentCard.id}` : null;
   const dueCount = sessionPlan.dueNow;
-  const typedSimilarity = currentCard ? answerSimilarity(typedAnswer, currentCard.expectedText) : null;
-  const recommendedResult = getRecommendedReviewResult(typedSimilarity);
+  const localScore = currentCard ? localSimilarity(typedAnswer, currentCard.expectedText) : null;
+  // A nota da IA (pelo sentido) vale mais que a comparação local quando existe.
+  const typedSimilarity = aiCheck?.data ? aiCheck.data.score : localScore;
+  const recommendedResult = aiCheck?.data?.suggestedResult || getRecommendedReviewResult(typedSimilarity);
+  const level = userPreferences?.currentLevel || "A2";
+
+  const revealAnswer = async () => {
+    setShowAnswer(true);
+    const answer = typedAnswer.trim();
+    if (!answer || !currentCard) return;
+    if (localScore === 100) {
+      setAiCheck({ data: { score: 100, verdict: "correct", suggestedResult: "easy", feedback: "Perfeito, igual à resposta.", corrected: answer, alternative: "" } });
+      return;
+    }
+    setAiCheck({ loading: true });
+    try {
+      const data = await checkAnswerWithAi({
+        mode: currentCard.reviewType === "mistake" ? "fix" : "translate",
+        prompt: currentCard.promptText,
+        expected: currentCard.expectedText,
+        answer,
+        level,
+        accessToken: session?.access_token,
+      });
+      setAiCheck({ data });
+    } catch (error) {
+      setAiCheck({ error: error.message || "Correção indisponível; usando a comparação local." });
+    }
+  };
 
   useEffect(() => {
     if (!currentCardKey) return;
@@ -177,6 +185,7 @@ export default function InsightsPage() {
     setShowAnswer(false);
     setAnswerStartedAt(null);
     setTypedAnswer("");
+    setAiCheck(null);
     setCardIndex((index) => (deck.length ? (index + 1) % deck.length : 0));
   };
 
@@ -190,6 +199,7 @@ export default function InsightsPage() {
     setShowAnswer(false);
     setAnswerStartedAt(null);
     setTypedAnswer("");
+    setAiCheck(null);
   };
 
   const playCardAudio = async (card) => {
@@ -247,7 +257,7 @@ export default function InsightsPage() {
   const answerCard = async (result) => {
     if (!currentCard || !user?.id || savingResult) return;
     const responseTimeMs = answerStartedAt ? Date.now() - answerStartedAt : null;
-    const smartResult = calculateSmartReview(currentCard, result, { typedSimilarity, responseTimeMs });
+    const smartResult = calculateSmartReview(currentCard, result, { typedSimilarity, responseTimeMs, reviewEvents: events });
     const nextMastery = smartResult.nextMastery;
     const nextReviewAt = smartResult.nextReviewLabel;
     const nextReviewAtIso = smartResult.nextReviewAtIso;
@@ -283,7 +293,7 @@ export default function InsightsPage() {
             mastery: nextMastery,
             timesReviewed: (currentCard.timesReviewed ?? 0) + 1,
             lastReviewedAt: "Today",
-            nextReviewAt,
+            nextReviewAt: nextReviewAtIso,
             isReviewDue: smartResult.intervalDays === 0,
             status: smartResult.intervalDays === 0 ? "review_due" : nextMastery >= 90 ? "mastered" : "learning",
           }),
@@ -348,6 +358,7 @@ export default function InsightsPage() {
     setShowAnswer(false);
     setAnswerStartedAt(null);
     setTypedAnswer("");
+    setAiCheck(null);
     setSessionStats({ reviewed: 0, correct: 0, again: 0, hard: 0, good: 0, easy: 0 });
     toast("Review restarted.");
   };
@@ -463,8 +474,7 @@ export default function InsightsPage() {
                 />
                 {recommendedResult ? (
                   <span className="fm-muted mt-2 block text-xs">
-                    Sugestão pelo texto digitado: <strong>{RESULT_LABELS[recommendedResult]}</strong>
-                    {typedSimilarity !== null ? ` · ${typedSimilarity}% de correspondencia` : ""}
+                    Comparação rápida: {typedSimilarity}% · ao mostrar a resposta, a IA corrige pelo sentido
                   </span>
                 ) : null}
               </label>
@@ -488,8 +498,23 @@ export default function InsightsPage() {
               <h3>{currentCard.expectedText}</h3>
               {typedAnswer.trim() ? (
                 <div className="review-comparison">
-                  <span>You answered {typedSimilarity !== null ? `· ${typedSimilarity}% match` : ""}</span>
+                  <span>You answered {typedSimilarity !== null ? `· ${typedSimilarity}%` : ""}</span>
                   <strong>{typedAnswer.trim()}</strong>
+                </div>
+              ) : null}
+              {aiCheck?.loading ? <p className="mt-2 text-xs">Corrigindo sua resposta…</p> : null}
+              {aiCheck?.error ? <p className="mt-2 text-xs">{aiCheck.error}</p> : null}
+              {aiCheck?.data ? (
+                <div className={`review-ai-feedback ${aiCheck.data.verdict}`}>
+                  <strong>
+                    {aiCheck.data.verdict === "correct" ? "Correto" : aiCheck.data.verdict === "almost" ? "Quase lá" : "Ainda não"}
+                    {" · sugestão: "}{RESULT_LABELS[aiCheck.data.suggestedResult]}
+                  </strong>
+                  {aiCheck.data.feedback ? <p>{aiCheck.data.feedback}</p> : null}
+                  {aiCheck.data.corrected && aiCheck.data.verdict !== "correct" ? (
+                    <p>Sua frase corrigida: <em>{aiCheck.data.corrected}</em></p>
+                  ) : null}
+                  {aiCheck.data.alternative ? <p>Outra forma natural: <em>{aiCheck.data.alternative}</em></p> : null}
                 </div>
               ) : null}
               <p>{currentCard.notes || "Use como um bloco mental completo, sem traduzir palavra por palavra."}</p>
@@ -523,13 +548,10 @@ export default function InsightsPage() {
             {!showAnswer ? (
               <button
                 type="button"
-                onClick={() => {
-                  setShowAnswer(true);
-                  setAnswerStartedAt(Date.now());
-                }}
+                onClick={revealAnswer}
                 className="fm-gradient review-primary-button"
               >
-                <Eye className="h-4 w-4" /> Mostrar resposta
+                <Eye className="h-4 w-4" /> {typedAnswer.trim() ? "Corrigir e mostrar resposta" : "Mostrar resposta"}
               </button>
             ) : (
               <>
@@ -544,16 +566,16 @@ export default function InsightsPage() {
                     Listen
                   </button>
                 ) : null}
-                <button type="button" disabled={savingResult} onClick={() => answerCard("again")} className="review-answer-button wrong">
+                <button type="button" disabled={savingResult} onClick={() => answerCard("again")} className={`review-answer-button wrong${recommendedResult === "again" && showAnswer ? " suggested" : ""}`}>
                   <X className="h-4 w-4" /> Again
                 </button>
-                <button type="button" disabled={savingResult} onClick={() => answerCard("hard")} className="review-answer-button hard">
+                <button type="button" disabled={savingResult} onClick={() => answerCard("hard")} className={`review-answer-button hard${recommendedResult === "hard" && showAnswer ? " suggested" : ""}`}>
                   Hard
                 </button>
-                <button type="button" disabled={savingResult} onClick={() => answerCard("good")} className="review-answer-button right">
+                <button type="button" disabled={savingResult} onClick={() => answerCard("good")} className={`review-answer-button right${recommendedResult === "good" && showAnswer ? " suggested" : ""}`}>
                   <Check className="h-4 w-4" /> Good
                 </button>
-                <button type="button" disabled={savingResult} onClick={() => answerCard("easy")} className="review-answer-button right">
+                <button type="button" disabled={savingResult} onClick={() => answerCard("easy")} className={`review-answer-button right${recommendedResult === "easy" && showAnswer ? " suggested" : ""}`}>
                   Easy
                 </button>
               </>

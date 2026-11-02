@@ -467,6 +467,7 @@ export default async function handler(req, res) {
       currentLevel = "A2",
       targetLanguage = "en",
       mode = "learning",
+      scenario = "",
     } = body;
     const user = await requireUser(req);
     if (!Array.isArray(messages) || !messages.length || messages.length > 100
@@ -482,7 +483,8 @@ export default async function handler(req, res) {
         ? `You are ${String(assistantName || "Neo").slice(0, 60)}, a friendly language conversation partner for a Brazilian learner.
 The learner's name is ${String(userName || "").slice(0, 80)}. Their level is ${String(currentLevel).slice(0, 20)} and target language is ${String(targetLanguage).slice(0, 30)}.
 Have a natural, flowing conversation in their target language, adapting to their level. If they write in Portuguese, help them express that thought naturally in the target language and continue the conversation. Use Portuguese explanations when requested.
-Keep replies concise (usually 2–5 sentences), warm and easy to speak aloud. Ask at most one natural follow-up question. Correct a meaningful mistake gently within the conversation when helpful. Do not produce exercise sections, MindBlock cards, headings, Markdown formatting or lists unless the learner asks for them.`
+Keep replies concise (usually 2–5 sentences), warm and easy to speak aloud. Ask at most one natural follow-up question. Correct a meaningful mistake gently within the conversation when helpful. Do not produce exercise sections, MindBlock cards, headings, Markdown formatting or lists unless the learner asks for them.${
+  typeof scenario === "string" && scenario.trim() ? `\nLesson context: ${scenario.trim().slice(0, 800)}` : ""}`
         : buildSystemPrompt(userName, chatTone, assistantName, currentLevel, targetLanguage) },
       ...messages
         .filter((message) => message?.content)

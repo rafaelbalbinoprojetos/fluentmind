@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowUp, Check, ChevronDown, Eye, Headphones, Mic, RotateCcw, Settings2, Square, Volume2, VolumeX, X } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import NeoCore from "../components/NeoCore.jsx";
+import { buildJourneyMission, findUsedTargets } from "../services/conversationMission.js";
+import { updateProgressionState } from "../services/progressionEngine.js";
 import useConversation from "../hooks/useConversation.js";
 import useImmersiveEnvironment from "../hooks/useImmersiveEnvironment.js";
 import "./neo-immersive.css";
@@ -13,6 +15,23 @@ const TOPICS = [
   ["Filmes e séries", "Let's talk about movies and TV shows. Ask me what I enjoy watching."],
   ["Surpreenda-me", "Surprise me with an interesting topic for a friendly English conversation."],
 ];
+
+function MissionTargets({ targets, used, compact = false }) {
+  return (
+    <ul className={`neo-mission-targets${compact ? " is-compact" : ""}`} aria-label="Expressões da missão">
+      {targets.map((target, index) => {
+        const done = used.includes(index);
+        return (
+          <li key={target.expression} className={done ? "is-done" : ""}>
+            {done ? <Check size={12} aria-label="usada" /> : <span aria-hidden="true">○</span>}
+            <strong>{target.expression}</strong>
+            {!compact && <small>{target.translation}</small>}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 function normalizeSentence(value) {
   return String(value || "").toLowerCase().replace(/[^a-z0-9'\s]/g, " ").replace(/\s+/g, " ").trim();
@@ -61,7 +80,10 @@ function neoVisualState({ error, recorder, phase, audioLoading, audioPlaying, mu
 }
 
 export default function NeoImmersivePage() {
-  const conversation = useConversation({ defaultVoiceReplies: true, audioReactive: true, focusAfterVoice: false });
+  const [searchParams] = useSearchParams();
+  const journeyId = searchParams.get("journey");
+  const mission = useMemo(() => buildJourneyMission(journeyId), [journeyId]);
+  const conversation = useConversation({ defaultVoiceReplies: true, audioReactive: true, focusAfterVoice: false, scenario: mission?.scenario });
   const { messages, corrections, input, setInput, phase, error, muted, toggleMuted,
     audioLoading, inputRef, mentorName, sendMessage, recorder, busy, newConversation,
     toggleRecording, stopAudio, speak, speakingId, inputMeter, outputMeter, retry } = conversation;
@@ -77,6 +99,11 @@ export default function NeoImmersivePage() {
   const lastReply = [...messages].reverse().find((message) => message.role === "assistant");
   const lastUserMessage = [...messages].reverse().find((message) => message.role === "user");
   const latestCorrection = lastUserMessage?.correction;
+  const usedTargets = useMemo(
+    () => (mission ? findUsedTargets(mission.targets, messages.filter((message) => message.role === "user").map((message) => message.content)) : []),
+    [mission, messages],
+  );
+  const missionComplete = Boolean(mission) && usedTargets.length === mission.targets.length;
   const state = neoVisualState(conversation);
   const meter = state === "listening" ? inputMeter : outputMeter;
   const genericMotion = ["listening", "speaking"].includes(state) && !meter.available;
@@ -90,6 +117,30 @@ export default function NeoImmersivePage() {
   }[state];
 
   useEffect(() => { setCaptionsVisible(true); }, [lastMessage?.id]);
+  // Uma missão da Jornada sempre começa numa conversa limpa, sem misturar com o papo anterior.
+  const missionStartedRef = useRef(false);
+  useEffect(() => {
+    if (!mission || missionStartedRef.current) return;
+    missionStartedRef.current = true;
+    if (messages.length) { newConversation(); setHasInteracted(false); }
+  }, [mission, messages.length, newConversation]);
+  useEffect(() => {
+    if (!missionComplete) return;
+    updateProgressionState((progress) => {
+      const journey = progress.learningJourney || {};
+      return {
+        ...progress,
+        learningJourney: {
+          ...journey,
+          chapterProgress: {
+            ...journey.chapterProgress,
+            [mission.chapterId]: { ...(journey.chapterProgress?.[mission.chapterId] || {}), conversation: true },
+          },
+          lastUpdatedAt: new Date().toISOString(),
+        },
+      };
+    });
+  }, [missionComplete, mission]);
   useEffect(() => {
     if (!captionText || state === "processing" || state === "listening" || state === "speaking" || state === "error" || pinned || hidden) return;
     const readingTime = Math.max(14000, captionText.split(/\s+/).length * 420);
@@ -133,6 +184,13 @@ export default function NeoImmersivePage() {
       <footer className="neo-footer">
         {recap ? (
           <CorrectionRecap corrections={recap} onDone={startFresh} />
+        ) : mission && !hasInteracted && messages.length === 0 ? (
+          <div className="neo-introduction">
+            <h1>Missão: {mission.title}</h1>
+            <p>{mission.objective} Use estas expressões durante a conversa — com os seus próprios detalhes:</p>
+            <MissionTargets targets={mission.targets} used={usedTargets} />
+            <div className="neo-topics"><button type="button" disabled={busy} onClick={() => submit(`Let's practice "${mission.title}". Start the conversation with a simple question for me.`)}>Começar conversa</button></div>
+          </div>
         ) : !hasInteracted && messages.length === 0 ? (
           <div className="neo-introduction">
             <h1>Olá, eu sou o {mentorName}.</h1>
@@ -141,6 +199,12 @@ export default function NeoImmersivePage() {
           </div>
         ) : (
           <div className="neo-caption-space">
+            {mission && (
+              <div className="neo-mission-bar">
+                <MissionTargets targets={mission.targets} used={usedTargets} compact />
+                {missionComplete && <p role="status" className="neo-mission-done">Missão cumprida! <Link to="/learning-journey">Voltar à Jornada</Link></p>}
+              </div>
+            )}
             <section className={`neo-caption${captionsVisible && captionText ? " is-visible" : ""}`} aria-label="Última fala" aria-live="polite" aria-atomic="true" aria-hidden={!captionsVisible || !captionText} tabIndex={captionsVisible && captionText ? 0 : -1} onMouseEnter={() => setCaptionHovered(true)} onMouseLeave={() => setCaptionHovered(false)} onFocus={() => setCaptionFocused(true)} onBlur={() => setCaptionFocused(false)}>
               <span className="neo-caption-speaker">{lastMessage?.role === "user" ? "VOCÊ" : mentorName.toUpperCase()}</span>
               <p>{captionText}</p>

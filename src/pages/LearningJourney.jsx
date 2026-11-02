@@ -204,7 +204,7 @@ export default function LearningJourneyPage() {
     toast.success(nextChapter ? "Novo capítulo desbloqueado" : "Jornada concluída");
   };
 
-  const neoUrl = `/chatbot?journey=${encodeURIComponent(selectedChapter.id)}&topic=${encodeURIComponent(selectedChapter.title)}&prompt=${encodeURIComponent(selectedChapter.neoPrompt)}`;
+  const neoUrl = `/neo?journey=${encodeURIComponent(selectedChapter.id)}`;
 
   return (
     <div className="min-h-screen bg-[var(--bg-main)] px-3 py-4 text-[var(--text-primary)] sm:px-6 lg:px-8">
@@ -448,7 +448,7 @@ function ChapterDetail({ chapter, checklist, progressPercent, saving, neoUrl, on
 
         <LessonSection title="Conversa" icon={MessageCircle} actionLabel="Marcar conversa concluída" onAction={() => onStep("conversation")}>
           <p className="fm-muted text-sm leading-6">
-            Abra o Neo para praticar este capítulo em conversa guiada. Ele vai usar os MindBlocks, corrigir erros importantes e sugerir novos blocos para salvar.
+            Converse com o Neo e use 3 expressões deste capítulo com os seus próprios detalhes. Quando as 3 aparecerem, a conversa é marcada como concluída automaticamente.
           </p>
           <Link to={neoUrl} className="fm-primary-button mt-4 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-black">
             Praticar com Neo <ChevronRight className="h-4 w-4" />

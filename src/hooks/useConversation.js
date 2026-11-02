@@ -16,7 +16,7 @@ function restoreConversation(key) {
   } catch { return []; }
 }
 
-export default function useConversation({ defaultVoiceReplies = false, audioReactive = false, focusAfterVoice = true } = {}) {
+export default function useConversation({ defaultVoiceReplies = false, audioReactive = false, focusAfterVoice = true, scenario = "" } = {}) {
   const { user, session, userPreferences } = useAuth();
   const cacheKey = userStorageKey("fluentmind_simple_conversation", user?.id);
   const [messages, setMessages] = useState(() => restoreConversation(cacheKey));
@@ -168,6 +168,7 @@ export default function useConversation({ defaultVoiceReplies = false, audioReac
           mode: "simple", messages: history.slice(-12).map(({ role, content: value }) => ({ role, content: value })),
           assistantName: mentorName, userName: userPreferences?.displayName || null,
           currentLevel: userPreferences?.currentLevel || "A2", targetLanguage: userPreferences?.targetLanguage || "en",
+          scenario: scenario || undefined,
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -202,7 +203,7 @@ export default function useConversation({ defaultVoiceReplies = false, audioReac
         if (!spoken || focusAfterVoice) inputRef.current?.focus();
       }
     }
-  }, [messages, mentorName, session?.access_token, speak, stopAudio, user?.id, userPreferences, voiceReplies, focusAfterVoice]);
+  }, [messages, mentorName, scenario, session?.access_token, speak, stopAudio, user?.id, userPreferences, voiceReplies, focusAfterVoice]);
 
   const processRecording = useCallback(async ({ blob }) => {
     const generation = generationRef.current;

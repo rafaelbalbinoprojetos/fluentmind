@@ -1,9 +1,11 @@
 import useLearningActions from "../hooks/useLearningActions.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { ArrowRight, Gauge, Headphones, Loader2, Mic, RotateCcw, Square, Trophy } from "lucide-react";
+import { ArrowRight, Gauge, Headphones, RotateCcw, Trophy } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
+import { RecordButton } from "../components/ShadowingPractice.jsx";
+import { SHADOW_MAX_MS, shadowVerdict } from "../services/shadowing.js";
 import useRecorder from "../hooks/useRecorder.js";
 import { listMindBlocks } from "../services/mindblocks.js";
 import { checkAnswerWithAi, localSimilarity, wordDiff } from "../services/answerCheck.js";
@@ -17,7 +19,6 @@ import { recordDailyActivity } from "../services/learningProgress.js";
 //   2. Shadowing — repetir junto/logo depois, imitando ritmo e entonação; a fala é transcrita e comparada;
 //   3. Speak     — resposta livre com tempo limite usando o bloco: produção oral sob pressão, que gera automatismo.
 const SESSION_SIZE = 5;
-const SHADOW_MAX_MS = 12000;
 const SPEAK_MAX_MS = 25000;
 const SPEEDS = [1, 0.8];
 
@@ -32,12 +33,6 @@ function pickDeck(blocks) {
       return (a.mastery ?? 0) - (b.mastery ?? 0);
     })
     .slice(0, SESSION_SIZE);
-}
-
-function shadowVerdict(score) {
-  if (score >= 90) return { label: "Clear and natural", tone: "good" };
-  if (score >= 70) return { label: "Almost there", tone: "almost" };
-  return { label: "Let's try again", tone: "wrong" };
 }
 
 export default function SpeakingLabPage() {
@@ -333,30 +328,6 @@ export default function SpeakingLabPage() {
           </section>
         )}
       </div>
-    </div>
-  );
-}
-
-function RecordButton({ recorder, processing, maxMs, onStart, label }) {
-  if (processing) {
-    return (
-      <p className="mt-4 inline-flex items-center gap-2 font-bold">
-        <Loader2 className="h-4 w-4 animate-spin" /> Ouvindo sua gravação…
-      </p>
-    );
-  }
-  return (
-    <div className="mt-4 flex flex-col items-center gap-2">
-      {recorder.recording ? (
-        <button type="button" onClick={recorder.stop} className="speaking-record recording">
-          <Square className="h-5 w-5" /> Parar · {Math.max(0, Math.ceil((maxMs - recorder.elapsedMs) / 1000))}s
-        </button>
-      ) : (
-        <button type="button" onClick={onStart} className="speaking-record">
-          <Mic className="h-5 w-5" /> {label}
-        </button>
-      )}
-      {recorder.error ? <p className="text-sm text-red-400">{recorder.error}</p> : null}
     </div>
   );
 }

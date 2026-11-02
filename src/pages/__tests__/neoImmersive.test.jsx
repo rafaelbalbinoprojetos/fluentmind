@@ -159,6 +159,23 @@ describe("Neo immersive presentation", () => {
     expect(screen.getByText("Conversa simples preservada")).toBeInTheDocument();
     expect(JSON.parse(sessionStorage.getItem("fluentmind_simple_conversation:immersive-student"))[0].content).toBe("An existing conversation.");
   });
+  it("runs a Learning Journey mission and ticks expressions as the student uses them", async () => {
+    render(<MemoryRouter initialEntries={["/neo?journey=about-me"]}><Routes>
+      <Route path="/neo" element={<NeoImmersivePage />} />
+    </Routes></MemoryRouter>);
+    expect(screen.getByRole("heading", { name: "Missão: About Me" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Começar conversa" }));
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    expect(JSON.parse(fetch.mock.calls[0][1].body).scenario).toContain("About Me");
+
+    const input = screen.getByRole("textbox", { name: "Mensagem para Neo" });
+    const mission = (await import("../../services/conversationMission.js")).buildJourneyMission("about-me");
+    const sentence = mission.targets.map((target) => `${target.pattern} something`).join(". ");
+    await waitFor(() => expect(input).not.toBeDisabled());
+    fireEvent.change(input, { target: { value: sentence } });
+    fireEvent.submit(input.closest("form"));
+    expect(await screen.findByText(/Missão cumprida!/)).toBeInTheDocument();
+  });
   it("shows the correction tip and reviews it before starting a new conversation", async () => {
     const { createCorrectedMistake } = await import("../../services/correctedMistakes.js");
     fetch.mockResolvedValue({ ok: true, json: async () => ({ reply: "Nice! What did you do there?",

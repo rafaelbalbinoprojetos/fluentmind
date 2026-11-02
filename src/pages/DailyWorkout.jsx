@@ -18,7 +18,7 @@ import { Link } from "react-router-dom";
 import NeuralBrain from "../components/NeuralBrain.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import useProgression from "../hooks/useProgression.js";
-import { generateMindBlockAudio } from "../services/mindblockAudio.js";
+import ShadowingPractice from "../components/ShadowingPractice.jsx";
 import { listMindBlocks, updateMindBlock } from "../services/mindblocks.js";
 import { createReviewEvent } from "../services/reviewEvents.js";
 import { calculateSmartReview } from "../services/smartReview.js";
@@ -114,7 +114,6 @@ export default function DailyWorkoutPage() {
   const [deck, setDeck] = useState(FALLBACK_DECK);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [audioLoadingId, setAudioLoadingId] = useState(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [reviewedIds, setReviewedIds] = useState([]);
   const [listenedIds, setListenedIds] = useState([]);
@@ -215,41 +214,17 @@ export default function DailyWorkoutPage() {
     }
   };
 
-  const handleListen = async (card) => {
+  const handleListen = (card, shadow) => {
     if (!card) return;
-    setAudioLoadingId(card.id);
-    try {
-      if (!card.isFallback && session?.access_token) {
-        const result = await generateMindBlockAudio({
-          mindblockId: card.id,
-          voice: userPreferences?.assistantVoice || user?.user_metadata?.preferred_voice || "mineirinha",
-          accessToken: session.access_token,
-        });
-        const audioUrl = result?.signedUrl || result?.audioUrl;
-        if (audioUrl) {
-          const audio = new Audio(audioUrl);
-          await audio.play();
-        }
-      } else if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(new SpeechSynthesisUtterance(card.expression));
-      }
-
-      setListenedIds((current) => [...new Set([...current, card.id])]);
-      trackProgressionAction("generateAudio", { reason: "Daily Brain Workout listening", category: card.category });
-      recordLearningEvent("audio_generated", {
-        expression: card.expression,
-        category: card.category,
-        source: "daily_workout",
-      }, "daily_workout");
-      toast.success("+2 XP - Listening path reinforced");
-      goToStep("challenge");
-    } catch (error) {
-      console.error("Erro ao tocar audio do Daily Workout:", error);
-      toast.error("Nao foi possivel tocar o audio agora.");
-    } finally {
-      setAudioLoadingId(null);
-    }
+    setListenedIds((current) => [...new Set([...current, card.id])]);
+    trackProgressionAction(shadow ? "practicePronunciation" : "generateAudio", { reason: "Daily Brain Workout shadowing", category: card.category });
+    recordLearningEvent(shadow ? "shadowing_completed" : "audio_generated", {
+      expression: card.expression,
+      category: card.category,
+      score: shadow?.score ?? null,
+      source: "daily_workout",
+    }, "daily_workout");
+    goToStep("challenge");
   };
 
   const handleCheckChallenge = async () => {
@@ -419,7 +394,13 @@ export default function DailyWorkoutPage() {
                 onReview={handleReview}
               />
             ) : currentStep.id === "listen" ? (
-              <ListenStep card={listenCard} loading={audioLoadingId === listenCard?.id} onListen={handleListen} />
+              <ListenStep
+                key={listenCard.id}
+                card={listenCard}
+                accessToken={session?.access_token}
+                voice={userPreferences?.assistantVoice || user?.user_metadata?.preferred_voice || "mineirinha"}
+                onListen={handleListen}
+              />
             ) : currentStep.id === "challenge" ? (
               <ChallengeStep
                 challenge={challenge}
@@ -575,18 +556,23 @@ function ReviewStep({ card, reviewedCount, total, saving, onReview }) {
   );
 }
 
-function ListenStep({ card, loading, onListen }) {
+// Shadowing: ouvir o modelo e repetir na hora, com as palavras não reconhecidas destacadas.
+function ListenStep({ card, accessToken, voice, onListen }) {
+  const [shadow, setShadow] = useState(null);
   return (
     <div>
-      <StepHeader eyebrow="Listening Path" title="Hear one expression before practicing." description="Your pronunciation improves when the sound becomes familiar." />
-      <div className="mt-7 rounded-[30px] border border-violet-400/25 bg-violet-500/[0.08] p-7">
-        <Volume2 className="h-10 w-10 text-cyan-300" />
+      <StepHeader eyebrow="Ouvir e repetir" title="Repita imitando o ritmo e a entonação." description="O áudio toca e a gravação começa logo depois. Falar em voz alta treina a pronúncia e o ouvido ao mesmo tempo." />
+      <div className="mt-7 rounded-[30px] border border-violet-400/25 bg-violet-500/[0.08] p-7 text-center">
+        <Volume2 className="mx-auto h-10 w-10 text-cyan-300" />
         <h3 className="mt-5 text-4xl font-black">{card.expression}</h3>
         <p className="fm-muted mt-3 text-lg">{card.translation}</p>
       </div>
-      <button type="button" disabled={loading} onClick={() => onListen(card)} className="fm-primary-button mt-7 inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-black">
-        <Headphones className="h-4 w-4" /> {loading ? "Generating audio..." : "Listen and continue"}
-      </button>
+      <ShadowingPractice card={card} accessToken={accessToken} voice={voice} onResult={setShadow} />
+      <div className="mt-6 flex flex-wrap justify-center gap-3">
+        <button type="button" onClick={() => onListen(card, shadow)} className={`${shadow ? "fm-primary-button" : "fm-ghost-button"} inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-black`}>
+          {shadow ? "Continuar" : "Pular por agora"} <ArrowRight className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   );
 }

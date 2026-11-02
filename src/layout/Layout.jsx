@@ -7,6 +7,29 @@ import VoiceRecordingModal from "../components/VoiceRecordingModal.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import toast, { Toaster } from "react-hot-toast";
 import {
+  AudioLines,
+  Bell as BellIcon,
+  Compass,
+  Download as InstallIcon,
+  House,
+  Layers,
+  Library,
+  ListMusic,
+  Menu as MenuIcon,
+  MessageCircleQuestion,
+  MessageSquareText,
+  MessagesSquare,
+  Mic,
+  Orbit,
+  Route,
+  Search as SearchIcon,
+  Settings,
+  SpellCheck,
+  TrendingUp,
+  Users,
+  X as CloseIcon,
+} from "lucide-react";
+import {
   NAV_GROUPS,
   NAV_LINKS,
   normalizeMobileNavSelection,
@@ -16,27 +39,27 @@ const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
 
 
 const ICON_MAP = {
-  dashboard: DashboardIcon,
-  learningJourney: InsightsIcon,
-  history: InsightsIcon,
-  library: LibraryIcon,
-  playlists: LibraryIcon,
-  insights: InsightsIcon,
-  speaking: ChatbotIcon,
-  simpleConversation: ChatbotIcon,
-  neoImmersive: ChatbotIcon,
-  chatbot: ChatbotIcon,
-  conversations: ChatbotIcon,
-  mistakes: InsightsIcon,
-  neuralUniverse: NeuralUniverseIcon,
-  settings: SettingsIcon,
-  users: SettingsIcon,
-  landing: LibraryIcon,
+  dashboard: House,
+  learningJourney: Route,
+  history: TrendingUp,
+  library: Library,
+  playlists: ListMusic,
+  insights: Layers,
+  speaking: Mic,
+  simpleConversation: MessageSquareText,
+  neoImmersive: AudioLines,
+  chatbot: MessageCircleQuestion,
+  conversations: MessagesSquare,
+  mistakes: SpellCheck,
+  neuralUniverse: Orbit,
+  settings: Settings,
+  users: Users,
+  landing: Compass,
 };
 
 const NAV_ITEMS = NAV_LINKS.map((link) => ({
   ...link,
-  icon: ICON_MAP[link.id] ?? DashboardIcon,
+  icon: ICON_MAP[link.id] ?? House,
 }));
 
 const LEGAL_LINKS = [
@@ -552,7 +575,7 @@ export default function Layout() {
                   }`
                 }
               >
-                <item.icon className="h-5 w-5" />
+                <item.icon className="h-5 w-5" strokeWidth={1.75} />
                 <span>{item.label}</span>
               </NavLink>
             ))}
@@ -887,7 +910,7 @@ export default function Layout() {
               }
               aria-label={item.label}
             >
-              <item.icon className="h-5 w-5" />
+              <item.icon className="h-5 w-5" strokeWidth={1.75} />
               <span>{item.shortLabel}</span>
             </NavLink>
           ))}
@@ -902,331 +925,3 @@ export default function Layout() {
   );
 }
 
-function DashboardIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M11 3H5a2 2 0 00-2 2v6h8V3zm2 0v8h8V5a2 2 0 00-2-2h-6zm8 10h-8v6h6a2 2 0 002-2v-4zm-10 6v-6H3v4a2 2 0 002 2h6z" />
-    </svg>
-  );
-}
-
-function ExpensesIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M12 3a9 9 0 109 9 .75.75 0 00-1.5 0 7.5 7.5 0 11-2.92-5.94H15a.75.75 0 000-1.5h-1.5V3.75a.75.75 0 00-1.5 0V4.5A3.75 3.75 0 0015 8.25h1.69A7.5 7.5 0 0112 20.5a.75.75 0 000 1.5 9 9 0 000-18z" />
-      <path d="M9.75 11.25A.75.75 0 0110.5 10h3a.75.75 0 010 1.5h-3a.75.75 0 01-.75-.75zm0 3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5h-3a.75.75 0 01-.75-.75z" />
-    </svg>
-  );
-}
-
-function BillsIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M6 2.25A2.25 2.25 0 003.75 4.5v15A2.25 2.25 0 006 21.75h12A2.25 2.25 0 0020.25 19.5V9.75L14.25 2.25zM13.5 3.94L18.56 9H15a1.5 1.5 0 01-1.5-1.5z" />
-      <path d="M8.25 12.75a.75.75 0 000 1.5h7.5a.75.75 0 000-1.5zm0 3.75a.75.75 0 000 1.5h5.25a.75.75 0 000-1.5z" />
-    </svg>
-  );
-}
-
-function IncomeIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M12 2a.75.75 0 01.75.75V4h1.5a3.75 3.75 0 010 7.5h-5a2.25 2.25 0 000 4.5h1.5v-1.25a.75.75 0 111.5 0v1.25h.75a2.25 2.25 0 002.25-2.25.75.75 0 111.5 0 3.75 3.75 0 01-3.75 3.75H12v1.25a.75.75 0 01-1.5 0V18h-1.5a3.75 3.75 0 010-7.5h5a2.25 2.25 0 000-4.5H12a2.25 2.25 0 00-2.25 2.25.75.75 0 01-1.5 0A3.75 3.75 0 0112 2z" />
-    </svg>
-  );
-}
-
-function InvestIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M5.25 3a.75.75 0 000 1.5H6v12.25A2.25 2.25 0 008.25 19h7.5A2.25 2.25 0 0018 16.75V4.5h.75a.75.75 0 000-1.5h-5.5a.75.75 0 000 1.5h.75V8l-2.22-1.48a.75.75 0 00-.84 0L9 8V4.5h.75a.75.75 0 000-1.5h-4.5zM9 9.75l1.72-1.15L12.5 9.75v7h-3.5v-7z" />
-      <path d="M8.25 21a.75.75 0 000 1.5h7.5a.75.75 0 000-1.5h-7.5z" />
-    </svg>
-  );
-}
-
-function CompoundIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M3 3.75A.75.75 0 013.75 3h16.5a.75.75 0 010 1.5h-15v15a.75.75 0 01-1.5 0V3.75z" />
-      <path d="M20.47 6.28a.75.75 0 00-1.06-1.06l-5.66 5.66-3.47-3.47a.75.75 0 00-1.06 0l-4.5 4.5a.75.75 0 001.06 1.06l3.97-3.97 3.47 3.47a.75.75 0 001.06 0l6.19-6.19z" />
-    </svg>
-  );
-}
-
-function ExtraIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M12 1.5a1 1 0 01.87.5l1.69 2.93 3.36.72a1 1 0 01.54 1.61l-2.34 2.52.4 3.47a1 1 0 01-1.47 1l-3.05-1.6-3.05 1.6a1 1 0 01-1.47-1l.4-3.47-2.34-2.52a1 1 0 01.54-1.61l3.36-.72L11.13 2a1 1 0 01.87-.5z" />
-      <path d="M5.75 18a.75.75 0 000 1.5h12.5a.75.75 0 000-1.5H5.75zM7 21.25a.75.75 0 000 1.5h10a.75.75 0 000-1.5H7z" />
-    </svg>
-  );
-}
-
-function GestorIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M4.5 4A2.5 2.5 0 002 6.5v8A2.5 2.5 0 004.5 17H7v2.25a.75.75 0 001.22.57L12 17h7.5A2.5 2.5 0 0022 14.5v-8A2.5 2.5 0 0019.5 4h-15zM5 6.5A1.5 1.5 0 016.5 5h11A1.5 1.5 0 0119 6.5v8A1.5 1.5 0 0117.5 16H11a.75.75 0 00-.47.17L8.5 17.96V16H6.5A1.5 1.5 0 015 14.5v-8z" />
-      <path d="M8.75 8a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5zm0 3a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.75z" />
-    </svg>
-  );
-}
-
-function LibraryIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M5.25 3A2.25 2.25 0 003 5.25v13.5A2.25 2.25 0 005.25 21h4.5a.75.75 0 000-1.5h-4.5a.75.75 0 01-.75-.75V5.25a.75.75 0 01.75-.75h4.5a.75.75 0 000-1.5zm9 0a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 0014.25 21h4.5A2.25 2.25 0 0021 18.75V5.25A2.25 2.25 0 0018.75 3zm0 1.5h4.5a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75h-4.5a.75.75 0 01-.75-.75V5.25a.75.75 0 01.75-.75zM6 6.75a.75.75 0 01.75-.75h2.25a.75.75 0 010 1.5H6.75A.75.75 0 016 6.75zm0 3.5a.75.75 0 01.75-.75h2.25a.75.75 0 010 1.5H6.75A.75.75 0 016 10.25zm8.25 0a.75.75 0 01.75-.75h2.25a.75.75 0 010 1.5H15a.75.75 0 01-.75-.75zm0 3.5a.75.75 0 01.75-.75h2.25a.75.75 0 010 1.5H15a.75.75 0 01-.75-.75z" />
-    </svg>
-  );
-}
-
-function InsightsIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M4 7.5A2.5 2.5 0 016.5 5h11A2.5 2.5 0 0120 7.5v9A2.5 2.5 0 0117.5 19h-11A2.5 2.5 0 014 16.5z"
-      />
-      <path strokeWidth="1.6" strokeLinecap="round" d="M8 12l2.5 2.5L16 9" />
-    </svg>
-  );
-}
-
-function ChatbotIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M9 2a3 3 0 00-3 3v.75H5.75A2.75 2.75 0 003 8.5v6A2.75 2.75 0 005.75 17H6v2.086A.914.914 0 007.414 19.5L10.914 17H15a3 3 0 003-3v-.439l1.553.777A1.25 1.25 0 0020 12.192V8.5A2.75 2.75 0 0017.25 5.75H17V5a3 3 0 00-3-3H9zm0 1.5h5A1.5 1.5 0 0115.5 5v.75h-7V5A1.5 1.5 0 019 3.5zm-2 5.25a.75.75 0 010 1.5h-.5a.75.75 0 010-1.5h.5zm9.25 0a.75.75 0 010 1.5h-.5a.75.75 0 010-1.5h.5zM9.75 12a.75.75 0 00-.75.75c0 .966.784 1.75 1.75 1.75h3.5a1.75 1.75 0 001.75-1.75.75.75 0 00-.75-.75h-5.5z" />
-    </svg>
-  );
-}
-
-function NeuralUniverseIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="3.25" strokeWidth="1.6" />
-      <circle cx="5.5" cy="7" r="1.75" strokeWidth="1.6" />
-      <circle cx="18.5" cy="7" r="1.75" strokeWidth="1.6" />
-      <circle cx="6.5" cy="18" r="1.75" strokeWidth="1.6" />
-      <circle cx="17.5" cy="18" r="1.75" strokeWidth="1.6" />
-      <path strokeWidth="1.6" strokeLinecap="round" d="M8.95 9.1L6.95 7.9M15.05 9.1l2-1.2M9.45 14.6l-2 2.1M14.55 14.6l2 2.1" />
-    </svg>
-  );
-}
-
-function RadarIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="8.5" strokeWidth="1.6" />
-      <circle cx="12" cy="12" r="4.5" strokeWidth="1.6" />
-      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
-      <path strokeWidth="1.6" strokeLinecap="round" d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2" />
-    </svg>
-  );
-}
-
-function CardIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <rect x="3" y="5" width="18" height="14" rx="2.5" strokeWidth="1.6" />
-      <path strokeWidth="1.6" strokeLinecap="round" d="M3 9h18" />
-      <path strokeWidth="1.6" strokeLinecap="round" d="M7 14h4" />
-    </svg>
-  );
-}
-
-function BankIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" d="M3 10.5L12 3l9 7.5" />
-      <path strokeWidth="1.6" strokeLinecap="round" d="M5 10.5V20h14V10.5" />
-      <path strokeWidth="1.6" strokeLinecap="round" d="M3 20h18" />
-      <path strokeWidth="1.6" strokeLinecap="round" d="M9 20v-6h6v6" />
-    </svg>
-  );
-}
-
-function SettingsIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M11.303 1.518a1.75 1.75 0 011.394 0l1.41.582a1.75 1.75 0 012.09-.454l1.3.6a1.75 1.75 0 01.93 2.12l-.42 1.41a1.74 1.74 0 010 .894l.42 1.41a1.75 1.75 0 01-.93 2.12l-1.3.6a1.75 1.75 0 01-2.09-.455l-1.41.582a1.75 1.75 0 01-1.394 0l-1.41-.582a1.75 1.75 0 01-2.09.455l-1.3-.6a1.75 1.75 0 01-.93-2.12l.42-1.41a1.74 1.74 0 010-.894l-.42-1.41a1.75 1.75 0 01.93-2.12l1.3-.6a1.75 1.75 0 012.09.455l1.41-.582zM12 9.25a2.25 2.25 0 102.25 2.25A2.25 2.25 0 0012 9.25zm-6.5 4.5a.75.75 0 01.75.75v1.14a2.25 2.25 0 001.11 1.94l.99.57a2.25 2.25 0 001.98.05l1.25-.52.62 1.48a1.75 1.75 0 01-.83 2.18l-1.1.57a1.75 1.75 0 01-2.09-.45l-1.41.58a1.75 1.75 0 01-1.39 0l-1.41-.58a1.75 1.75 0 01-2.09.45l-1.1-.57a1.75 1.75 0 01-.83-2.18l.62-1.48-1.25-.52a2.25 2.25 0 01-1.98-.05l-.99-.57a2.25 2.25 0 01-1.11-1.94v-1.14a.75.75 0 01.75-.75h1.14a2.25 2.25 0 001.94-1.11l.57-.99a2.25 2.25 0 01.05-1.98l.52-1.25 1.48.62a1.75 1.75 0 002.18-.83l.57-1.1a1.75 1.75 0 012.18-.83l1.48.62-.52 1.25a2.25 2.25 0 01.05 1.98l-.57.99a2.25 2.25 0 001.94 1.11h1.14z" />
-    </svg>
-  );
-}
-
-function BellIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M12 2a6 6 0 00-6 6v2.586c0 .414-.168.81-.469 1.098l-.97.97A1.5 1.5 0 006 15h12a1.5 1.5 0 001.06-2.56l-.97-.97A1.5 1.5 0 0018 10.586V8a6 6 0 00-6-6z" />
-      <path d="M10.25 18.75a1.75 1.75 0 003.5 0z" />
-    </svg>
-  );
-}
-
-function SearchIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <circle cx="11" cy="11" r="6" strokeWidth="1.6" />
-      <path strokeWidth="1.6" strokeLinecap="round" d="M16.5 16.5L20 20" />
-    </svg>
-  );
-}
-
-function InstallIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" d="M12 3v10m0 0l-3-3m3 3l3-3" />
-      <path strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" d="M5 15.75v1.5A1.75 1.75 0 006.75 19h10.5A1.75 1.75 0 0019 17.25v-1.5" />
-    </svg>
-  );
-}
-
-function MenuIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M4 6.75A.75.75 0 014.75 6h14.5a.75.75 0 010 1.5H4.75A.75.75 0 014 6.75zm0 5A.75.75 0 014.75 11h14.5a.75.75 0 010 1.5H4.75A.75.75 0 014 11.75zm0 5a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H4.75A.75.75 0 014 16.75z" />
-    </svg>
-  );
-}
-
-function CloseIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M6.225 4.811a.75.75 0 011.06 0L12 9.525l4.715-4.714a.75.75 0 011.06 1.06L13.06 10.586l4.715 4.714a.75.75 0 11-1.06 1.06L12 11.646l-4.715 4.714a.75.75 0 11-1.06-1.06l4.714-4.715-4.714-4.714a.75.75 0 010-1.06z" />
-    </svg>
-  );
-}

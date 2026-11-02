@@ -14,6 +14,7 @@ import {
   MessageCircle,
   Mic,
   PanelRight,
+  Plus,
   Paperclip,
   Settings,
   Send,
@@ -1001,7 +1002,7 @@ function NeoSessionSidebar({ assistantName, displayName, currentLevel, learningG
         </div>
       </div>
       <button type="button" className="neo-new-button" onClick={onNew}>
-        <PlusIcon /> New conversation
+        <Plus className="h-4 w-4" /> New conversation
       </button>
 
       <section className="neo-left-memory">
@@ -1279,10 +1280,6 @@ function NeoSessionSummary({ summary, onClose }) {
       </section>
     </div>
   );
-}
-
-function PlusIcon() {
-  return <span className="text-lg leading-none">+</span>;
 }
 
 function NeoChatHeader({

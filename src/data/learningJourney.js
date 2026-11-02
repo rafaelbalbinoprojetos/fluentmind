@@ -1,3 +1,5 @@
+import { journeyExamples } from "./journeyExamples.js";
+
 export const LEARNING_JOURNEY_KEY = "fluentmind_learning_journey_progress";
 
 const baseLearningJourneyChapters = [
@@ -437,11 +439,23 @@ const chapterMaterialOverrides = {
   },
 };
 
-export const learningJourneyChapters = baseLearningJourneyChapters.map((chapter) => ({
-  ...chapter,
-  ...buildInteractiveCourseMaterial(chapter),
-  ...(chapterMaterialOverrides[chapter.id] || {}),
-}));
+function buildRealExamples(chapter) {
+  const translations = new Map(chapter.mindBlocks);
+  return (journeyExamples[chapter.id] || []).map((example) => ({
+    ...example,
+    translation: translations.get(example.expression) || "",
+  }));
+}
+
+export const learningJourneyChapters = baseLearningJourneyChapters.map((chapter) => {
+  const realExamples = buildRealExamples(chapter);
+  return {
+    ...chapter,
+    ...buildInteractiveCourseMaterial(chapter),
+    ...(chapterMaterialOverrides[chapter.id] || {}),
+    ...(realExamples.length ? { examples: realExamples } : {}),
+  };
+});
 
 export function getInitialJourneyProgress() {
   return {

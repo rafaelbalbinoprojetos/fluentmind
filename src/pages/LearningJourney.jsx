@@ -28,6 +28,7 @@ import {
   learningJourneyChapters,
 } from "../data/learningJourney.js";
 import { createMindBlock } from "../services/mindblocks.js";
+import { checkAnswerWithAi } from "../services/answerCheck.js";
 
 import { getProgressionState, updateProgressionState } from "../services/progressionEngine.js";
 
@@ -40,6 +41,16 @@ function saveJourneyProgress(progress) {
   return progress;
 }
 
+// Frases reais do usuário nos diálogos: primeiro as do próprio MindBlock, depois as dos outros exemplos do capítulo.
+function exampleSentencesFor(chapter, expression) {
+  const examples = chapter.examples || [];
+  const ownLines = (example) => (example.dialogue || []).filter((line) => line.speaker === "you").map((line) => line.en);
+  const own = examples.filter((example) => example.expression === expression).flatMap(ownLines);
+  const others = examples.filter((example) => example.expression !== expression).flatMap(ownLines);
+  const sentences = [...own, ...others].slice(0, 2);
+  return sentences.length ? sentences : [expression];
+}
+
 function createChapterMindBlockPayload(chapter, [expression, translation]) {
   return {
     expression,
@@ -50,7 +61,7 @@ function createChapterMindBlockPayload(chapter, [expression, translation]) {
     notes: `Saved from Learning Journey chapter ${chapter.order}: ${chapter.title}.`,
     meta: {
       usage: chapter.objective,
-      examples: chapter.examples?.map((item) => item.expression) || [`${expression} ${chapter.title === "About Me" ? "Nice to meet you." : ""}`.trim()],
+      examples: exampleSentencesFor(chapter, expression),
       pattern: `${expression.split(" ").slice(0, 3).join(" ")} + context`,
       patternExplanation: chapter.intro,
       commonMistake: chapter.commonMistakes?.[0] ? {
@@ -75,17 +86,26 @@ export default function LearningJourneyPage() {
   const [selectedChapterId, setSelectedChapterId] = useState(() => loadJourneyProgress().activeChapterId);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    saveJourneyProgress(journeyProgress);
-  }, [journeyProgress]);
+  // Fonte única: cada alteração parte do estado salvo e grava na hora. Assim outras gravações
+  // (XP, eventos) não carregam uma Jornada antiga e não sobrescrevem a marcação recém-feita.
+  const updateJourney = (updater) => {
+    const next = updater(loadJourneyProgress());
+    saveJourneyProgress(next);
+    setJourneyProgress(next);
+  };
 
+  // Só adota progresso vindo de fora (outra aba, Supabase, missão do Neo) quando ele for mais novo.
   useEffect(() => {
-    if (!progression.learningJourney) return;
+    if (!progression.learningJourney?.lastUpdatedAt) return;
     const remoteProgress = { ...getInitialJourneyProgress(), ...progression.learningJourney };
-    if (remoteProgress.lastUpdatedAt) {
-      setJourneyProgress((current) => current.lastUpdatedAt === remoteProgress.lastUpdatedAt ? current : remoteProgress);
+    const isNewer = !journeyProgress.lastUpdatedAt || new Date(remoteProgress.lastUpdatedAt) > new Date(journeyProgress.lastUpdatedAt);
+    if (!isNewer) return;
+    if (remoteProgress.activeChapterId !== journeyProgress.activeChapterId) {
       setSelectedChapterId(remoteProgress.activeChapterId || learningJourneyChapters[0].id);
     }
+    setJourneyProgress(remoteProgress);
+    // journeyProgress fica de fora de propósito: o efeito reage só a mudanças externas.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [progression.learningJourney, user?.id]);
 
   const completedSet = useMemo(() => new Set(journeyProgress.completedChapterIds || []), [journeyProgress.completedChapterIds]);
@@ -104,7 +124,7 @@ export default function LearningJourneyPage() {
 
   const updateChapterStep = (stepId, value = true) => {
     const alreadyComplete = Boolean(journeyProgress.chapterProgress?.[selectedChapter.id]?.[stepId]);
-    setJourneyProgress((current) => {
+    updateJourney((current) => {
       return {
         ...current,
         chapterProgress: {
@@ -130,6 +150,7 @@ export default function LearningJourneyPage() {
   };
 
   const handleAddMindBlocks = async () => {
+    if (saving) return;
     if (!user?.id) {
       toast.error("Faca login para salvar MindBlocks da jornada.");
       return;
@@ -175,7 +196,7 @@ export default function LearningJourneyPage() {
     }
 
     const nextChapter = learningJourneyChapters[selectedIndex + 1];
-    setJourneyProgress((current) => {
+    updateJourney((current) => {
       const completedChapterIds = [...new Set([...(current.completedChapterIds || []), selectedChapter.id])];
       return {
         ...current,
@@ -340,6 +361,7 @@ export default function LearningJourneyPage() {
 }
 
 function ChapterDetail({ chapter, checklist, progressPercent, saving, neoUrl, onStep, onAddMindBlocks, onComplete, isComplete }) {
+  const isDone = (stepId) => Boolean(checklist.find((item) => item.id === stepId)?.complete);
   return (
     <div>
       <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
@@ -363,7 +385,7 @@ function ChapterDetail({ chapter, checklist, progressPercent, saving, neoUrl, on
       </div>
 
       <div className="mt-8 grid gap-4 lg:grid-cols-2">
-        <LessonSection title="Aula principal" icon={BookOpen} actionLabel="Marcar aula concluída" onAction={() => onStep("lesson")}>
+        <LessonSection done={isDone("lesson")} title="Aula principal" icon={BookOpen} actionLabel="Marcar aula concluída" onAction={() => onStep("lesson")}>
           <div className="space-y-4">
             <div className="rounded-[26px] border border-cyan-400/20 bg-cyan-400/[0.06] p-5">
               <p className="fm-accent text-xs font-black uppercase tracking-[0.16em]">{chapter.lessonTitle}</p>
@@ -380,7 +402,7 @@ function ChapterDetail({ chapter, checklist, progressPercent, saving, neoUrl, on
           </div>
         </LessonSection>
 
-        <LessonSection title="Vocabulário" icon={BookOpen} actionLabel="Marcar vocabulário concluído" onAction={() => onStep("vocabulary")}>
+        <LessonSection done={isDone("vocabulary")} title="Vocabulário" icon={BookOpen} actionLabel="Marcar vocabulário concluído" onAction={() => onStep("vocabulary")}>
           <div className="flex flex-wrap gap-2">
             {chapter.vocabulary.map((word) => (
               <span key={word} className="rounded-full border border-[var(--border-soft)] bg-white/[0.04] px-3 py-2 text-sm font-bold">{word}</span>
@@ -388,7 +410,7 @@ function ChapterDetail({ chapter, checklist, progressPercent, saving, neoUrl, on
           </div>
         </LessonSection>
 
-        <LessonSection title="MindBlocks" icon={Brain} actionLabel={saving ? "Salvando..." : "Adicionar à Biblioteca"} onAction={onAddMindBlocks}>
+        <LessonSection done={isDone("mindblocks")} title="MindBlocks" icon={Brain} actionLabel={saving ? "Salvando..." : "Adicionar à Biblioteca"} onAction={onAddMindBlocks}>
           <div className="space-y-3">
             {chapter.mindBlocks.slice(0, 5).map(([expression, translation]) => (
               <div key={expression} className="rounded-2xl border border-[var(--border-soft)] bg-white/[0.03] p-3">
@@ -399,19 +421,37 @@ function ChapterDetail({ chapter, checklist, progressPercent, saving, neoUrl, on
           </div>
         </LessonSection>
 
-        <LessonSection title="Exemplos reais" icon={MessageCircle} actionLabel="Marcar exemplos lidos" onAction={() => onStep("examples")}>
+        <LessonSection done={isDone("examples")} title="Exemplos reais" icon={MessageCircle} actionLabel="Marcar exemplos lidos" onAction={() => onStep("examples")}>
           <div className="space-y-3">
             {chapter.examples.map((example) => (
               <div key={example.expression} className="rounded-2xl border border-[var(--border-soft)] bg-white/[0.03] p-4">
-                <strong className="block text-sm">{example.expression}</strong>
-                <span className="fm-muted mt-1 block text-xs">{example.translation}</span>
-                <p className="fm-subtle mt-3 text-xs leading-5">{example.context}</p>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <strong className="text-sm">{example.expression}</strong>
+                  <span className="fm-muted text-xs">{example.translation}</span>
+                </div>
+                {example.dialogue ? (
+                  <>
+                    <p className="fm-subtle mt-2 text-xs font-semibold uppercase tracking-[0.12em]">{example.situation}</p>
+                    <div className="mt-3 space-y-2">
+                      {example.dialogue.map((line) => (
+                        <div key={line.en} className={`rounded-xl p-3 text-sm ${line.speaker === "you" ? "ml-6 border border-cyan-400/25 bg-cyan-400/[0.07]" : "mr-6 bg-black/10 dark:bg-white/[0.04]"}`}>
+                          <span className="fm-subtle mb-1 block text-[10px] font-bold uppercase tracking-[0.14em]">{line.speaker === "you" ? "Você" : "Outra pessoa"}</span>
+                          <span className="block">{highlightExpression(line.en, example.expression)}</span>
+                          <span className="fm-muted mt-1 block text-xs">{line.pt}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {example.note ? <p className="fm-subtle mt-3 text-xs leading-5">💡 {example.note}</p> : null}
+                  </>
+                ) : (
+                  <p className="fm-subtle mt-3 text-xs leading-5">{example.context}</p>
+                )}
               </div>
             ))}
           </div>
         </LessonSection>
 
-        <LessonSection title="Erros comuns" icon={Zap} actionLabel="Marcar erros estudados" onAction={() => onStep("mistakes")}>
+        <LessonSection done={isDone("mistakes")} title="Erros comuns" icon={Zap} actionLabel="Marcar erros estudados" onAction={() => onStep("mistakes")}>
           <div className="space-y-3">
             {chapter.commonMistakes.map((mistake) => (
               <div key={mistake.wrong} className="rounded-2xl border border-rose-400/20 bg-rose-500/[0.06] p-4">
@@ -423,30 +463,23 @@ function ChapterDetail({ chapter, checklist, progressPercent, saving, neoUrl, on
           </div>
         </LessonSection>
 
-        <LessonSection title="Escuta e fala" icon={Headphones} actionLabel="Marcar escuta concluída" onAction={() => {
+        <LessonSection done={isDone("listening")} title="Escuta e fala" icon={Headphones} actionLabel="Marcar escuta concluída" onAction={() => {
           onStep("listening");
           onStep("review");
         }}>
           <p className="fm-muted text-sm leading-6">Ouça os MindBlocks do capítulo na Biblioteca, repita em voz alta e volte para marcar esta etapa.</p>
         </LessonSection>
 
-        <LessonSection title="Exercícios rápidos" icon={Target} actionLabel="Marcar exercícios concluídos" onAction={() => onStep("practice")}>
+        <LessonSection done={isDone("practice")} title="Exercícios rápidos" icon={Target} actionLabel="Marcar exercícios concluídos" onAction={() => onStep("practice")}>
           <div className="space-y-3">
             {chapter.practiceDrills.map((drill, index) => (
-              <div key={drill} className="rounded-2xl border border-[var(--border-soft)] bg-white/[0.03] p-4">
-                <span className="fm-chip inline-flex rounded-full border px-2.5 py-1 text-[11px] font-black">Exercício {index + 1}</span>
-                <p className="fm-muted mt-3 text-sm leading-6">{drill}</p>
-              </div>
+              <PracticeDrill key={drill} label={`Exercício ${index + 1}`} prompt={drill} chapter={chapter} onSaved={() => onStep("practice")} />
             ))}
-            <div className="rounded-2xl border border-violet-400/20 bg-violet-500/[0.06] p-4">
-              <strong className="block text-sm">Mini quiz</strong>
-              <p className="fm-muted mt-2 text-sm">{chapter.miniQuiz.question}</p>
-              <p className="fm-subtle mt-2 text-xs">{chapter.miniQuiz.hint}</p>
-            </div>
+            <PracticeDrill label="Mini quiz" prompt={chapter.miniQuiz.question} hint={chapter.miniQuiz.hint} chapter={chapter} onSaved={() => onStep("practice")} highlight />
           </div>
         </LessonSection>
 
-        <LessonSection title="Conversa" icon={MessageCircle} actionLabel="Marcar conversa concluída" onAction={() => onStep("conversation")}>
+        <LessonSection done={isDone("conversation")} title="Conversa" icon={MessageCircle} actionLabel="Marcar conversa concluída" onAction={() => onStep("conversation")}>
           <p className="fm-muted text-sm leading-6">
             Converse com o Neo e use 3 expressões deste capítulo com os seus próprios detalhes. Quando as 3 aparecerem, a conversa é marcada como concluída automaticamente.
           </p>
@@ -483,7 +516,126 @@ function ChapterDetail({ chapter, checklist, progressPercent, saving, neoUrl, on
   );
 }
 
-function LessonSection({ title, icon: Icon, actionLabel, onAction, children }) {
+// Exercício com resposta: o usuário escreve, a IA corrige e a frase pessoal vira MindBlock para revisão.
+function PracticeDrill({ label, prompt, hint, chapter, onSaved, highlight = false }) {
+  const { user, session, userPreferences } = useAuth();
+  const [answer, setAnswer] = useState("");
+  const [meaning, setMeaning] = useState("");
+  const [check, setCheck] = useState(null);
+  const [checking, setChecking] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const finalSentence = (check?.corrected || answer).trim();
+
+  const runCheck = async () => {
+    if (!answer.trim() || checking) return;
+    setChecking(true);
+    try {
+      setCheck(await checkAnswerWithAi({
+        mode: "sentence",
+        prompt,
+        expected: chapter.mindBlocks.map(([expression]) => expression).slice(0, 5).join(" | "),
+        answer,
+        level: userPreferences?.currentLevel || "A2",
+        accessToken: session?.access_token,
+      }));
+    } catch {
+      setCheck({ verdict: "unchecked", feedback: "Correção da IA indisponível agora. Você ainda pode salvar a sua frase." });
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const save = async () => {
+    if (!user?.id) return toast.error("Faça login para salvar a frase.");
+    if (!finalSentence || !meaning.trim() || saving) return;
+    setSaving(true);
+    try {
+      await createMindBlock({
+        expression: finalSentence,
+        translation: meaning.trim(),
+        category: `Journey: ${chapter.title}`,
+        source: "Learning Journey",
+        context: prompt,
+        notes: `Frase pessoal criada no capítulo ${chapter.order}: ${chapter.title}.`,
+        meta: { usage: chapter.objective, examples: [finalSentence] },
+      }, { userId: user.id, mode: "review" });
+      setSaved(true);
+      onSaved?.();
+      toast.success("Frase salva na Biblioteca e agendada para revisão.");
+    } catch (error) {
+      console.error("Erro ao salvar frase do exercício:", error);
+      toast.error("Não foi possível salvar a frase agora.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const tone = check?.verdict === "correct" ? "border-emerald-400/40 bg-emerald-400/10" : check?.verdict === "unchecked" ? "border-[var(--border-soft)]" : "border-amber-400/40 bg-amber-400/10";
+
+  return (
+    <div className={`rounded-2xl border p-4 ${highlight ? "border-violet-400/20 bg-violet-500/[0.06]" : "border-[var(--border-soft)] bg-white/[0.03]"}`}>
+      <span className="fm-chip inline-flex rounded-full border px-2.5 py-1 text-[11px] font-black">{label}</span>
+      <p className="fm-muted mt-3 text-sm leading-6">{prompt}</p>
+      {hint ? <p className="fm-subtle mt-1 text-xs">{hint}</p> : null}
+      {saved ? (
+        <p className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-emerald-300" role="status">
+          <Check className="h-4 w-4" /> Salva: “{finalSentence}”
+        </p>
+      ) : (
+        <>
+          <textarea
+            value={answer}
+            onChange={(event) => { setAnswer(event.target.value); setCheck(null); }}
+            rows={2}
+            aria-label={`Resposta: ${label}`}
+            placeholder="Escreva a sua frase em inglês..."
+            className="mt-3 w-full resize-none rounded-2xl border border-[var(--border-soft)] bg-[var(--input-bg)] p-3 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-300"
+          />
+          {!check ? (
+            <button type="button" disabled={!answer.trim() || checking} onClick={runCheck} className="fm-primary-button mt-2 rounded-2xl px-4 py-2 text-sm font-black disabled:opacity-50">
+              {checking ? "Corrigindo…" : "Corrigir"}
+            </button>
+          ) : (
+            <div className={`mt-3 rounded-2xl border p-3 text-sm ${tone}`}>
+              {check.feedback ? <p>{check.feedback}</p> : null}
+              {check.corrected && check.corrected !== answer.trim() ? <p className="mt-1">Versão corrigida: <strong>{check.corrected}</strong></p> : null}
+              {check.alternative ? <p className="fm-muted mt-1 text-xs">Outra forma natural: {check.alternative}</p> : null}
+              <label className="mt-3 block text-xs font-bold">
+                O que a sua frase significa em português?
+                <input
+                  value={meaning}
+                  onChange={(event) => setMeaning(event.target.value)}
+                  placeholder="Ex.: Eu acordo às 6 para ir à academia."
+                  className="mt-1 w-full rounded-xl border border-[var(--border-soft)] bg-[var(--input-bg)] p-2 text-sm font-normal text-[var(--text-primary)] outline-none focus:border-cyan-300"
+                />
+              </label>
+              <button type="button" disabled={!meaning.trim() || saving} onClick={save} className="fm-primary-button mt-2 rounded-2xl px-4 py-2 text-sm font-black disabled:opacity-50">
+                {saving ? "Salvando…" : "Salvar como MindBlock"}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// Destaca a frase do capítulo dentro da fala (ignora maiúsculas e a pontuação final).
+function highlightExpression(text, expression) {
+  const core = String(expression || "").replace(/[.!?]+$/, "").trim();
+  const start = core ? text.toLowerCase().indexOf(core.toLowerCase()) : -1;
+  if (start < 0) return text;
+  return (
+    <>
+      {text.slice(0, start)}
+      <mark className="rounded bg-cyan-400/20 px-0.5 font-semibold text-inherit">{text.slice(start, start + core.length)}</mark>
+      {text.slice(start + core.length)}
+    </>
+  );
+}
+
+function LessonSection({ title, icon: Icon, actionLabel, onAction, done = false, children }) {
   return (
     <section className="rounded-[30px] border border-[var(--border-soft)] bg-white/[0.035] p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -493,9 +645,15 @@ function LessonSection({ title, icon: Icon, actionLabel, onAction, children }) {
         </h3>
       </div>
       {children}
-      <button type="button" onClick={onAction} className="fm-ghost-button mt-5 rounded-2xl px-4 py-2 text-sm font-black">
-        {actionLabel}
-      </button>
+      {done ? (
+        <p className="mt-5 inline-flex items-center gap-2 rounded-2xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-sm font-black text-emerald-300" role="status">
+          <Check className="h-4 w-4" /> Concluído
+        </p>
+      ) : (
+        <button type="button" onClick={onAction} className="fm-ghost-button mt-5 rounded-2xl px-4 py-2 text-sm font-black">
+          {actionLabel}
+        </button>
+      )}
     </section>
   );
 }

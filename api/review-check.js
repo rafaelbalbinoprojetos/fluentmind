@@ -1,6 +1,7 @@
-/* global process */
 import { OpenAI } from "openai";
 import { requireUser } from "./_utils/auth.js";
+import { reserveAiUsage } from "./_utils/aiUsage.js";
+import { chatModelOptions } from "./_utils/chatModel.js";
 
 // Corrige a resposta do aluno pelo SENTIDO (não por palavras em comum), como um professor faria.
 // Modos:
@@ -60,14 +61,14 @@ export default async function handler(req, res) {
   if (!apiKey) return res.status(500).json({ error: "OPENAI_API_KEY não configurada." });
 
   try {
-    await requireUser(req);
+    const user = await requireUser(req);
     const { mode = "translate", prompt = "", expected = "", answer = "", level = "A2" } = parseBody(req);
     if (!String(answer).trim()) return res.status(400).json({ error: "Resposta vazia." });
+    await reserveAiUsage(user);
 
     const openai = new OpenAI({ apiKey });
     const completion = await openai.chat.completions.create({
-      model: process.env.OPENAI_CORRECTION_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini",
-      temperature: 0,
+      ...chatModelOptions({ correction: true, temperature: 0, maxTokens: 2048 }),
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: buildPrompt(mode, level) },

@@ -1,7 +1,8 @@
 /* eslint-env node */
 import { OpenAI } from "openai";
 import { requireUser } from "./_utils/auth.js";
-import { consumeAiUsage, resolveAiPlan } from "./_utils/aiUsage.js";
+import { reserveAiUsage } from "./_utils/aiUsage.js";
+import { generateElevenLabsAudio } from "./_utils/elevenLabs.js";
 
 function getOpenAiClient() {
   const apiKey = process.env.OPENAI_API_KEY || process.env.CHATGPT_API_KEY || process.env.OPENAI_KEY;
@@ -78,20 +79,11 @@ function detectExtensionFromBuffer(buffer) {
 
 // ─── TTS via ElevenLabs ───────────────────────────────────────────────────
 
-const ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1/text-to-speech";
-const ELEVENLABS_MODEL   = "eleven_multilingual_v2";
-
-const ELEVENLABS_VOICES = {
-  female: process.env.ELEVENLABS_VOICE_FEMALE || "ucTM3xQVJcS7oeyyjEhT",
-  male:   process.env.ELEVENLABS_VOICE_MALE   || "IKpiSijWzlhOL6uX83EH",
-};
-
 async function handleSpeak(req, res, user, openai) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   const body   = parseBody(req);
   const text   = String(body.text || "").trim();
   const gender = body.voice === "male" ? "male" : "female";
-  const voiceId = ELEVENLABS_VOICES[gender];
 
   if (!text) {
     return res.status(400).json({ error: "Texto não informado." });
@@ -100,52 +92,24 @@ async function handleSpeak(req, res, user, openai) {
     return res.status(400).json({ error: "Texto muito longo para síntese de voz." });
   }
 
+  await reserveAiUsage(user);
   let base64;
   let mimeType = "audio/mpeg";
 
   if (apiKey) {
-    const elevenRes = await fetch(`${ELEVENLABS_API_URL}/${voiceId}?output_format=mp3_44100_128`, {
-      method: "POST",
-      headers: {
-        "xi-api-key":   apiKey,
-        "Content-Type": "application/json",
-        "Accept":       "audio/mpeg",
-      },
-      body: JSON.stringify({
-        text,
-        model_id: ELEVENLABS_MODEL,
-        voice_settings: {
-          stability:        0.5,
-          similarity_boost: 0.80,
-          style:            0.2,
-          use_speaker_boost: true,
-        },
-      }),
-    });
-
-    if (!elevenRes.ok) {
-      const errText = await elevenRes.text().catch(() => "");
-      console.error("[elevenlabs]", elevenRes.status, errText);
-      return res.status(502).json({ error: "Falha ao gerar áudio. Tente novamente." });
-    }
-
-    const arrayBuffer = await elevenRes.arrayBuffer();
-    base64 = Buffer.from(arrayBuffer).toString("base64");
+    const audio = await generateElevenLabsAudio({ text, voice: body.voice || "mineirinha" });
+    base64 = audio.toString("base64");
   } else {
     const speech = await openai.audio.speech.create({
       model: process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts",
       voice: gender === "male" ? "verse" : "alloy",
       input: text,
-      format: "mp3",
+      response_format: "mp3",
     });
 
     const arrayBuffer = await speech.arrayBuffer();
     base64 = Buffer.from(arrayBuffer).toString("base64");
   }
-
-  // Consumo simbólico
-  const plan = await resolveAiPlan(user).catch(() => "pro");
-  await consumeAiUsage({ userId: user.id, plan, deltas: { ai_chat: 1 } }).catch(() => {});
 
   return res.status(200).json({ audio: base64, mimeType });
 }
@@ -172,15 +136,13 @@ async function handleTranscribe(req, res, user, openai) {
   const extension = detectExtensionFromMime(mimeType) || detectExtensionFromBuffer(buffer) || "webm";
   const file = await OpenAI.toFile(buffer, `fluentmind-audio.${extension}`);
 
+  await reserveAiUsage(user);
   const transcription = await openai.audio.transcriptions.create({
     file,
     model: process.env.OPENAI_TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe",
     response_format: "json",
     temperature: 0.2,
   });
-
-  const plan = await resolveAiPlan(user).catch(() => "pro");
-  await consumeAiUsage({ userId: user.id, plan, deltas: { ai_chat: 1 } }).catch(() => {});
 
   return res.status(200).json({ text: transcription.text?.trim() ?? "" });
 }

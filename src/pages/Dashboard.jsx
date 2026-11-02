@@ -5,9 +5,10 @@ import OnboardingPage, {
   ONBOARDING_COMPLETED_KEY,
   ONBOARDING_PROFILE_KEY,
 } from "../components/onboarding/OnboardingPage.jsx";
+import { userStorageKey } from "../utils/userStorage.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
-function hasCompletedOnboarding(userPreferences) {
+function hasCompletedOnboarding(userPreferences, userId) {
   if (userPreferences?.extra?.onboardingCompleted === true) {
     return true;
   }
@@ -15,12 +16,12 @@ function hasCompletedOnboarding(userPreferences) {
     return true;
   }
 
-  return window.localStorage.getItem(ONBOARDING_COMPLETED_KEY) === "true";
+  return window.localStorage.getItem(userStorageKey(ONBOARDING_COMPLETED_KEY, userId)) === "true";
 }
 
 export default function DashboardPage() {
-  const { userPreferences, updateUserPreferences } = useAuth();
-  const completedFromPreferences = useMemo(() => hasCompletedOnboarding(userPreferences), [userPreferences]);
+  const { user, userPreferences, updateUserPreferences } = useAuth();
+  const completedFromPreferences = useMemo(() => hasCompletedOnboarding(userPreferences, user?.id), [userPreferences, user?.id]);
   const [onboardingCompleted, setOnboardingCompleted] = useState(completedFromPreferences);
 
   useEffect(() => {
@@ -29,11 +30,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (userPreferences?.extra?.onboardingCompleted === true || typeof window === "undefined") return;
-    const completed = window.localStorage.getItem(ONBOARDING_COMPLETED_KEY) === "true";
+    const completed = window.localStorage.getItem(userStorageKey(ONBOARDING_COMPLETED_KEY, user?.id)) === "true";
     if (!completed) return;
     let onboardingProfile = null;
     try {
-      onboardingProfile = JSON.parse(window.localStorage.getItem(ONBOARDING_PROFILE_KEY) || "null");
+      onboardingProfile = JSON.parse(window.localStorage.getItem(userStorageKey(ONBOARDING_PROFILE_KEY, user?.id)) || "null");
     } catch {
       onboardingProfile = null;
     }
@@ -41,17 +42,17 @@ export default function DashboardPage() {
       extra: {
         onboardingCompleted: true,
         onboardingProfile,
-        firstDashboardExperience: window.localStorage.getItem(FIRST_DASHBOARD_EXPERIENCE_KEY) === "true",
+        firstDashboardExperience: window.localStorage.getItem(userStorageKey(FIRST_DASHBOARD_EXPERIENCE_KEY, user?.id)) === "true",
       },
     }).catch((error) => {
       console.warn("[onboarding] Falha ao migrar onboarding para Supabase:", error.message);
     });
-  }, [updateUserPreferences, userPreferences?.extra?.onboardingCompleted]);
+  }, [updateUserPreferences, userPreferences?.extra?.onboardingCompleted, user?.id]);
 
   const resetOnboarding = () => {
-    window.localStorage.removeItem(ONBOARDING_COMPLETED_KEY);
-    window.localStorage.removeItem(ONBOARDING_PROFILE_KEY);
-    window.localStorage.removeItem(FIRST_DASHBOARD_EXPERIENCE_KEY);
+    window.localStorage.removeItem(userStorageKey(ONBOARDING_COMPLETED_KEY, user?.id));
+    window.localStorage.removeItem(userStorageKey(ONBOARDING_PROFILE_KEY, user?.id));
+    window.localStorage.removeItem(userStorageKey(FIRST_DASHBOARD_EXPERIENCE_KEY, user?.id));
     updateUserPreferences?.({
       extra: {
         onboardingCompleted: false,

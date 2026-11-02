@@ -1,3 +1,4 @@
+import useLearningActions from "../hooks/useLearningActions.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Brain,
@@ -21,7 +22,7 @@ import {
   neuralUniverseNodes,
   neuralUniverseStats,
 } from "../data/neuralUniverseMock.js";
-import { trackProgressionAction } from "../services/progressionEngine.js";
+
 import {
   buildNeuralUniverseFromEvents,
   clearLearningEvents,
@@ -108,6 +109,7 @@ function getRelatedNodeIds(selectedNodeId, connections) {
 }
 
 export default function NeuralUniversePage() {
+  const { trackProgressionAction } = useLearningActions();
   const [learningEvents, setLearningEvents] = useState(() => getLearningEvents());
   const dynamicGraph = useMemo(() => buildNeuralUniverseFromEvents(learningEvents), [learningEvents]);
   const hasLearningEvents = learningEvents.length > 0;
@@ -141,7 +143,7 @@ export default function NeuralUniversePage() {
 
   useEffect(() => {
     trackProgressionAction("openNeuralUniverse", { reason: "Neural Universe opened" });
-  }, []);
+  }, [trackProgressionAction]);
 
   useEffect(() => {
     const syncEvents = () => setLearningEvents(getLearningEvents());
@@ -575,7 +577,6 @@ function ClusterConstellation({ node, position }) {
     <g className="neural-constellation">
       {[0, 1, 2, 3].map((item) => (
         <circle
-          // eslint-disable-next-line react/no-array-index-key
           key={item}
           cx={position.x + Math.cos(item * 1.7) * (node.size + 16)}
           cy={position.y + Math.sin(item * 1.7) * (node.size + 13)}
@@ -758,7 +759,6 @@ function NeuralParticles({ parallax, intense }) {
       />
       {Array.from({ length: particleCount }).map((_, index) => (
         <span
-          // eslint-disable-next-line react/no-array-index-key
           key={index}
           className="fm-particle"
           style={{

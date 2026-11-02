@@ -1,3 +1,4 @@
+import useLearningActions from "../hooks/useLearningActions.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { Brain, Check, Eye, Headphones, RotateCcw, Sparkles, X } from "lucide-react";
@@ -7,8 +8,8 @@ import { generateMindBlockAudio, getMindBlockAudio } from "../services/mindblock
 import { createReviewEvent, listReviewEvents } from "../services/reviewEvents.js";
 import { recordDailyActivity } from "../services/learningProgress.js";
 import { listCorrectedMistakes, updateCorrectedMistake } from "../services/correctedMistakes.js";
-import { trackProgressionAction } from "../services/progressionEngine.js";
-import { recordLearningEvent } from "../services/learningEventEngine.js";
+
+
 import {
   buildReviewSessionPlan,
   buildReviewHistory,
@@ -69,6 +70,7 @@ function buildProgress(events) {
 }
 
 export default function InsightsPage() {
+  const { recordLearningEvent, trackProgressionAction } = useLearningActions();
   const { user, session, userPreferences } = useAuth();
   const [deck, setDeck] = useState([]);
   const [events, setEvents] = useState([]);

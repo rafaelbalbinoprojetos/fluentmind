@@ -136,6 +136,16 @@ async function handleConfirm(req, currentUser) {
 
 // ─── Handler principal ─────────────────────────────────────────────────────
 
+async function handleStartTrial(user) {
+  const { data: trial, error } = await supabaseAdmin.rpc("start_ai_trial", { p_user_id: user.id });
+  if (error) throw error;
+  const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+    app_metadata: { ...user.app_metadata, ...trial },
+  });
+  if (authError) throw authError;
+  return { ok: true, ...trial };
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -153,6 +163,7 @@ export default async function handler(req, res) {
     let result;
     if (action === "grant")        result = await handleGrant(req, user);
     else if (action === "confirm") result = await handleConfirm(req, user);
+    else if (action === "start-trial") result = await handleStartTrial(user);
     else return res.status(400).json({ error: `Ação desconhecida: ${action}` });
     return res.status(200).json(result);
   } catch (err) {

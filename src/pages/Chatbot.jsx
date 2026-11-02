@@ -1,3 +1,4 @@
+import useLearningActions from "../hooks/useLearningActions.js";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import {
@@ -37,8 +38,9 @@ import { createMindBlock, listMindBlocks } from "../services/mindblocks.js";
 import { addMindBlockToPlaylist, createPlaylist, listPlaylists } from "../services/playlists.js";
 import { recordDailyActivity } from "../services/learningProgress.js";
 import { createCorrectedMistake } from "../services/correctedMistakes.js";
-import { trackProgressionAction } from "../services/progressionEngine.js";
-import { recordLearningEvent } from "../services/learningEventEngine.js";
+
+
+import { userStorageKey } from "../utils/userStorage.js";
 import { normalizeMindBlockExpressionText } from "../utils/mindblockText.js";
 
 const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
@@ -212,6 +214,7 @@ function buildMindBlockMeta(form, assistantName) {
 }
 
 export default function ChatbotPage() {
+  const { recordLearningEvent, trackProgressionAction } = useLearningActions();
   const { user, session, userPreferences, updateUserPreferences } = useAuth();
   const location = useLocation();
   const assistantName = userPreferences?.assistantName || getAssistantName(user);
@@ -280,7 +283,7 @@ export default function ChatbotPage() {
     }
 
     try {
-      const stored = JSON.parse(localStorage.getItem(NEO_MEMORY_KEY) || "[]");
+      const stored = JSON.parse(localStorage.getItem(userStorageKey(NEO_MEMORY_KEY, user?.id)) || "[]");
       if (Array.isArray(stored) && stored.length > 0) {
         setMemoryEntries(stored);
         if (user?.id) {
@@ -319,7 +322,7 @@ export default function ChatbotPage() {
         },
       ];
     });
-  }, [routeExpressionContext?.expression]);
+  }, [routeExpressionContext?.expression, routeExpressionContext?.translation, routeExpressionContext?.category, routeExpressionContext?.source]);
 
   useEffect(() => {
     if (typing) {
@@ -447,7 +450,7 @@ export default function ChatbotPage() {
   const trackNeoProgress = useCallback((action, amount, reason, meta = {}) => {
     awardXp(amount, reason);
     trackProgressionAction(action, { ...meta, reason, silent: true });
-  }, [awardXp]);
+  }, [awardXp, trackProgressionAction]);
 
   const chooseNeoMode = (mode) => {
     setSelectedMode(mode.id);
@@ -481,7 +484,7 @@ export default function ChatbotPage() {
       .slice(0, 8);
     const memory = nextEntries.length ? nextEntries : defaultNeoMemory;
     setMemoryEntries(memory);
-    localStorage.setItem(NEO_MEMORY_KEY, JSON.stringify(memory));
+    localStorage.setItem(userStorageKey(NEO_MEMORY_KEY, user?.id), JSON.stringify(memory));
     updateUserPreferences?.({ extra: { neoMemory: memory } }).catch((error) => {
       console.warn("[neo-memory] Falha ao salvar memoria:", error.message);
     });
@@ -841,7 +844,7 @@ export default function ChatbotPage() {
       if (!silent) toast.error(error.message || "Nao foi possivel salvar a correcao.");
       return false;
     }
-  }, [activeSessionId, trackNeoProgress, user?.id, userPreferences?.currentLevel]);
+  }, [activeSessionId, trackNeoProgress, user?.id, userPreferences?.currentLevel, user?.user_metadata?.learning_preferences?.currentLevel, recordLearningEvent]);
 
   const quickSaveSuggestion = async (suggestion, messageId) => {
     const normalized = normalizeSuggestion(suggestion);
@@ -876,6 +879,7 @@ export default function ChatbotPage() {
           assistantName={assistantName}
           displayName={displayName}
           currentLevel={currentLevel}
+          learningGoals={userPreferences?.extra?.onboardingProfile?.goals}
           sessionSummary={sessionSummary}
           selectedMode={selectedMode}
           conversations={conversations}
@@ -986,7 +990,7 @@ export default function ChatbotPage() {
   );
 }
 
-function NeoSessionSidebar({ assistantName, displayName, currentLevel, sessionSummary, selectedMode, conversations, activeSessionId, onNew, onSelectMode }) {
+function NeoSessionSidebar({ assistantName, displayName, currentLevel, learningGoals, sessionSummary, selectedMode, conversations, activeSessionId, onNew, onSelectMode }) {
   return (
     <aside className="neo-left-sidebar neo-session-sidebar">
       <div className="neo-avatar-card">
@@ -1004,11 +1008,9 @@ function NeoSessionSidebar({ assistantName, displayName, currentLevel, sessionSu
         <p>Neo Memory</p>
         <dl>
           <div><dt>Name</dt><dd>{displayName}</dd></div>
-          <div><dt>Goal</dt><dd>Work English</dd></div>
+          {learningGoals?.length ? <div><dt>Goal</dt><dd>{learningGoals.join(" · ")}</dd></div> : null}
           <div><dt>Current Level</dt><dd>{currentLevel}</dd></div>
-          <div><dt>Favorite Topics</dt><dd>Programming · Technology · Travel</dd></div>
-          <div><dt>Most Used Expressions</dt><dd>{Math.max(5, sessionSummary.mindBlocks + sessionSummary.messages)}</dd></div>
-          <div><dt>Current Streak</dt><dd>4 days</dd></div>
+          <div><dt>Saved this session</dt><dd>{sessionSummary.mindBlocks}</dd></div>
         </dl>
       </section>
 

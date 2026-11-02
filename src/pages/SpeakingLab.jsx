@@ -1,3 +1,4 @@
+import useLearningActions from "../hooks/useLearningActions.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { ArrowRight, Gauge, Headphones, Loader2, Mic, RotateCcw, Square, Trophy } from "lucide-react";
@@ -7,8 +8,8 @@ import useRecorder from "../hooks/useRecorder.js";
 import { listMindBlocks } from "../services/mindblocks.js";
 import { checkAnswerWithAi, localSimilarity, wordDiff } from "../services/answerCheck.js";
 import { mindBlockAudioUrl, transcribeAudio, wordsPerMinute } from "../services/speech.js";
-import { recordLearningEvent } from "../services/learningEventEngine.js";
-import { trackProgressionAction } from "../services/progressionEngine.js";
+
+
 import { recordDailyActivity } from "../services/learningProgress.js";
 
 // Método da sessão, por MindBlock:
@@ -40,6 +41,7 @@ function shadowVerdict(score) {
 }
 
 export default function SpeakingLabPage() {
+  const { recordLearningEvent, trackProgressionAction } = useLearningActions();
   const { user, session, userPreferences } = useAuth();
   const [deck, setDeck] = useState([]);
   const [loading, setLoading] = useState(true);

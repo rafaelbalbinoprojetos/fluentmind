@@ -1,3 +1,4 @@
+import useLearningActions from "../hooks/useLearningActions.js";
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import {
@@ -20,8 +21,8 @@ import useProgression from "../hooks/useProgression.js";
 import { generateMindBlockAudio } from "../services/mindblockAudio.js";
 import { listMindBlocks, updateMindBlock } from "../services/mindblocks.js";
 import { createReviewEvent } from "../services/reviewEvents.js";
-import { recordLearningEvent } from "../services/learningEventEngine.js";
-import { trackProgressionAction } from "../services/progressionEngine.js";
+import { calculateSmartReview } from "../services/smartReview.js";
+import { createCorrectedMistake } from "../services/correctedMistakes.js";
 import { checkAnswerWithAi } from "../services/answerCheck.js";
 
 const FALLBACK_DECK = [
@@ -65,6 +66,8 @@ const WORKOUT_STEPS = [
   { id: "complete", label: "Complete", icon: Trophy },
 ];
 
+const REVIEW_TARGET = 5;
+
 function selectDeck(items) {
   const now = Date.now();
   const sorted = [...items].sort((a, b) => {
@@ -76,7 +79,7 @@ function selectDeck(items) {
     return (a.mastery ?? 0) - (b.mastery ?? 0);
   });
 
-  const deck = sorted.slice(0, 3);
+  const deck = sorted.slice(0, REVIEW_TARGET);
   return deck.length ? deck : FALLBACK_DECK;
 }
 
@@ -105,6 +108,7 @@ function buildChallenge(deck) {
 }
 
 export default function DailyWorkoutPage() {
+  const { recordLearningEvent, trackProgressionAction } = useLearningActions();
   const { user, session, userPreferences } = useAuth();
   const progression = useProgression();
   const [deck, setDeck] = useState(FALLBACK_DECK);
@@ -156,7 +160,7 @@ export default function DailyWorkoutPage() {
   const reviewedCount = reviewedIds.length;
   const listenedCount = listenedIds.length;
   const progress = Math.round(
-    ((Math.min(reviewedCount, 3) + Math.min(listenedCount, 1) + (challengeResult?.passed ? 1 : 0) + (sessionComplete ? 1 : 0)) / 6) * 100,
+    ((Math.min(reviewedCount, REVIEW_TARGET) + Math.min(listenedCount, 1) + (challengeResult?.passed ? 1 : 0) + (sessionComplete ? 1 : 0)) / (REVIEW_TARGET + 3)) * 100,
   );
   const activeCard = deck.find((item) => !reviewedIds.includes(item.id)) || deck[0] || FALLBACK_DECK[0];
   const listenCard = deck.find((item) => !listenedIds.includes(item.id)) || deck[0] || FALLBACK_DECK[0];
@@ -171,14 +175,14 @@ export default function DailyWorkoutPage() {
     setSaving(true);
     try {
       if (!card.isFallback) {
-        const nextDays = result === "easy" ? 5 : result === "hard" ? 1 : 2;
-        const nextReviewAt = new Date(Date.now() + nextDays * 24 * 60 * 60 * 1000).toISOString();
+        // Mesmo agendamento FSRS da tela de Revisão.
+        const smart = calculateSmartReview(card, result);
         await Promise.all([
           updateMindBlock(card.id, {
-            mastery: Math.min(100, (card.mastery ?? 0) + (result === "easy" ? 16 : result === "hard" ? 6 : 10)),
+            mastery: smart.nextMastery,
             timesReviewed: (card.timesReviewed ?? 0) + 1,
             lastReviewedAt: new Date().toISOString(),
-            nextReviewAt,
+            nextReviewAt: smart.nextReviewAtIso,
           }),
           createReviewEvent({
             userId: user.id,
@@ -200,7 +204,7 @@ export default function DailyWorkoutPage() {
       }, "daily_workout");
       toast.success("+10 XP - Review strengthened");
 
-      if (reviewedIds.length + 1 >= Math.min(3, deck.length)) {
+      if (reviewedIds.length + 1 >= Math.min(REVIEW_TARGET, deck.length)) {
         goToStep("listen");
       }
     } catch (error) {
@@ -283,6 +287,22 @@ export default function DailyWorkoutPage() {
       };
     }
     setChallengeResult(result);
+
+    // Fecha o ciclo: a correção vira card em Meus Erros e volta na revisão.
+    if (!passed && result.corrected && user?.id) {
+      createCorrectedMistake(
+        {
+          originalText: challengeAnswer,
+          correctedText: result.corrected,
+          explanation: result.message,
+          category: challenge.source.category || "Daily Workout",
+          level: userPreferences?.currentLevel || "A2",
+        },
+        { userId: user.id },
+      )
+        .then(() => toast.success("Correção salva em Meus Erros para revisar"))
+        .catch((error) => console.warn("[daily-workout] Falha ao salvar correção:", error.message));
+    }
 
     if (passed) {
       trackProgressionAction("practicePronunciation", { reason: "Daily Brain Workout challenge", category: challenge.source.category });
@@ -391,9 +411,10 @@ export default function DailyWorkoutPage() {
               <WarmupStep deck={deck} onStart={() => goToStep("review")} />
             ) : currentStep.id === "review" ? (
               <ReviewStep
+                key={activeCard.id}
                 card={activeCard}
                 reviewedCount={reviewedCount}
-                total={Math.min(3, deck.length)}
+                total={Math.min(REVIEW_TARGET, deck.length)}
                 saving={saving}
                 onReview={handleReview}
               />
@@ -490,12 +511,50 @@ function WarmupStep({ deck, onStart }) {
   );
 }
 
+// Recordação ativa: o usuário tenta lembrar antes de ver a resposta.
 function ReviewStep({ card, reviewedCount, total, saving, onReview }) {
+  const [attempt, setAttempt] = useState("");
+  const [revealed, setRevealed] = useState(false);
+  const attemptMatches = attempt.trim() && normalizeAnswer(attempt) === normalizeAnswer(card.expression);
+
+  if (!revealed) {
+    return (
+      <div>
+        <StepHeader eyebrow="Revisão" title="Como se diz isso em inglês?" description="Tente lembrar antes de ver a resposta. É esse esforço que fixa a memória." />
+        <div className="mt-7 rounded-[30px] border border-cyan-400/20 bg-cyan-400/[0.06] p-6">
+          <h3 className="text-3xl font-black">{card.translation || card.expression}</h3>
+        </div>
+        <form
+          className="mt-6 flex flex-col gap-3 sm:flex-row"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setRevealed(true);
+          }}
+        >
+          <input
+            value={attempt}
+            onChange={(event) => setAttempt(event.target.value)}
+            autoFocus
+            className="flex-1 rounded-2xl border border-[var(--border-soft)] bg-[var(--input-bg)] px-4 py-3 text-base font-semibold text-[var(--text-primary)] outline-none focus:border-cyan-300"
+            placeholder="Escreva (ou só pense) a frase em inglês"
+          />
+          <button type="submit" className="fm-primary-button rounded-2xl px-5 py-3 font-black">Mostrar resposta</button>
+        </form>
+        <p className="fm-muted mt-5 text-sm">{reviewedCount}/{total} revisadas neste treino.</p>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <StepHeader eyebrow="Smart Review" title={`How do you say this in English?`} description={card.translation || "Review the expression before moving forward."} />
+      <StepHeader eyebrow="Revisão" title={card.translation || "Resposta"} description="Compare com a sua tentativa e diga com sinceridade como foi." />
       <div className="mt-7 rounded-[30px] border border-cyan-400/20 bg-cyan-400/[0.06] p-6">
-        <p className="fm-muted text-sm font-bold uppercase tracking-[0.16em]">Answer</p>
+        {attempt.trim() ? (
+          <p className={`mb-4 text-sm font-semibold ${attemptMatches ? "text-emerald-400" : "fm-muted"}`}>
+            Você escreveu: <em>{attempt}</em> {attemptMatches ? "✓" : ""}
+          </p>
+        ) : null}
+        <p className="fm-muted text-sm font-bold uppercase tracking-[0.16em]">Resposta</p>
         <h3 className="mt-4 text-3xl font-black">{card.expression}</h3>
         {card.examples?.length ? (
           <div className="mt-5 space-y-2">
@@ -506,11 +565,12 @@ function ReviewStep({ card, reviewedCount, total, saving, onReview }) {
         ) : null}
       </div>
       <div className="mt-6 flex flex-wrap gap-3">
-        <button type="button" disabled={saving} onClick={() => onReview(card, "hard")} className="fm-ghost-button rounded-2xl px-5 py-3 font-black">Hard</button>
-        <button type="button" disabled={saving} onClick={() => onReview(card, "good")} className="fm-primary-button rounded-2xl px-5 py-3 font-black">Good</button>
-        <button type="button" disabled={saving} onClick={() => onReview(card, "easy")} className="fm-ghost-button rounded-2xl px-5 py-3 font-black">Easy</button>
+        <button type="button" disabled={saving} onClick={() => onReview(card, "again")} className="fm-ghost-button rounded-2xl px-5 py-3 font-black">Não lembrei</button>
+        <button type="button" disabled={saving} onClick={() => onReview(card, "hard")} className="fm-ghost-button rounded-2xl px-5 py-3 font-black">Difícil</button>
+        <button type="button" disabled={saving} onClick={() => onReview(card, "good")} className="fm-primary-button rounded-2xl px-5 py-3 font-black">Lembrei</button>
+        <button type="button" disabled={saving} onClick={() => onReview(card, "easy")} className="fm-ghost-button rounded-2xl px-5 py-3 font-black">Fácil</button>
       </div>
-      <p className="fm-muted mt-5 text-sm">{reviewedCount}/{total} cards reviewed in this workout.</p>
+      <p className="fm-muted mt-5 text-sm">{reviewedCount}/{total} revisadas neste treino.</p>
     </div>
   );
 }

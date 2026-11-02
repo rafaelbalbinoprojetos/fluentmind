@@ -12,10 +12,11 @@ function blobToBase64(blob) {
 }
 
 /** Transcreve a gravação do aluno (rota existente /api/transcribe). */
-export async function transcribeAudio(blob, accessToken) {
+export async function transcribeAudio(blob, accessToken, { signal } = {}) {
   if (!blob?.size || blob.size < 1200) throw new Error("Áudio muito curto. Fale por pelo menos 1 segundo.");
   const response = await fetch(`${API_BASE}/api/transcribe`, {
     method: "POST",
+    signal,
     headers: {
       "Content-Type": "application/json",
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),

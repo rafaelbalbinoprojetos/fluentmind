@@ -448,7 +448,7 @@ export function ThemeProvider({ children }) {
       });
     }
     hydratedPreference.current = false;
-  }, [activeTheme]);
+  }, [activeTheme, updateUserPreferences, user?.id, userPreferences?.themeId]);
 
   useEffect(() => {
     if (typeof window.matchMedia !== "function") {

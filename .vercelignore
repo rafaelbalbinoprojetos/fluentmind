@@ -1,0 +1,11 @@
+.git/
+.env*
+node_modules/
+dist/
+docs/
+supabase/
+tests/
+src/**/__tests__/
+upload_fluentmind_to_github.ps1
+observacoes.txt
+*.log

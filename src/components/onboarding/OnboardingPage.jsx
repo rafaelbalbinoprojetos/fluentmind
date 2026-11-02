@@ -17,6 +17,8 @@ import {
   UserRound,
   Volume2,
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { userStorageKey } from "../../utils/userStorage.js";
 import BrainCompanion from "../BrainCompanion.jsx";
 
 export const ONBOARDING_COMPLETED_KEY = "fluentmind_onboarding_completed";
@@ -59,6 +61,7 @@ const initialProfile = {
 };
 
 export default function OnboardingPage({ onComplete }) {
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [profile, setProfile] = useState(initialProfile);
   const [isTransitioningStep, setIsTransitioningStep] = useState(false);
@@ -110,9 +113,9 @@ export default function OnboardingPage({ onComplete }) {
       completedAt: new Date().toISOString(),
     };
 
-    window.localStorage.setItem(ONBOARDING_COMPLETED_KEY, "true");
-    window.localStorage.setItem(ONBOARDING_PROFILE_KEY, JSON.stringify(completedProfile));
-    window.localStorage.setItem(FIRST_DASHBOARD_EXPERIENCE_KEY, "true");
+    window.localStorage.setItem(userStorageKey(ONBOARDING_COMPLETED_KEY, user?.id), "true");
+    window.localStorage.setItem(userStorageKey(ONBOARDING_PROFILE_KEY, user?.id), JSON.stringify(completedProfile));
+    window.localStorage.setItem(userStorageKey(FIRST_DASHBOARD_EXPERIENCE_KEY, user?.id), "true");
     setIsBuildingPath(true);
 
     window.setTimeout(() => {
@@ -252,7 +255,6 @@ function OnboardingAtmosphere() {
       <div className="fm-neural-line bottom-[20%] left-[28%] w-52 rotate-6" />
       {Array.from({ length: 16 }).map((_, index) => (
         <span
-          // eslint-disable-next-line react/no-array-index-key
           key={index}
           className="fm-particle"
           style={{

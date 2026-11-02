@@ -1,4 +1,5 @@
 import { supabase, supabaseConfigured } from "../lib/supabase.js";
+import { localDateKey } from "../utils/dates.js";
 
 const ACTIVITY_TABLE = "daily_activity";
 const PROFILE_TABLE = "user_learning_profiles";
@@ -10,7 +11,7 @@ function ensureSupabase() {
 }
 
 function toDateKey(date) {
-  return date.toISOString().slice(0, 10);
+  return localDateKey(date);
 }
 
 export function getLastDateKeys(days = 7) {

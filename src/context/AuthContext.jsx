@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { supabase, supabaseConfigured } from "../lib/supabase.js";
 import { isMasterEmail, sanitizeEmailInput } from "../config/accessControl.js";
 import { fetchUltraAccessPassByUserId } from "../services/ultraAccess.js";
@@ -21,6 +21,7 @@ const AuthContext = createContext({
   refreshUser: async () => {},
   updateUserMetadata: async () => {},
   updateUserPreferences: async () => {},
+  startTrial: async () => {},
   userPreferences: null,
   subscription: {
     plan: "free",
@@ -44,6 +45,7 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [learningStateLoading, setLearningStateLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lifetimeAccess, setLifetimeAccess] = useState(false);
   const [lifetimeLoading, setLifetimeLoading] = useState(false);
@@ -54,6 +56,27 @@ export function AuthProvider({ children }) {
     isLifetime: false,
   });
   const [userPreferences, setUserPreferences] = useState(null);
+  const [preferencesUserId, setPreferencesUserId] = useState(null);
+  const activeAccountId = useRef(null);
+  const sessionRevision = useRef(0);
+
+  const applySession = useCallback((nextSession) => {
+    const nextId = nextSession?.user?.id || null;
+    if (activeAccountId.current !== nextId) {
+      setLearningStateLoading(Boolean(nextId));
+      setLifetimeAccess(false);
+      setLifetimeLoading(false);
+      setUltraAccess({ active: false, plan: null, expiresAt: null, isLifetime: false });
+      setUserPreferences(null);
+      setPreferencesUserId(null);
+    }
+    sessionRevision.current += 1;
+    activeAccountId.current = nextId;
+    configureProgressionPersistence(nextId);
+    configureLearningEventsPersistence(nextId);
+    setSession(nextSession);
+    setUser(nextSession?.user ?? null);
+  }, []);
 
   useEffect(() => {
     let ignore = false;
@@ -67,15 +90,15 @@ export function AuthProvider({ children }) {
       }
       setLoading(true);
       setError(null);
+      const initialRevision = sessionRevision.current;
       try {
         const { data, error: sessionError } = await supabase.auth.getSession();
-        if (ignore) return;
+        if (ignore || initialRevision !== sessionRevision.current) return;
 
         if (sessionError) {
           setError(sessionError);
         } else {
-          setSession(data.session);
-          setUser(data.session?.user ?? null);
+          applySession(data.session);
           setError(null);
         }
       } catch (sessionError) {
@@ -113,8 +136,7 @@ export function AuthProvider({ children }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, updatedSession) => {
-      setSession(updatedSession);
-      setUser(updatedSession?.user ?? null);
+      applySession(updatedSession);
       setError(null);
     });
 
@@ -125,20 +147,37 @@ export function AuthProvider({ children }) {
       }
       subscription.unsubscribe();
     };
-  }, []);
+  }, [applySession]);
 
   const refreshUser = useCallback(async () => {
     if (!supabaseConfigured || !supabase) {
       throw new Error("Supabase não configurado.");
     }
+    const expectedUserId = activeAccountId.current;
     const { data, error: userError } = await supabase.auth.getUser();
+    if (activeAccountId.current !== expectedUserId) return null;
     if (userError) {
       setError(userError);
       throw userError;
     }
-    setUser(data.user);
+    if (data.user?.id === expectedUserId) setUser(data.user);
     return data.user;
   }, []);
+
+  const startTrial = useCallback(async () => {
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (!currentSession) throw new Error("Sessão expirada.");
+    const base = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
+    const response = await fetch(`${base}/api/ultra-access`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${currentSession.access_token}` },
+      body: JSON.stringify({ action: "start-trial" }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Não foi possível iniciar o teste.");
+    if (activeAccountId.current === currentSession.user.id) await refreshUser();
+    return result;
+  }, [refreshUser]);
 
   const updateUserMetadata = useCallback(
     async (patch) => {
@@ -156,7 +195,7 @@ export function AuthProvider({ children }) {
         throw updateError;
       }
 
-      if (data.user) {
+      if (data.user && activeAccountId.current === user?.id) {
         setUser(data.user);
       }
 
@@ -168,12 +207,15 @@ export function AuthProvider({ children }) {
   const updateUserPreferences = useCallback(
     async (patch) => {
       const fallback = buildPreferencesFromMetadata(user?.user_metadata ?? {}, user);
-      const current = userPreferences ?? fallback;
+      const current = preferencesUserId === user?.id ? userPreferences ?? fallback : fallback;
       const next = await persistUserPreferences(user?.id, patch, current);
-      setUserPreferences(next);
+      if (activeAccountId.current === user?.id) {
+        setPreferencesUserId(user?.id);
+        setUserPreferences(next);
+      }
       return next;
     },
-    [user, userPreferences],
+    [user, userPreferences, preferencesUserId],
   );
 
   const signIn = useCallback(
@@ -192,8 +234,7 @@ export function AuthProvider({ children }) {
       });
 
       if (!signInError) {
-        setSession(data.session);
-        setUser(data.user);
+        applySession(data.session);
         return { status: "sign-in", ...data };
       }
 
@@ -238,8 +279,7 @@ export function AuthProvider({ children }) {
         throw translatedError;
       }
 
-      setSession(signUpData.session ?? null);
-      setUser(signUpData.user ?? signUpData.session?.user ?? null);
+      applySession(signUpData.session ?? null);
 
       return {
         status: "sign-up",
@@ -247,13 +287,12 @@ export function AuthProvider({ children }) {
         requiresEmailConfirmation: !signUpData.session,
       };
     },
-    [],
+    [applySession],
   );
 
   const signOut = useCallback(async () => {
     if (!supabaseConfigured || !supabase) {
-      setSession(null);
-      setUser(null);
+      applySession(null);
       return;
     }
     const { error: signOutError } = await supabase.auth.signOut();
@@ -262,9 +301,8 @@ export function AuthProvider({ children }) {
       throw signOutError;
     }
 
-    setSession(null);
-    setUser(null);
-  }, []);
+    applySession(null);
+  }, [applySession]);
 
   const normalizedEmail = useMemo(() => sanitizeEmailInput(user?.email ?? ""), [user?.email]);
   const isMasterUser = useMemo(() => Boolean(normalizedEmail) && isMasterEmail(normalizedEmail), [normalizedEmail]);
@@ -324,7 +362,7 @@ export function AuthProvider({ children }) {
     return () => {
       ignore = true;
     };
-  }, [normalizedEmail, isMasterUser]);
+  }, [normalizedEmail, isMasterUser, user]);
 
   useEffect(() => {
     let ignore = false;
@@ -336,6 +374,7 @@ export function AuthProvider({ children }) {
 
       if (!userId) {
         setUserPreferences(null);
+        setLearningStateLoading(false);
         return;
       }
 
@@ -345,12 +384,18 @@ export function AuthProvider({ children }) {
           hydrateLearningEvents(userId),
           getOrCreateUserPreferences(user),
         ]);
-        if (!ignore) setUserPreferences(preferences);
+        if (!ignore) {
+          setPreferencesUserId(userId);
+          setUserPreferences(preferences);
+        }
       } catch (syncError) {
         if (!ignore) {
           console.warn("[auth] Falha ao sincronizar progresso do usuario:", syncError);
           setUserPreferences(buildPreferencesFromMetadata(user?.user_metadata ?? {}, user));
+          setPreferencesUserId(userId);
         }
+      } finally {
+        if (!ignore && activeAccountId.current === userId) setLearningStateLoading(false);
       }
     }
 
@@ -362,17 +407,19 @@ export function AuthProvider({ children }) {
   }, [user]);
 
   const metadata = useMemo(() => user?.user_metadata ?? {}, [user]);
+  const accessMetadata = useMemo(() => user?.app_metadata ?? {}, [user]);
 
   const subscription = useMemo(() => {
-    const plan = metadata.plan ?? "free";
-    const trialStatus = metadata.trial_status ?? "eligible";
-    const trialEndsAt = metadata.trial_expires_at ? new Date(metadata.trial_expires_at) : null;
+    const plan = accessMetadata.plan ?? "free";
+    const trialStatus = accessMetadata.trial_status ?? "eligible";
+    const trialEndsAt = accessMetadata.trial_expires_at ? new Date(accessMetadata.trial_expires_at) : null;
     const trialExpired = trialEndsAt ? trialEndsAt.getTime() <= Date.now() : false;
     const normalizedUltraPlan = typeof ultraAccess.plan === "string" ? ultraAccess.plan.toLowerCase() : null;
     const ultraPremiumActive = ultraAccess.active && normalizedUltraPlan === "premium";
     const hasLifetime = lifetimeAccess || isMasterUser;
     const paidAccessActive = hasLifetime || plan === "premium" || ultraPremiumActive;
-    const trialActive = !paidAccessActive && trialStatus === "active" && !trialExpired;
+    const trialActive = !paidAccessActive && trialStatus === "active"
+      && trialEndsAt?.getTime() > Date.now();
     const effectivePlan = hasLifetime ? "ultra" : (ultraAccess.active ? ultraAccess.plan ?? plan : plan);
     const hasPremiumAccess = hasLifetime || plan === "premium" || trialActive || ultraPremiumActive;
     const canStartTrial = !hasPremiumAccess && (!trialStatus || trialStatus === "eligible");
@@ -392,24 +439,25 @@ export function AuthProvider({ children }) {
       hasLifetimeAccess: hasLifetime,
       isMasterUser,
     };
-  }, [metadata, lifetimeAccess, isMasterUser, ultraAccess]);
+  }, [accessMetadata, lifetimeAccess, isMasterUser, ultraAccess]);
 
   const effectiveUserPreferences = useMemo(
-    () => userPreferences ?? buildPreferencesFromMetadata(metadata, user),
-    [metadata, user, userPreferences],
+    () => (preferencesUserId === user?.id ? userPreferences : null) ?? buildPreferencesFromMetadata(metadata, user),
+    [metadata, user, userPreferences, preferencesUserId],
   );
 
   const value = useMemo(
     () => ({
       user,
       session,
-      loading,
+      loading: loading || learningStateLoading,
       error,
       signIn,
       signOut,
       refreshUser,
       updateUserMetadata,
       updateUserPreferences,
+      startTrial,
       userPreferences: effectiveUserPreferences,
       subscription,
       isMasterUser: subscription.isMasterUser,
@@ -419,6 +467,7 @@ export function AuthProvider({ children }) {
     [
       error,
       loading,
+      learningStateLoading,
       refreshUser,
       session,
       signIn,
@@ -426,13 +475,14 @@ export function AuthProvider({ children }) {
       subscription,
       updateUserMetadata,
       updateUserPreferences,
+      startTrial,
       effectiveUserPreferences,
       user,
       lifetimeLoading,
     ],
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={value}><React.Fragment key={user?.id || "guest"}>{children}</React.Fragment></AuthContext.Provider>;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

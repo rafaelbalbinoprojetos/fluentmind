@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext.jsx";
+import { localDateKey } from "../utils/dates.js";
 import {
   DEFAULT_MOBILE_NAV_PATHS,
   MOBILE_NAV_LINKS,
@@ -222,7 +223,7 @@ export default function SettingsPage() {
           current_level: learningForm.currentLevel,
           target_language: learningForm.targetLanguage,
           daily_expression_goal: dailyGoal,
-          last_active_date: new Date().toISOString().slice(0, 10),
+          last_active_date: localDateKey(),
         });
         setLearningProfile(updatedProfile);
       }

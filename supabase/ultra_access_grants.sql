@@ -1,4 +1,5 @@
 -- Executar dentro do Supabase SQL Editor ou CLI após ajustar os emails master, se necessário.
+begin;
 create table if not exists public.ultra_access_grants (
   id uuid primary key default gen_random_uuid(),
   email text not null unique,
@@ -44,13 +45,17 @@ create index if not exists idx_ultra_access_grants_status on public.ultra_access
 
 alter table public.ultra_access_grants enable row level security;
 
-create policy if not exists "authenticated-can-read-ultra-access"
+drop policy if exists "authenticated-can-read-ultra-access" on public.ultra_access_grants;
+drop policy if exists "users-can-read-own-ultra-access" on public.ultra_access_grants;
+create policy "users-can-read-own-ultra-access"
 on public.ultra_access_grants
-for select
-using (auth.role() = 'authenticated');
+for select to authenticated
+using (auth.uid() = user_id or (user_id is null and lower(email) = lower(auth.jwt() ->> 'email')));
 
-create policy if not exists "master-can-manage-ultra-access"
+drop policy if exists "master-can-manage-ultra-access" on public.ultra_access_grants;
+create policy "master-can-manage-ultra-access"
 on public.ultra_access_grants
-for all
+for all to authenticated
 using (lower(coalesce(auth.jwt() ->> 'email', '')) = 'balbino10@hotmail.com')
 with check (lower(coalesce(auth.jwt() ->> 'email', '')) = 'balbino10@hotmail.com');
+commit;

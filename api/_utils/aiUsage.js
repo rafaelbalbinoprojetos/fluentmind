@@ -3,44 +3,18 @@ import { createClient } from "@supabase/supabase-js";
 import { isMasterEmail } from "./accessControl.js";
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const supabaseAdmin = supabaseUrl && supabaseServiceKey
   ? createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } })
   : null;
 
-const USAGE_TABLE = "ai_usage";
+
 const ULTRA_ACCESS_TABLE = "ultra_access_grants";
-
-const LIMITS_BY_PLAN = {
-  basic: {
-    ai_registros: 0,
-    ai_analises: 0,
-    ai_relatorios: 0,
-    ai_chat: 0,
-  },
-  pro: {
-    ai_registros: 200,
-    ai_analises: 40,
-    ai_relatorios: 10,
-    ai_chat: 300,
-  },
-};
-
-const USAGE_LABELS = {
-  ai_registros: "registros via IA",
-  ai_analises: "análises",
-  ai_relatorios: "relatórios inteligentes",
-  ai_chat: "chat de idiomas",
-};
 
 function normalizeEmail(value) {
   if (!value) return "";
   return String(value).trim().toLowerCase();
-}
-
-function monthStartISO(date = new Date()) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1)).toISOString().slice(0, 10);
 }
 
 function ensureSupabase() {
@@ -78,7 +52,7 @@ async function hasUltraAccess({ userId, email } = {}) {
   const normalizedEmail = normalizeEmail(email);
   if (!userId && !normalizedEmail) return false;
 
-  const baseQuery = supabaseAdmin
+  const baseQuery = () => supabaseAdmin
     .from(ULTRA_ACCESS_TABLE)
     .select("id, revoked_at, status, plan, expires_at, user_id")
     .order("granted_at", { ascending: false })
@@ -87,17 +61,18 @@ async function hasUltraAccess({ userId, email } = {}) {
   let grant = null;
 
   if (userId) {
-    const { data, error } = await baseQuery.eq("user_id", userId).maybeSingle();
+    const { data, error } = await baseQuery().eq("user_id", userId).maybeSingle();
+    if (error) throw error;
     if (!error && data) {
       grant = data;
     }
   }
 
+  // Legacy grants may predate user binding. Never use a grant bound to someone else.
   if (!grant && normalizedEmail) {
-    const { data, error } = await baseQuery.eq("email", normalizedEmail).maybeSingle();
-    if (!error && data) {
-      grant = data;
-    }
+    const { data, error } = await baseQuery().eq("email", normalizedEmail).is("user_id", null).maybeSingle();
+    if (error) throw error;
+    grant = data;
   }
 
   if (!isActiveGrant(grant)) return false;
@@ -106,7 +81,7 @@ async function hasUltraAccess({ userId, email } = {}) {
 }
 
 export async function resolveAiPlan(user) {
-  const metadata = user?.user_metadata ?? {};
+  const metadata = user?.app_metadata ?? {};
   const plan = metadata.plan ?? "free";
   const trialStatus = metadata.trial_status;
   const trialExpiresAt = metadata.trial_expires_at;
@@ -121,108 +96,35 @@ export async function resolveAiPlan(user) {
   return premiumByPlan || premiumByUltra || premiumByMasterEmail || trialActive ? "pro" : "basic";
 }
 
-async function loadUsageRow(userId) {
+// Reserve before calling any paid provider. The RPC atomically checks and increments.
+export async function consumeAiUsage({ userId, plan, deltas } = {}) {
+  if (!userId) throw Object.assign(new Error("Usuário não identificado."), { statusCode: 401 });
+  if (plan !== "pro") {
+    throw Object.assign(new Error("Recurso disponível apenas no plano Pro ou durante o teste gratuito."), {
+      statusCode: 403, code: "plan_required",
+    });
+  }
+  const amount = deltas?.ai_chat;
+  if (!Number.isInteger(amount) || amount < 1 || Object.keys(deltas).some((key) => key !== "ai_chat")) {
+    throw Object.assign(new Error("Consumo de IA inválido."), { statusCode: 400 });
+  }
   ensureSupabase();
-  const { data, error } = await supabaseAdmin
-    .from(USAGE_TABLE)
-    .select("*")
-    .eq("user_id", userId)
-    .maybeSingle();
-
+  const { data, error } = await supabaseAdmin.rpc("consume_ai_usage", {
+    p_user_id: userId, p_amount: amount, p_limit: 300,
+  });
   if (error) {
-    const err = new Error(error.message || "Falha ao consultar uso de IA.");
-    err.statusCode = 500;
-    throw err;
+    const limited = error.code === "P0001" && error.message === "ai_limit_reached";
+    throw Object.assign(new Error(limited
+      ? "Limite mensal de IA atingido (300 operações)."
+      : "Não foi possível reservar a cota de IA. Tente novamente mais tarde."), {
+      statusCode: limited ? 429 : 503,
+      code: limited ? "limit_reached" : "usage_unavailable",
+    });
   }
-
-  return data ?? null;
-}
-
-function resetIfNewMonth(row, currentMonth) {
-  if (!row || !row.month || row.month.slice(0, 10) === currentMonth) {
-    return row;
-  }
-
-  return {
-    ...row,
-    month: currentMonth,
-    ai_registros: 0,
-    ai_analises: 0,
-    ai_relatorios: 0,
-    ai_chat: 0,
-  };
-}
-
-function buildLimitMessage(key, limit) {
-  const label = USAGE_LABELS[key] ?? "uso de IA";
-  return `Limite mensal atingido para ${label} (${limit}).`;
-}
-
-export async function consumeAiUsage({ userId, plan, deltas, enforceLimits = true } = {}) {
-  ensureSupabase();
-  if (!userId) {
-    const error = new Error("Usuário não identificado para uso de IA.");
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const planKey = plan === "pro" ? "pro" : "basic";
-  const limits = LIMITS_BY_PLAN[planKey];
-  const hasUsage = Object.values(deltas || {}).some((value) => Number(value) > 0);
-
-  if (planKey === "basic" && hasUsage && enforceLimits) {
-    const error = new Error("Recurso disponível apenas no plano Pro.");
-    error.statusCode = 403;
-    error.code = "plan_required";
-    throw error;
-  }
-
-  const month = monthStartISO();
-  const existing = await loadUsageRow(userId);
-  const normalized = resetIfNewMonth(existing ?? {
-    user_id: userId,
-    month,
-    ai_registros: 0,
-    ai_analises: 0,
-    ai_relatorios: 0,
-    ai_chat: 0,
-  }, month);
-
-  const updated = {
-    ...normalized,
-  };
-
-  for (const [key, deltaRaw] of Object.entries(deltas || {})) {
-    const delta = Number(deltaRaw) || 0;
-    if (!delta) continue;
-    const currentValue = Number(updated[key]) || 0;
-    const nextValue = currentValue + delta;
-    const limit = limits?.[key];
-
-    if (enforceLimits && typeof limit === "number" && nextValue > limit) {
-      const error = new Error(buildLimitMessage(key, limit));
-      error.statusCode = 429;
-      error.code = "limit_reached";
-      throw error;
-    }
-
-    updated[key] = nextValue;
-  }
-
-  updated.month = month;
-  updated.updated_at = new Date().toISOString();
-
-  const { data, error } = await supabaseAdmin
-    .from(USAGE_TABLE)
-    .upsert(updated, { onConflict: "user_id" })
-    .select()
-    .single();
-
-  if (error) {
-    const err = new Error(error.message || "Falha ao registrar uso de IA.");
-    err.statusCode = 500;
-    throw err;
-  }
-
   return data;
+}
+
+export async function reserveAiUsage(user) {
+  const plan = await resolveAiPlan(user);
+  return consumeAiUsage({ userId: user.id, plan, deltas: { ai_chat: 1 } });
 }

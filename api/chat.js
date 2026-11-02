@@ -1,6 +1,7 @@
-/* global process */
 import { OpenAI } from "openai";
 import { requireUser } from "./_utils/auth.js";
+import { reserveAiUsage } from "./_utils/aiUsage.js";
+import { chatModelOptions } from "./_utils/chatModel.js";
 
 function getOpenAiClient() {
   const apiKey = process.env.OPENAI_API_KEY || process.env.CHATGPT_API_KEY || process.env.OPENAI_KEY;
@@ -394,7 +395,7 @@ async function analyzeUserCorrection(openai, latestUserMessage, { currentLevel =
 
   try {
     const completion = await openai.chat.completions.create({
-      model: process.env.OPENAI_CORRECTION_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini",
+      ...chatModelOptions({ correction: true, temperature: 0, maxTokens: 2048 }),
       messages: [
         {
           role: "system",
@@ -421,7 +422,6 @@ Rules:
         },
         { role: "user", content: String(latestUserMessage) },
       ],
-      temperature: 0,
       response_format: { type: "json_object" },
     });
 
@@ -466,12 +466,24 @@ export default async function handler(req, res) {
       assistantName = "Neo",
       currentLevel = "A2",
       targetLanguage = "en",
+      mode = "learning",
     } = body;
-    await requireUser(req);
+    const user = await requireUser(req);
+    if (!Array.isArray(messages) || !messages.length || messages.length > 100
+      || messages.some((message) => typeof message?.content !== "string" || message.content.length > 6000)) {
+      return res.status(400).json({ error: "Envie de 1 a 100 mensagens com até 6000 caracteres cada." });
+    }
+    await reserveAiUsage(user);
     const latestUserMessage = getLatestUserMessage(messages);
 
+    const simpleConversation = mode === "simple";
     const conversation = [
-      { role: "system", content: buildSystemPrompt(userName, chatTone, assistantName, currentLevel, targetLanguage) },
+      { role: "system", content: simpleConversation
+        ? `You are ${String(assistantName || "Neo").slice(0, 60)}, a friendly language conversation partner for a Brazilian learner.
+The learner's name is ${String(userName || "").slice(0, 80)}. Their level is ${String(currentLevel).slice(0, 20)} and target language is ${String(targetLanguage).slice(0, 30)}.
+Have a natural, flowing conversation in their target language, adapting to their level. If they write in Portuguese, help them express that thought naturally in the target language and continue the conversation. Use Portuguese explanations when requested.
+Keep replies concise (usually 2–5 sentences), warm and easy to speak aloud. Ask at most one natural follow-up question. Correct a meaningful mistake gently within the conversation when helpful. Do not produce exercise sections, MindBlock cards, headings, Markdown formatting or lists unless the learner asks for them.`
+        : buildSystemPrompt(userName, chatTone, assistantName, currentLevel, targetLanguage) },
       ...messages
         .filter((message) => message?.content)
         .slice(-12)
@@ -481,13 +493,20 @@ export default async function handler(req, res) {
         })),
     ];
 
-    const completion = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      messages: conversation,
-      temperature: 0.7,
-    });
+    // Na conversa simples, a análise de erro roda em paralelo para não atrasar a resposta.
+    const [completion, simpleCorrection] = await Promise.all([
+      openai.chat.completions.create({
+        ...chatModelOptions(),
+        messages: conversation,
+      }),
+      simpleConversation ? analyzeUserCorrection(openai, latestUserMessage, { currentLevel }) : null,
+    ]);
 
     const reply = completion.choices[0]?.message?.content?.trim();
+    if (simpleConversation) {
+      if (!reply) throw new Error("O modelo não retornou uma resposta em texto.");
+      return res.status(200).json({ reply, suggestedMindBlocks: [], correction: simpleCorrection });
+    }
     const suggestedMindBlocks = extractMindBlockSuggestions(reply);
     const suggestedMindBlock = suggestedMindBlocks[0] ?? null;
     const correction = await analyzeUserCorrection(openai, latestUserMessage, { currentLevel })

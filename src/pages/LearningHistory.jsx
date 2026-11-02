@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { localDateKey } from "../utils/dates.js";
 import {
   Activity,
   BookOpen,
@@ -201,8 +202,8 @@ export default function LearningHistoryPage() {
 
   const groupedEvents = useMemo(() => groupEventsByDate(filteredEvents), [filteredEvents]);
   const stats = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    const todayEvents = orderedEvents.filter((event) => event.createdAt?.slice(0, 10) === today);
+    const today = localDateKey();
+    const todayEvents = orderedEvents.filter((event) => localDateKey(new Date(event.createdAt)) === today);
     return {
       total: orderedEvents.length,
       today: todayEvents.length,

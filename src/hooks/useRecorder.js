@@ -11,7 +11,7 @@ function supportedMimeType() {
  * Gravação do microfone com parada automática.
  * start({ maxMs }) começa a gravar; stop() encerra. Ao encerrar, onDone({ blob, durationMs }) é chamado.
  */
-export default function useRecorder(onDone) {
+export default function useRecorder(onDone, { onStream, onStop } = {}) {
   const [state, setState] = useState("idle"); // idle | recording | error
   const [error, setError] = useState("");
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -21,16 +21,47 @@ export default function useRecorder(onDone) {
   const startedRef = useRef(0);
   const timersRef = useRef([]);
   const onDoneRef = useRef(onDone);
+  const onStreamRef = useRef(onStream);
+  const onStopRef = useRef(onStop);
+  const mountedRef = useRef(true);
+  const startingRef = useRef(false);
+  const generationRef = useRef(0);
   onDoneRef.current = onDone;
+  onStreamRef.current = onStream;
+  onStopRef.current = onStop;
 
   const cleanup = useCallback(() => {
     timersRef.current.forEach((timer) => window.clearInterval(timer));
     timersRef.current = [];
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
+    onStopRef.current?.();
   }, []);
 
-  useEffect(() => cleanup, [cleanup]);
+  const cancel = useCallback(() => {
+    generationRef.current += 1;
+    startingRef.current = false;
+    const recorder = recorderRef.current;
+    if (recorder) {
+      recorder.onstop = null;
+      recorder.ondataavailable = null;
+      if (recorder.state !== "inactive") recorder.stop();
+    }
+    recorderRef.current = null;
+    cleanup();
+    if (mountedRef.current) {
+      setState("idle");
+      setError("");
+    }
+  }, [cleanup]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      cancel();
+    };
+  }, [cancel]);
 
   const stop = useCallback(() => {
     const recorder = recorderRef.current;
@@ -44,15 +75,25 @@ export default function useRecorder(onDone) {
   }, []);
 
   const start = useCallback(async ({ maxMs = 30000 } = {}) => {
+    if (startingRef.current || recorderRef.current?.state === "recording") return false;
+    const generation = ++generationRef.current;
+    startingRef.current = true;
     setError("");
     if (!navigator.mediaDevices?.getUserMedia || typeof window.MediaRecorder === "undefined") {
       setState("error");
       setError("Seu navegador não suporta gravação de áudio.");
+      startingRef.current = false;
       return false;
     }
+    setState("requesting");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!mountedRef.current || generation !== generationRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return false;
+      }
       streamRef.current = stream;
+      onStreamRef.current?.(stream);
       const mimeType = supportedMimeType();
       const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       chunksRef.current = [];
@@ -60,8 +101,10 @@ export default function useRecorder(onDone) {
         if (event.data.size > 0) chunksRef.current.push(event.data);
       };
       recorder.onstop = () => {
+        if (!mountedRef.current || generation !== generationRef.current) return;
         const durationMs = Date.now() - startedRef.current;
         cleanup();
+        recorderRef.current = null;
         setState("idle");
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType || mimeType || "audio/webm" });
         onDoneRef.current?.({ blob, durationMs });
@@ -80,6 +123,7 @@ export default function useRecorder(onDone) {
       );
       return true;
     } catch (err) {
+      if (!mountedRef.current || generation !== generationRef.current) return false;
       cleanup();
       setState("error");
       setError(
@@ -88,8 +132,10 @@ export default function useRecorder(onDone) {
           : "Não foi possível iniciar a gravação.",
       );
       return false;
+    } finally {
+      if (generation === generationRef.current) startingRef.current = false;
     }
   }, [cleanup, stop]);
 
-  return { state, error, elapsedMs, start, stop, recording: state === "recording" };
+  return { state, error, elapsedMs, start, stop, cancel, recording: state === "recording" };
 }

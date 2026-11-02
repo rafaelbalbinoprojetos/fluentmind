@@ -3,6 +3,8 @@ import toast from "react-hot-toast";
 import { ACHIEVEMENTS } from "../data/achievementsMock.js";
 import { recordLearningEvent } from "./learningEventEngine.js";
 import { supabase, supabaseConfigured } from "../lib/supabase.js";
+import { localDateKey, shiftDateKey } from "../utils/dates.js";
+import { userStorageKey } from "../utils/userStorage.js";
 
 export const PROGRESSION_STATE_KEY = "fluentmind_progression_state";
 export const ACHIEVEMENTS_KEY = "fluentmind_achievements";
@@ -100,7 +102,7 @@ const DAILY_MISSION_TEMPLATES = [
 ];
 
 function todayKey(date = new Date()) {
-  return date.toISOString().slice(0, 10);
+  return localDateKey(date);
 }
 
 function safeParse(value, fallback) {
@@ -197,9 +199,9 @@ function normalizeState(state) {
 
 function saveState(state) {
   if (!canUseStorage()) return state;
-  window.localStorage.setItem(PROGRESSION_STATE_KEY, JSON.stringify(state));
-  window.localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(state.achievementsUnlocked));
-  window.localStorage.setItem(DAILY_MISSIONS_KEY, JSON.stringify(state.dailyMissions));
+  window.localStorage.setItem(userStorageKey(PROGRESSION_STATE_KEY, activeProgressionUserId), JSON.stringify(state));
+  window.localStorage.setItem(userStorageKey(ACHIEVEMENTS_KEY, activeProgressionUserId), JSON.stringify(state.achievementsUnlocked));
+  window.localStorage.setItem(userStorageKey(DAILY_MISSIONS_KEY, activeProgressionUserId), JSON.stringify(state.dailyMissions));
   window.dispatchEvent(new CustomEvent(PROGRESSION_EVENT, { detail: state }));
   persistProgressionState(state);
   return state;
@@ -207,7 +209,7 @@ function saveState(state) {
 
 export function getProgressionState() {
   if (!canUseStorage()) return defaultState();
-  return normalizeState(safeParse(window.localStorage.getItem(PROGRESSION_STATE_KEY), defaultState()));
+  return normalizeState(safeParse(window.localStorage.getItem(userStorageKey(PROGRESSION_STATE_KEY, activeProgressionUserId)), defaultState()));
 }
 
 export function updateProgressionState(updater) {
@@ -242,7 +244,12 @@ async function persistProgressionState(state) {
 }
 
 export function configureProgressionPersistence(userId) {
-  activeProgressionUserId = userId || null;
+  const nextUserId = userId || null;
+  if (nextUserId === activeProgressionUserId) return;
+  activeProgressionUserId = nextUserId;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(PROGRESSION_EVENT, { detail: getProgressionState() }));
+  }
 }
 
 export async function hydrateProgressionState(userId = activeProgressionUserId) {
@@ -255,6 +262,9 @@ export async function hydrateProgressionState(userId = activeProgressionUserId) 
     .select("*")
     .eq("user_id", userId)
     .maybeSingle();
+
+  // A response for a signed-out account must not overwrite the current account.
+  if (userId !== activeProgressionUserId) return localState;
 
   if (error) {
     console.warn("[progression] Hydration skipped:", error.message);
@@ -293,9 +303,7 @@ function showProgressToast(title, subtitle) {
 function updateStreak(state, dateKey) {
   if (state.lastActivityDate === dateKey) return state;
 
-  const yesterday = new Date(`${dateKey}T00:00:00.000Z`);
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-  const yesterdayKey = todayKey(yesterday);
+  const yesterdayKey = shiftDateKey(dateKey, -1);
 
   state.streak = state.lastActivityDate === yesterdayKey ? state.streak + 1 : 1;
   state.lastActivityDate = dateKey;
@@ -411,6 +419,7 @@ export function updateDailyMission(action, state = getProgressionState()) {
 }
 
 export function addXp(amount, reason = "Progress", options = {}) {
+  if ("userId" in options && options.userId !== activeProgressionUserId) return { state: getProgressionState(), levelUps: [], achievements: [] };
   let state = resetDailyMissionsIfNewDay(getProgressionState());
   const dateKey = todayKey();
   state = updateStreak(state, dateKey);
@@ -435,6 +444,7 @@ export function addXp(amount, reason = "Progress", options = {}) {
 }
 
 export function trackProgressionAction(action, meta = {}) {
+  if ("userId" in meta && meta.userId !== activeProgressionUserId) return null;
   let state = resetDailyMissionsIfNewDay(getProgressionState());
   const dateKey = todayKey();
 

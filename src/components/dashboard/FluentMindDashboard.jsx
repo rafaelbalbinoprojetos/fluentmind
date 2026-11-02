@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 import {
   BarChart3,
   BookMarked,
@@ -27,6 +27,8 @@ import {
   Zap,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { userStorageKey } from "../../utils/userStorage.js";
+import { localDateKey } from "../../utils/dates.js";
 import BrainCompanion from "../BrainCompanion.jsx";
 import EvolvingBrain from "../EvolvingBrain.jsx";
 import NeuralBrain from "../NeuralBrain.jsx";
@@ -39,20 +41,8 @@ import { listReviewEvents } from "../../services/reviewEvents.js";
 import { buildActivityByDate, getOrCreateLearningProfile, listDailyActivity } from "../../services/learningProgress.js";
 import { getLearningEvents, LEARNING_EVENTS_UPDATED } from "../../services/learningEventEngine.js";
 
-const progressBars = [
-  { day: "Seg", value: 54 },
-  { day: "Ter", value: 72 },
-  { day: "Qua", value: 48 },
-  { day: "Qui", value: 84 },
-  { day: "Sex", value: 66 },
-  { day: "Sab", value: 92 },
-  { day: "Dom", value: 78 },
-];
-
-const dayLabels = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"];
-
 const quickActions = [
-  { label: "Nova conversa", shortcut: "N", description: "Pratique com IA", icon: MessageCircle, to: "/chatbot" },
+  { label: "Conversa livre", shortcut: "N", description: "Converse por texto e voz", icon: MessageCircle, to: "/conversar" },
   { label: "Treino do dia", shortcut: "T", description: "Siga o caminho de hoje", icon: Target, to: "/daily-workout" },
   { label: "Revisão rápida", shortcut: "R", description: "Fortaleça a memória", icon: RotateCcw, to: "/insights" },
   { label: "Adicionar expressão", shortcut: "S", description: "Salve um MindBlock", icon: Plus, to: "/biblioteca" },
@@ -105,27 +95,6 @@ function getDayIndex(length, offset = 0) {
   return (day + offset) % length;
 }
 
-function getAdaptiveDashboardMessage(context) {
-  if (context.goalProgress >= 100) {
-    return { title: "🎉 Excelente!", subtitle: "Pronto para mais um desafio?", brainState: "goal-complete" };
-  }
-  if (context.streakDays >= 7) {
-    return { title: "🔥 Não quebre a sequência.", subtitle: "Uma semana mais forte que antes.", brainState: "streak" };
-  }
-  if (context.daysInactive >= 7) {
-    return { title: "😴 Seu cérebro sentiu falta da prática.", subtitle: "Vamos acordar sua fluência.", brainState: "sleeping" };
-  }
-  if (context.daysInactive >= 2) {
-    return { title: "😴 Seu eu do futuro está esperando.", subtitle: "Um pequeno MindBlock já reinicia o ritmo.", brainState: "inactive" };
-  }
-  if (context.pendingReviews >= 20) {
-    return { title: "📚 Sua memória precisa de reforço.", subtitle: "Revisar hoje protege o progresso de ontem.", brainState: "review-complete" };
-  }
-  if (context.studiedTodayMinutes >= 45) {
-    return { title: "⚡ Você está em ritmo forte hoje.", subtitle: "Seu cérebro está criando reflexos de fluência.", brainState: "goal-complete" };
-  }
-  return { title: "☀️ Vamos fazer o dia contar.", subtitle: motivationalMessages[getDayIndex(motivationalMessages.length)], brainState: "idle" };
-}
 
 function getDisplayName(user, profile, preferences) {
   return profile?.display_name
@@ -177,7 +146,7 @@ function buildUserContext({ profile, mindBlocks, reviewEvents, activity }) {
   const dailyGoal = Number(profile?.daily_expression_goal) || 30;
   const reviewedFallback = reviewEvents?.filter((event) => {
     if (!event.reviewed_at) return false;
-    return event.reviewed_at.slice(0, 10) === new Date().toISOString().slice(0, 10);
+    return localDateKey(new Date(event.reviewed_at)) === localDateKey();
   }).length ?? 0;
   const goalDone = todaySaved + todayReviewed + reviewedFallback;
 
@@ -196,16 +165,6 @@ function buildUserContext({ profile, mindBlocks, reviewEvents, activity }) {
   };
 }
 
-function buildStats({ mindBlocks, playlists }, context) {
-  const hours = context.weeklyStudyMinutes > 0 ? `${(context.weeklyStudyMinutes / 60).toFixed(1)}h` : "0h";
-
-  return [
-    { label: "Expressões", value: String(mindBlocks?.length ?? 0), change: `${context.goalDone}/${context.dailyGoal} hoje`, icon: BookOpen },
-    { label: "Playlists", value: String(playlists?.length ?? 0), change: "listas ativas", icon: Library },
-    { label: "Horas estudadas", value: hours, change: `${context.studiedTodayMinutes} min hoje`, icon: Clock3 },
-    { label: "Sequência", value: String(context.streakDays), change: "dias seguidos", icon: Zap, tone: "warning" },
-  ];
-}
 
 function buildRecentExpressions(mindBlocks) {
   return (mindBlocks ?? []).slice(0, 3).map((item) => ({
@@ -234,24 +193,6 @@ function buildTodayExpression(mindBlocks) {
   return dailyExpressions[getDayIndex(dailyExpressions.length)];
 }
 
-function buildWeeklyProgress(activity) {
-  if (!activity?.length) return progressBars;
-
-  const rawValues = activity.map((row) => (
-    (Number(row.study_minutes) || 0)
-    + (Number(row.expressions_saved) || 0) * 3
-    + (Number(row.expressions_reviewed) || 0) * 2
-  ));
-  const maxValue = Math.max(0, ...rawValues);
-
-  return activity.map((row, index) => {
-    const rawValue = rawValues[index] ?? 0;
-    return {
-      day: dayLabels[index] ?? row.activity_date?.slice(5),
-      value: maxValue > 0 ? Math.max(8, Math.round((rawValue / maxValue) * 100)) : 0,
-    };
-  });
-}
 
 export default function FluentMindDashboard() {
   const { user, userPreferences, updateUserPreferences } = useAuth();
@@ -271,21 +212,18 @@ export default function FluentMindDashboard() {
     if (typeof window === "undefined") {
       return false;
     }
-    return window.localStorage.getItem(FIRST_DASHBOARD_EXPERIENCE_KEY) === "true";
+    return window.localStorage.getItem(userStorageKey(FIRST_DASHBOARD_EXPERIENCE_KEY, user?.id)) === "true";
   });
   const progression = useProgression();
   const greeting = useMemo(() => getGreeting(), []);
   const displayName = useMemo(() => getDisplayName(user, dashboardData.profile, userPreferences), [dashboardData.profile, user, userPreferences]);
   const dailyExpression = useMemo(() => buildTodayExpression(dashboardData.mindBlocks), [dashboardData.mindBlocks]);
   const userContext = useMemo(() => buildUserContext(dashboardData), [dashboardData]);
-  const adaptiveMessage = useMemo(() => getAdaptiveDashboardMessage(userContext), [userContext]);
-  const stats = useMemo(() => buildStats(dashboardData, userContext), [dashboardData, userContext]);
   const recentExpressions = useMemo(() => buildRecentExpressions(dashboardData.mindBlocks), [dashboardData.mindBlocks]);
-  const weeklyProgress = useMemo(() => buildWeeklyProgress(dashboardData.activity), [dashboardData.activity]);
   const dailyHeroMessage = useMemo(() => motivationalMessages[getDayIndex(motivationalMessages.length)], []);
 
   const completeFirstExperience = () => {
-    window.localStorage.removeItem(FIRST_DASHBOARD_EXPERIENCE_KEY);
+    window.localStorage.removeItem(userStorageKey(FIRST_DASHBOARD_EXPERIENCE_KEY, user?.id));
     updateUserPreferences?.({ extra: { firstDashboardExperience: false } }).catch((error) => {
       console.warn("[dashboard] Falha ao salvar primeira experiencia:", error.message);
     });
@@ -362,25 +300,30 @@ export default function FluentMindDashboard() {
 
         <DailyMissionCenter progression={progression} dailyExpression={dailyExpression} />
 
-        <GrowthSection
-          mindBlocks={dashboardData.mindBlocks}
-          playlists={dashboardData.playlists}
-          progression={progression}
-          context={userContext}
-          learningEvents={learningEvents}
-        />
-
-        <section className="grid gap-5 xl:grid-cols-[0.9fr,1.1fr]">
-          <BrainInsights mindBlocks={dashboardData.mindBlocks} context={userContext} learningEvents={learningEvents} />
-          <ActivityFeed learningEvents={learningEvents} progression={progression} mindBlocks={dashboardData.mindBlocks} />
-        </section>
-
         <ModernRecentExpressions expressions={recentExpressions} />
 
-        <section className="grid gap-5 xl:grid-cols-[1fr,0.72fr]">
-          <PremiumQuickActions />
-          <QuoteCard />
-        </section>
+        <PremiumQuickActions />
+
+        {/* Estatísticas detalhadas ficam recolhidas para a tela inicial focar na próxima ação. */}
+        <details className="group">
+          <summary className="fm-ghost-button inline-flex cursor-pointer list-none items-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold">
+            Ver estatísticas e atividade <ChevronRight className="h-4 w-4 transition group-open:rotate-90" />
+          </summary>
+          <div className="mt-6 space-y-6">
+            <GrowthSection
+              mindBlocks={dashboardData.mindBlocks}
+              playlists={dashboardData.playlists}
+              progression={progression}
+              context={userContext}
+              learningEvents={learningEvents}
+            />
+            <section className="grid gap-5 xl:grid-cols-[0.9fr,1.1fr]">
+              <BrainInsights mindBlocks={dashboardData.mindBlocks} context={userContext} learningEvents={learningEvents} />
+              <ActivityFeed learningEvents={learningEvents} progression={progression} mindBlocks={dashboardData.mindBlocks} />
+            </section>
+            <QuoteCard />
+          </div>
+        </details>
       </div>
 
       <AiCoachButton onClick={() => setCoachOpen(true)} />
@@ -396,7 +339,7 @@ function PremiumDashboardHero({ greeting, displayName, message, progression, con
   const neuralConnections = Math.max(12, mindBlocks.length * 6 + learningEvents.length * 3 + playlists.length * 4);
 
   return (
-    <motion.section
+    <Motion.section
       className="fm-hero-evolution"
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
@@ -408,6 +351,20 @@ function PremiumDashboardHero({ greeting, displayName, message, progression, con
         </p>
         <h1>{greeting}, {displayName} <span aria-hidden="true">👋</span></h1>
         <p className="fm-hero-message">{message}</p>
+
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link to="/daily-workout" className="fm-primary-button inline-flex items-center gap-2 rounded-2xl px-6 py-4 text-base font-black">
+            Começar treino de hoje <ChevronRight className="h-5 w-5" />
+          </Link>
+          <Link to="/neo" className="fm-ghost-button inline-flex items-center gap-2 rounded-2xl px-5 py-4 text-sm font-bold">
+            Conversar com Neo
+          </Link>
+        </div>
+        <p className="fm-muted mt-2 text-sm">
+          {context.pendingReviews > 0
+            ? `${context.pendingReviews} expressões esperando revisão · cerca de 10 min`
+            : "Revisão, escuta e um desafio rápido · cerca de 10 min"}
+        </p>
 
         <div className="fm-hero-xp-panel">
           <div>
@@ -430,7 +387,7 @@ function PremiumDashboardHero({ greeting, displayName, message, progression, con
             <span>{remainingXp} XP until Level {progression.currentLevel + 1}</span>
           </div>
           <div className="fm-hero-progress-track">
-            <motion.div
+            <Motion.div
               className="fm-hero-progress-fill"
               initial={{ width: 0 }}
               animate={{ width: `${xpPercent}%` }}
@@ -456,7 +413,7 @@ function PremiumDashboardHero({ greeting, displayName, message, progression, con
           showStats={false}
         />
       </div>
-    </motion.section>
+    </Motion.section>
   );
 }
 
@@ -478,7 +435,7 @@ function DailyMissionCenter({ progression, dailyExpression }) {
   ];
 
   return (
-    <motion.section className="fm-mission-center" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
+    <Motion.section className="fm-mission-center" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
       <div className="fm-section-heading">
         <div>
           <p className="fm-accent text-xs font-semibold uppercase tracking-[0.18em]">Missão cerebral de hoje</p>
@@ -491,12 +448,12 @@ function DailyMissionCenter({ progression, dailyExpression }) {
       </div>
 
       <div className="fm-mission-progress-track">
-        <motion.div className="fm-mission-progress-fill" initial={{ width: 0 }} animate={{ width: `${missionProgress}%` }} />
+        <Motion.div className="fm-mission-progress-fill" initial={{ width: 0 }} animate={{ width: `${missionProgress}%` }} />
       </div>
 
       <div className="fm-mission-grid">
         {missions.map((mission, index) => (
-          <motion.article
+          <Motion.article
             key={mission.id}
             className={`fm-mission-card ${mission.completed ? "is-complete" : ""}`}
             whileHover={{ y: -4, scale: 1.01 }}
@@ -508,7 +465,7 @@ function DailyMissionCenter({ progression, dailyExpression }) {
               <p>{mission.description}</p>
               <small>{mission.progress}/{mission.target} · +{mission.xpReward} XP</small>
             </div>
-          </motion.article>
+          </Motion.article>
         ))}
       </div>
 
@@ -517,12 +474,12 @@ function DailyMissionCenter({ progression, dailyExpression }) {
       </Link>
 
       {missionProgress >= 100 ? (
-        <motion.div className="fm-mission-complete" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}>
+        <Motion.div className="fm-mission-complete" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}>
           <strong>Crescimento cerebral concluído</strong>
           <span>+150 XP</span>
-        </motion.div>
+        </Motion.div>
       ) : null}
-    </motion.section>
+    </Motion.section>
   );
 }
 
@@ -546,7 +503,7 @@ function GrowthSection({ mindBlocks, playlists, progression, context, learningEv
       </div>
       <div className="fm-growth-grid">
         {cards.map((card, index) => (
-          <motion.article
+          <Motion.article
             key={card.label}
             className={`fm-growth-card is-${card.tone}`}
             initial={{ opacity: 0, y: 14 }}
@@ -558,7 +515,7 @@ function GrowthSection({ mindBlocks, playlists, progression, context, learningEv
             <p>{card.label}</p>
             <strong><AnimatedNumber value={card.value} />{card.suffix || ""}</strong>
             <span>{card.change}</span>
-          </motion.article>
+          </Motion.article>
         ))}
       </div>
     </section>
@@ -608,10 +565,10 @@ function BrainInsights({ mindBlocks, context, learningEvents }) {
       </div>
       <div className="fm-insight-list">
         {insights.map((insight, index) => (
-          <motion.div key={insight} className="fm-insight-item" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }}>
+          <Motion.div key={insight} className="fm-insight-item" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }}>
             <Sparkles className="h-4 w-4" />
             <span>{insight}</span>
-          </motion.div>
+          </Motion.div>
         ))}
       </div>
     </article>
@@ -656,14 +613,14 @@ function ActivityFeed({ learningEvents, progression, mindBlocks }) {
       </div>
       <div className="fm-activity-list">
         {activities.map((item, index) => (
-          <motion.div key={item.id} className="fm-activity-item" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }}>
+          <Motion.div key={item.id} className="fm-activity-item" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }}>
             <span>{React.createElement(item.icon, { className: "h-4 w-4" })}</span>
             <div>
               <strong>{item.title}</strong>
               <p>{item.body}</p>
             </div>
             <small>{item.time}</small>
-          </motion.div>
+          </Motion.div>
         ))}
       </div>
     </article>
@@ -695,7 +652,7 @@ function ModernRecentExpressions({ expressions }) {
         {(expressions.length ? expressions : dailyExpressions.slice(0, 3)).map((item, index) => {
           const phrase = item.phrase || item.expression;
           return (
-            <motion.article key={phrase} className="fm-expression-modern-card" whileHover={{ y: -4 }} transition={{ type: "spring", stiffness: 260, damping: 20 }}>
+            <Motion.article key={phrase} className="fm-expression-modern-card" whileHover={{ y: -4 }} transition={{ type: "spring", stiffness: 260, damping: 20 }}>
               <span className="fm-chip rounded-full border px-2.5 py-1 text-[11px] font-semibold">{item.category || "Daily Fluency"}</span>
               <h3>{phrase}</h3>
               <p>{item.translation}</p>
@@ -704,7 +661,7 @@ function ModernRecentExpressions({ expressions }) {
                 <Link to="/chatbot"><MessageCircle className="h-4 w-4" /> Praticar</Link>
                 <span>{item.mastery ?? 10 + index * 12}%</span>
               </div>
-            </motion.article>
+            </Motion.article>
           );
         })}
       </div>
@@ -723,7 +680,7 @@ function PremiumQuickActions() {
       </div>
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {quickActions.map((action) => (
-          <motion.div key={action.label} whileHover={{ y: -4 }} transition={{ type: "spring", stiffness: 260, damping: 20 }}>
+          <Motion.div key={action.label} whileHover={{ y: -4 }} transition={{ type: "spring", stiffness: 260, damping: 20 }}>
             <Link to={action.to} className="fm-inner group block rounded-2xl border p-4">
               <div className="flex items-start justify-between gap-3">
                 <span className="fm-chip flex h-11 w-11 items-center justify-center rounded-2xl border-0">
@@ -734,7 +691,7 @@ function PremiumQuickActions() {
               <p className="mt-4 text-sm font-semibold">{action.label}</p>
               <p className="fm-subtle mt-1 text-xs">{action.description}</p>
             </Link>
-          </motion.div>
+          </Motion.div>
         ))}
       </div>
     </article>
@@ -964,17 +921,18 @@ function StreakCard({ streakDays }) {
 
 function SmartDailyPlan({ context }) {
   const plan = [
-    { label: "Revisar expressões", value: String(Math.max(3, context.pendingReviews || 0)), icon: RotateCcw },
-    { label: "Praticar escuta", value: `${Math.max(8, Math.round(context.studiedTodayMinutes / 2) || 8)} min`, icon: Headphones },
+    { label: "Revisar expressões", value: String(context.pendingReviews || 0), icon: RotateCcw },
+    { label: "Praticar escuta", value: "5 min", icon: Headphones },
     { label: "Aquecimento de conversa", value: "5 min", icon: MessageCircle },
   ];
+  const estimatedMinutes = Math.ceil((context.pendingReviews || 0) * 0.5) + 10;
 
   return (
     <article className="fm-card rounded-[30px] border p-5 shadow-md backdrop-blur-xl">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="fm-muted text-sm font-semibold">Plano inteligente do dia</p>
-          <h2 className="mt-2 text-xl font-semibold">Estimativa: {Math.max(15, context.studiedTodayMinutes + 12)} min</h2>
+          <h2 className="mt-2 text-xl font-semibold">Estimativa: {estimatedMinutes} min</h2>
         </div>
         <CalendarCheck2 className="fm-secondary h-5 w-5" />
       </div>

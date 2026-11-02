@@ -107,6 +107,8 @@ export async function fetchUltraAccessPassByUserId(userId, email) {
     throw error;
   }
 
+  if (!data) return fetchUltraAccessPass(email);
+
   const record = data ?? null;
   const active = isActiveGrant(record);
   const plan = record?.plan ? normalizePlan(record.plan) : null;

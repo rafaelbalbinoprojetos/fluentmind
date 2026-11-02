@@ -21,6 +21,8 @@ import TermsOfUsePage from "./pages/TermsOfUse.jsx";
 import LandingPage from "./pages/Landing.jsx";
 import UltraAccessConfirmPage from "./pages/UltraAccessConfirm.jsx";
 import UsersManagementPage from "./pages/UsersManagement.jsx";
+import SimpleConversationPage from "./pages/SimpleConversation.jsx";
+import NeoImmersivePage from "./pages/NeoImmersive.jsx";
 
 function App() {
   return (
@@ -35,6 +37,8 @@ function App() {
         <Route path="/termos-de-uso" element={<TermsOfUsePage />} />
 
         <Route element={<ProtectedRoute />}>
+          <Route path="conversar" element={<SimpleConversationPage />} />
+          <Route path="neo" element={<NeoImmersivePage />} />
           <Route element={<Layout />}>
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="daily-workout" element={<DailyWorkoutPage />} />

@@ -1,4 +1,6 @@
 import { supabase, supabaseConfigured } from "../lib/supabase.js";
+import { localDateKey } from "../utils/dates.js";
+import { userStorageKey } from "../utils/userStorage.js";
 
 export const LEARNING_EVENTS_KEY = "fluentmind_learning_events";
 export const LEARNING_EVENTS_UPDATED = "fluentmind:learning-events-updated";
@@ -58,7 +60,7 @@ function slugify(value) {
 }
 
 function todayKey(date = new Date()) {
-  return date.toISOString().slice(0, 10);
+  return localDateKey(date);
 }
 
 function importantWords(value) {
@@ -93,14 +95,14 @@ function getPosition(index, total, radius = 260, centerX = 500, centerY = 380) {
 
 function saveEvents(events) {
   if (!canUseStorage()) return events;
-  window.localStorage.setItem(LEARNING_EVENTS_KEY, JSON.stringify(events));
+  window.localStorage.setItem(userStorageKey(LEARNING_EVENTS_KEY, activeLearningEventsUserId), JSON.stringify(events));
   emitLearningEventsUpdated(events);
   return events;
 }
 
 export function getLearningEvents() {
   if (!canUseStorage()) return [];
-  return safeParse(window.localStorage.getItem(LEARNING_EVENTS_KEY), []);
+  return safeParse(window.localStorage.getItem(userStorageKey(LEARNING_EVENTS_KEY, activeLearningEventsUserId)), []);
 }
 
 function toEventRow(event, userId = activeLearningEventsUserId) {
@@ -150,7 +152,10 @@ async function persistEvents(events) {
 }
 
 export function configureLearningEventsPersistence(userId) {
-  activeLearningEventsUserId = userId || null;
+  const nextUserId = userId || null;
+  if (nextUserId === activeLearningEventsUserId) return;
+  activeLearningEventsUserId = nextUserId;
+  emitLearningEventsUpdated(getLearningEvents());
 }
 
 export async function hydrateLearningEvents(userId = activeLearningEventsUserId) {
@@ -164,6 +169,8 @@ export async function hydrateLearningEvents(userId = activeLearningEventsUserId)
     .eq("user_id", userId)
     .order("created_at", { ascending: true })
     .limit(1000);
+
+  if (userId !== activeLearningEventsUserId) return localEvents;
 
   if (error) {
     console.warn("[learning-events] Hydration skipped:", error.message);
@@ -185,7 +192,8 @@ export async function hydrateLearningEvents(userId = activeLearningEventsUserId)
   return events;
 }
 
-export function recordLearningEvent(type, payload = {}, source = "app") {
+export function recordLearningEvent(type, payload = {}, source = "app", userId = activeLearningEventsUserId) {
+  if (userId !== activeLearningEventsUserId) return null;
   const event = {
     id: `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     type,
@@ -449,7 +457,7 @@ export function buildNeuralUniverseFromEvents(events = getLearningEvents()) {
       mastered: positioned.filter((node) => node.type === "mastered").length,
       reviewDue: positioned.filter((node) => node.type === "reviewDue" || node.mastery < 45).length,
       largestCluster,
-      growthToday: orderedEvents.filter((event) => event.createdAt?.slice(0, 10) === today).length,
+      growthToday: orderedEvents.filter((event) => localDateKey(new Date(event.createdAt)) === today).length,
       mindBlocks: orderedEvents.filter((event) => event.type === "expression_saved").length,
       corrections: orderedEvents.filter((event) => event.type === "correction_saved").length,
       conversations: orderedEvents.filter((event) => event.type === "conversation_completed").length,

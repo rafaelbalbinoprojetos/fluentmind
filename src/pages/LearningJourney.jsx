@@ -1,3 +1,4 @@
+import useLearningActions from "../hooks/useLearningActions.js";
 import React, { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import {
@@ -24,37 +25,18 @@ import {
   getChapterChecklist,
   getInitialJourneyProgress,
   getOverallJourneyProgress,
-  LEARNING_JOURNEY_KEY,
   learningJourneyChapters,
 } from "../data/learningJourney.js";
 import { createMindBlock } from "../services/mindblocks.js";
-import { recordLearningEvent } from "../services/learningEventEngine.js";
-import { addXp, getProgressionState, trackProgressionAction, updateProgressionState } from "../services/progressionEngine.js";
 
-function canUseStorage() {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
-}
+import { getProgressionState, updateProgressionState } from "../services/progressionEngine.js";
 
 function loadJourneyProgress() {
-  const progressionJourney = getProgressionState()?.learningJourney;
-  if (progressionJourney) return { ...getInitialJourneyProgress(), ...progressionJourney };
-  if (!canUseStorage()) return getInitialJourneyProgress();
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(LEARNING_JOURNEY_KEY) || "null");
-    return parsed ? { ...getInitialJourneyProgress(), ...parsed } : getInitialJourneyProgress();
-  } catch {
-    return getInitialJourneyProgress();
-  }
+  return { ...getInitialJourneyProgress(), ...getProgressionState()?.learningJourney };
 }
 
 function saveJourneyProgress(progress) {
-  if (canUseStorage()) {
-    window.localStorage.setItem(LEARNING_JOURNEY_KEY, JSON.stringify(progress));
-  }
-  updateProgressionState((state) => ({
-    ...state,
-    learningJourney: progress,
-  }));
+  updateProgressionState((state) => ({ ...state, learningJourney: progress }));
   return progress;
 }
 
@@ -86,6 +68,7 @@ function createChapterMindBlockPayload(chapter, [expression, translation]) {
 }
 
 export default function LearningJourneyPage() {
+  const { recordLearningEvent, trackProgressionAction, addXp } = useLearningActions();
   const { user } = useAuth();
   const progression = useProgression();
   const [journeyProgress, setJourneyProgress] = useState(loadJourneyProgress);
@@ -99,11 +82,11 @@ export default function LearningJourneyPage() {
   useEffect(() => {
     if (!progression.learningJourney) return;
     const remoteProgress = { ...getInitialJourneyProgress(), ...progression.learningJourney };
-    if (remoteProgress.lastUpdatedAt && remoteProgress.lastUpdatedAt !== journeyProgress.lastUpdatedAt) {
-      setJourneyProgress(remoteProgress);
+    if (remoteProgress.lastUpdatedAt) {
+      setJourneyProgress((current) => current.lastUpdatedAt === remoteProgress.lastUpdatedAt ? current : remoteProgress);
       setSelectedChapterId(remoteProgress.activeChapterId || learningJourneyChapters[0].id);
     }
-  }, [progression.learningJourney?.lastUpdatedAt, user?.id]);
+  }, [progression.learningJourney, user?.id]);
 
   const completedSet = useMemo(() => new Set(journeyProgress.completedChapterIds || []), [journeyProgress.completedChapterIds]);
   const selectedChapter = learningJourneyChapters.find((chapter) => chapter.id === selectedChapterId) || learningJourneyChapters[0];

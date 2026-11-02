@@ -21,11 +21,8 @@ export default function UsersManagementPage() {
   const [error, setError] = useState(null);
   const [grants, setGrants] = useState([]);
 
-  if (!isMasterUser) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
   useEffect(() => {
+    if (!isMasterUser) return;
     let ignore = false;
 
     async function loadStats() {
@@ -47,7 +44,7 @@ export default function UsersManagementPage() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [isMasterUser]);
 
   const stats = useMemo(() => {
     const activeGrants = grants.filter(isActiveGrant);
@@ -60,6 +57,8 @@ export default function UsersManagementPage() {
       temporaryAccessCount: temporaryGrants,
     };
   }, [grants]);
+
+  if (!isMasterUser) return <Navigate to="/dashboard" replace />;
 
   return (
     <div className="space-y-8">

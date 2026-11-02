@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { confirmUltraAccess } from "../services/ultraAccess.js";
 
 export default function UltraAccessConfirmPage() {
-  const { user, session } = useAuth();
+  const { user, session, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
@@ -29,6 +29,7 @@ export default function UltraAccessConfirmPage() {
         token,
         accessToken: session.access_token,
       });
+      await refreshUser();
       toast.success("Acesso vitalício confirmado com sucesso.");
       navigate("/configuracoes", { replace: true });
     } catch (error) {

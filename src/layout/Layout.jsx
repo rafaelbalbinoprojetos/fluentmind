@@ -7,12 +7,13 @@ import VoiceRecordingModal from "../components/VoiceRecordingModal.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import toast, { Toaster } from "react-hot-toast";
 import {
+  NAV_GROUPS,
   NAV_LINKS,
   normalizeMobileNavSelection,
 } from "../data/navigation.js";
 
 const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
-const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+
 
 const ICON_MAP = {
   dashboard: DashboardIcon,
@@ -22,6 +23,8 @@ const ICON_MAP = {
   playlists: LibraryIcon,
   insights: InsightsIcon,
   speaking: ChatbotIcon,
+  simpleConversation: ChatbotIcon,
+  neoImmersive: ChatbotIcon,
   chatbot: ChatbotIcon,
   conversations: ChatbotIcon,
   mistakes: InsightsIcon,
@@ -150,11 +153,12 @@ export default function Layout() {
   const navigate = useNavigate();
   const isChatbotRoute = location.pathname === "/chatbot";
   const navId = "primary-navigation";
-  const { user, session, signOut, updateUserMetadata, updateUserPreferences, userPreferences, subscription } = useAuth();
+  const { user, session, signOut, updateUserMetadata, updateUserPreferences, userPreferences, subscription, startTrial } = useAuth();
   const userMetadata = React.useMemo(() => user?.user_metadata ?? {}, [user]);
-  const fallbackPlan = userMetadata.plan ?? "free";
-  const fallbackTrialStatus = userMetadata.trial_status ?? "eligible";
-  const fallbackTrialEndsAt = userMetadata.trial_expires_at ? new Date(userMetadata.trial_expires_at) : null;
+  const accessMetadata = user?.app_metadata ?? {};
+  const fallbackPlan = accessMetadata.plan ?? "free";
+  const fallbackTrialStatus = accessMetadata.trial_status ?? "eligible";
+  const fallbackTrialEndsAt = accessMetadata.trial_expires_at ? new Date(accessMetadata.trial_expires_at) : null;
   const fallbackTrialExpired = Boolean(fallbackTrialEndsAt) && fallbackTrialEndsAt.getTime() <= Date.now();
   const fallbackTrialActive = fallbackTrialStatus === "active" && Boolean(fallbackTrialEndsAt) && !fallbackTrialExpired;
   const fallbackHasPremiumAccess = fallbackPlan === "premium" || fallbackTrialActive;
@@ -165,8 +169,6 @@ export default function Layout() {
   const {
     plan = fallbackPlan,
     effectivePlan = fallbackPlan,
-    trialStatus = fallbackTrialStatus,
-    trialExpired = fallbackTrialExpired,
     trialActive = fallbackTrialActive,
     hasPremiumAccess = fallbackHasPremiumAccess,
     hasLifetimeAccess = false,
@@ -174,14 +176,14 @@ export default function Layout() {
     trialDaysLeft = fallbackTrialDaysLeft,
   } = subscription ?? {};
   const navItems = React.useMemo(
-    () => NAV_ITEMS.filter((item) => item.id !== "users" || isMasterUser),
+    () => NAV_ITEMS.filter((item) => item.group && (item.id !== "users" || isMasterUser)),
     [isMasterUser],
   );
   const hasSeenWelcome = userPreferences?.extra?.hasSeenWelcome === true || userMetadata.has_seen_welcome === true;
   const mobileNavPreference = userPreferences?.mobileNavPaths ?? userMetadata.mobile_nav_paths;
   const mobileNavItems = React.useMemo(() => {
     const paths = normalizeMobileNavSelection(mobileNavPreference);
-    return paths.map((path) => NAV_ITEMS_BY_PATH.get(path)).filter(Boolean);
+    return paths.map((path) => NAV_ITEMS_BY_PATH.get(path)).filter(Boolean).slice(0, 5);
   }, [mobileNavPreference]);
   const notificationContainerRef = React.useRef(null);
   const refreshNotifications = React.useCallback(() => {
@@ -250,76 +252,21 @@ export default function Layout() {
     }
   }, [user, hasSeenWelcome, welcomeDismissed, welcomeOpen]);
 
-  useEffect(() => {
-    if (!updateUserMetadata) return;
-    if (trialStatus === "active" && trialExpired) {
-      updateUserMetadata({ trial_status: "expired" }).catch((error) => {
-        console.error("Erro ao atualizar status do teste:", error);
-      });
-    }
-  }, [trialExpired, trialStatus, updateUserMetadata]);
-
   const activateTrial = React.useCallback(
     async ({ markSeen = true, activate = true } = {}) => {
-      if (!updateUserMetadata || !user) {
-        return "noop";
+      if (!user) return "noop";
+      let result = hasPremiumAccess ? "already" : "noop";
+      if (activate && !hasPremiumAccess) {
+        const trial = await startTrial();
+        result = trial.trial_status === "active" ? "activated" : "expired";
       }
-
-      const metadata = userMetadata;
-      const alreadyPremium = metadata.plan === "premium" || hasLifetimeAccess;
-      const expiresAt = metadata.trial_expires_at ? new Date(metadata.trial_expires_at) : null;
-      const trialExpiredFlag = Boolean(expiresAt) && expiresAt.getTime() <= Date.now();
-      const isActive = metadata.trial_status === "active" && !trialExpiredFlag;
-      const alreadyStarted = Boolean(metadata.trial_started_at);
-      const trialConsumed = alreadyStarted && trialExpiredFlag && metadata.trial_status === "expired";
-      const payload = {};
-      let result = "noop";
-
-      if (markSeen && metadata.has_seen_welcome !== true) {
-        payload.has_seen_welcome = true;
-        result = "marked";
+      if (markSeen) {
+        await updateUserMetadata({ has_seen_welcome: true });
+        await updateUserPreferences({ extra: { hasSeenWelcome: true } });
       }
-      if (markSeen && userPreferences?.extra?.hasSeenWelcome !== true) {
-        updateUserPreferences?.({ extra: { hasSeenWelcome: true } }).catch((error) => {
-          console.warn("[welcome] Falha ao salvar boas-vindas no Supabase:", error.message);
-        });
-      }
-
-      const isEligibleStatus = !metadata.trial_status || metadata.trial_status === "eligible";
-      const canActivate = activate && !alreadyPremium && !alreadyStarted && isEligibleStatus;
-
-      if (canActivate) {
-        const now = new Date();
-        const expires = new Date(now.getTime() + TRIAL_DURATION_MS);
-        payload.trial_status = "active";
-        payload.trial_started_at = now.toISOString();
-        payload.trial_expires_at = expires.toISOString();
-        result = "activated";
-      }
-
-      if (Object.keys(payload).length === 0) {
-        if (alreadyPremium || isActive) {
-          return "already";
-        }
-        if (trialConsumed) {
-          return "expired";
-        }
-        return result;
-      }
-
-      await updateUserMetadata(payload);
-      if (result === "activated") {
-        return "activated";
-      }
-      if (alreadyPremium || isActive) {
-        return "already";
-      }
-      if (trialConsumed) {
-        return "expired";
-      }
-      return result;
+      return result === "noop" && markSeen ? "marked" : result;
     },
-    [hasLifetimeAccess, updateUserMetadata, updateUserPreferences, user, userMetadata, userPreferences?.extra?.hasSeenWelcome],
+    [hasPremiumAccess, startTrial, updateUserMetadata, updateUserPreferences, user],
   );
 
   const handleWelcomeStart = React.useCallback(async () => {
@@ -371,6 +318,7 @@ export default function Layout() {
       }
     } catch (error) {
       console.error("Erro ao ativar teste Premium:", error);
+      setWelcomeDismissed(false);
       toast.error("Não foi possível ativar o teste agora. Tente novamente mais tarde.");
     }
   }, [activateTrial]);
@@ -587,8 +535,11 @@ export default function Layout() {
             </button>
           </div>
 
-          <nav className="flex flex-col gap-1.5 px-4 py-5">
-            {navItems.map((item) => (
+          <nav className="flex flex-col gap-4 px-4 py-5">
+            {NAV_GROUPS.map((group) => (
+              <div key={group.id} className="flex flex-col gap-1.5">
+                <p className="fm-subtle px-4 text-[11px] font-semibold uppercase tracking-[0.25em]">{group.label}</p>
+            {navItems.filter((item) => item.group === group.id).map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -604,6 +555,8 @@ export default function Layout() {
                 <item.icon className="h-5 w-5" />
                 <span>{item.label}</span>
               </NavLink>
+            ))}
+              </div>
             ))}
           </nav>
 

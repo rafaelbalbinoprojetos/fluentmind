@@ -1,12 +1,11 @@
-/* global process */
 import { createClient } from "@supabase/supabase-js";
 import { Buffer } from "node:buffer";
 import { requireUser } from "./_utils/auth.js";
+import { reserveAiUsage } from "./_utils/aiUsage.js";
+import { generateElevenLabsAudio } from "./_utils/elevenLabs.js";
 
 const BUCKET = "mindblock-audio";
 const TABLE = "mindblock_audio";
-const ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1/text-to-speech";
-const ELEVENLABS_MODEL = "eleven_multilingual_v2";
 
 function isValidHttpUrl(value) {
   try {
@@ -19,7 +18,7 @@ function isValidHttpUrl(value) {
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !supabaseServiceKey || !isValidHttpUrl(supabaseUrl)) {
     return null;
@@ -45,28 +44,6 @@ function normalizeVoice(value) {
   if (voice === "male") return "male";
   if (voice === "female") return "female";
   return "mineirinha";
-}
-
-function resolveVoiceId(voice) {
-  if (voice === "male") return process.env.ELEVENLABS_VOICE_MALE || "IKpiSijWzlhOL6uX83EH";
-  if (voice === "female") return process.env.ELEVENLABS_VOICE_FEMALE || "ucTM3xQVJcS7oeyyjEhT";
-  return process.env.ELEVENLABS_VOICE_MINEIRINHA
-    || process.env.ELEVENLABS_VOICE_ID
-    || process.env.ELEVENLABS_VOICE_FEMALE
-    || "ucTM3xQVJcS7oeyyjEhT";
-}
-
-function buildElevenLabsError(status) {
-  if (status === 401 || status === 403) {
-    return "ElevenLabs recusou a chave API. Confira se ELEVENLABS_API_KEY esta correta na Vercel.";
-  }
-  if (status === 400 || status === 404) {
-    return "Voz do ElevenLabs invalida ou indisponivel. Configure ELEVENLABS_VOICE_MINEIRINHA com um voice_id da sua conta.";
-  }
-  if (status === 429) {
-    return "Limite da ElevenLabs atingido. Tente novamente mais tarde.";
-  }
-  return "Falha ao gerar audio no ElevenLabs.";
 }
 
 function normalizeAudioText(value) {
@@ -138,46 +115,6 @@ async function getMindBlock(supabaseAdmin, userId, mindblockId) {
   return data;
 }
 
-async function generateElevenLabsAudio({ text, voice }) {
-  const apiKey = process.env.ELEVENLABS_API_KEY;
-  if (!apiKey) {
-    const error = new Error("ELEVENLABS_API_KEY nao configurada.");
-    error.statusCode = 500;
-    throw error;
-  }
-
-  const voiceId = resolveVoiceId(voice);
-  const response = await fetch(`${ELEVENLABS_API_URL}/${voiceId}?output_format=mp3_44100_128`, {
-    method: "POST",
-    headers: {
-      "xi-api-key": apiKey,
-      "Content-Type": "application/json",
-      Accept: "audio/mpeg",
-    },
-    body: JSON.stringify({
-      text,
-      model_id: ELEVENLABS_MODEL,
-      voice_settings: {
-        stability: 0.5,
-        similarity_boost: 0.8,
-        style: 0.2,
-        use_speaker_boost: true,
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    const details = await response.text().catch(() => "");
-    console.error("[mindblock-audio:elevenlabs]", response.status, details);
-    const error = new Error(buildElevenLabsError(response.status));
-    error.statusCode = 502;
-    error.expose = true;
-    throw error;
-  }
-
-  return Buffer.from(await response.arrayBuffer());
-}
-
 async function handleGet(req, res, user, supabaseAdmin) {
   const url = new URL(req.url, `https://${req.headers.host || "localhost"}`);
   const mindblockId = url.searchParams.get("mindblockId");
@@ -215,6 +152,7 @@ async function handlePost(req, res, user, supabaseAdmin) {
     return res.status(400).json({ error: "Texto muito longo para audio de MindBlock." });
   }
 
+  await reserveAiUsage(user);
   const audioBuffer = await generateElevenLabsAudio({ text, voice });
   const storagePath = `users/${user.id}/mindblocks/${mindblockId}/${voice}.mp3`;
 

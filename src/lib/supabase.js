@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { isServerSupabaseKey } from "../utils/supabaseCredentials.js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -15,6 +16,7 @@ function isValidHttpUrl(value) {
 const hasValidSupabaseCredentials = Boolean(
   supabaseUrl
     && supabaseAnonKey
+    && !isServerSupabaseKey(supabaseAnonKey)
     && isValidHttpUrl(supabaseUrl),
 );
 

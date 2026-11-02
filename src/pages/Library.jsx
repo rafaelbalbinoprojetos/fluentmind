@@ -1,3 +1,4 @@
+import useLearningActions from "../hooks/useLearningActions.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
@@ -43,8 +44,8 @@ import {
   removeMindBlockFromPlaylist,
 } from "../services/playlists.js";
 import { recordDailyActivity } from "../services/learningProgress.js";
-import { trackProgressionAction } from "../services/progressionEngine.js";
-import { recordLearningEvent } from "../services/learningEventEngine.js";
+
+
 import { normalizeMindBlockExpressionText } from "../utils/mindblockText.js";
 
 const FILTERS = ["All", "Favorites", "Mastered", "Learning", "Review Due", "Mistakes", "Recently Saved"];
@@ -202,6 +203,7 @@ function buildMindBlock(expression, expressions, playlists) {
 }
 
 export default function LibraryPage() {
+  const { recordLearningEvent, trackProgressionAction } = useLearningActions();
   const { user, session, userPreferences } = useAuth();
   const [expressions, setExpressions] = useState([]);
   const [playlists, setPlaylists] = useState([]);

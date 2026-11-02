@@ -49,7 +49,6 @@ export default function BrainCompanion({
 
         {Array.from({ length: connectionCount }).map((_, index) => (
           <span
-            // eslint-disable-next-line react/no-array-index-key
             key={`connection-${index}`}
             className="fm-brain-connection"
             style={{ "--connection-index": index, "--connection-rotate": `${index * 28 + 12}deg` }}
@@ -58,7 +57,6 @@ export default function BrainCompanion({
 
         {Array.from({ length: particleCount }).map((_, index) => (
           <span
-            // eslint-disable-next-line react/no-array-index-key
             key={`particle-${index}`}
             className="fm-brain-orbit-particle"
             style={{ "--particle-index": index, "--particle-delay": `${index * 0.18}s` }}

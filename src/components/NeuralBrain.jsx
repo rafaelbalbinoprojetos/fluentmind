@@ -1,5 +1,5 @@
 import React, { memo, useMemo, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion as Motion, useReducedMotion } from "framer-motion";
 
 const SIZE_MAP = {
   sm: 80,
@@ -125,7 +125,7 @@ function NeuralBrain({
   };
 
   return (
-    <motion.div
+    <Motion.div
       className={[
         "neural-brain",
         `neural-brain-${size}`,
@@ -245,7 +245,7 @@ function NeuralBrain({
           <span>{xpPercent}% to next level</span>
         </div>
       ) : null}
-    </motion.div>
+    </Motion.div>
   );
 }
 

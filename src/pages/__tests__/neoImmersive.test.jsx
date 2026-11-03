@@ -159,23 +159,56 @@ describe("Neo immersive presentation", () => {
     expect(screen.getByText("Conversa simples preservada")).toBeInTheDocument();
     expect(JSON.parse(sessionStorage.getItem("fluentmind_simple_conversation:immersive-student"))[0].content).toBe("An existing conversation.");
   });
-  it("runs a Learning Journey mission and ticks expressions as the student uses them", async () => {
+  it("runs a Learning Journey mission and completes it from the per-expression evaluation", async () => {
+    const mission = (await import("../../services/conversationMission.js")).buildJourneyMission("about-me");
+    const evaluation = (status) => mission.targets.map((target) => ({ expression: target.expression, status, autonomous: true, impact: "none", feedback: status === "adequate" ? "" : "Revise o verbo.", suggestion: "" }));
+    // A voz do Neo também usa fetch: a avaliação só vem na mensagem que traz as expressões.
+    fetch.mockImplementation(async (_url, options) => {
+      const body = JSON.parse(options?.body || "{}");
+      return body.messages?.some((message) => message.content.includes("something"))
+        ? { ok: true, json: async () => ({ reply: "Nice!", targetEvaluation: evaluation("adequate") }) }
+        : ok();
+    });
     render(<MemoryRouter initialEntries={["/neo?journey=about-me"]}><Routes>
       <Route path="/neo" element={<NeoImmersivePage />} />
     </Routes></MemoryRouter>);
     expect(screen.getByRole("heading", { name: "Missão: About Me" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Começar conversa" }));
     await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
-    expect(JSON.parse(fetch.mock.calls[0][1].body).scenario).toContain("About Me");
+    const firstBody = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(firstBody.scenario).toContain("About Me");
+    expect(firstBody.targets).toEqual(mission.targets.map((target) => target.expression));
 
     const input = screen.getByRole("textbox", { name: "Mensagem para Neo" });
-    const mission = (await import("../../services/conversationMission.js")).buildJourneyMission("about-me");
-    const sentence = mission.targets.map((target) => `${target.pattern} something`).join(". ");
     await waitFor(() => expect(input).not.toBeDisabled());
-    fireEvent.change(input, { target: { value: sentence } });
+    fireEvent.change(input, { target: { value: mission.targets.map((target) => `${target.pattern} something`).join(". ") } });
     fireEvent.submit(input.closest("form"));
-    expect(await screen.findByText(/Missão cumprida!/)).toBeInTheDocument();
+    expect(await screen.findByText(/Missão cumprida/)).toBeInTheDocument();
+    const { getProgressionState } = await import("../../services/progressionEngine.js");
+    const record = getProgressionState().learningJourney.chapterProgress["about-me"].activities.conversation;
+    expect(record.status).toBe("correct");
+    expect(record.evidence.every((item) => item.status === "adequate")).toBe(true);
+    expect(screen.getByRole("link", { name: "Voltar à Jornada" })).toHaveAttribute("href", "/learning-journey?chapter=about-me&activity=challenge");
   });
+
+  it.each([
+    ["inadequate", "uso inadequado, tente de novo"],
+    ["inconclusive", "avaliação inconclusiva, use de novo"],
+  ])("does not complete the mission when every use is %s", async (status, label) => {
+    const mission = (await import("../../services/conversationMission.js")).buildJourneyMission("about-me");
+    fetch.mockResolvedValue({ ok: true, json: async () => ({ reply: "Tell me more!", targetEvaluation: mission.targets.map((target) => ({ expression: target.expression, status, feedback: "Revise o verbo.", suggestion: "I'm from Brazil." })) }) });
+    render(<MemoryRouter initialEntries={["/neo?journey=about-me"]}><Routes>
+      <Route path="/neo" element={<NeoImmersivePage />} />
+    </Routes></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "Começar conversa" }));
+    const input = screen.getByRole("textbox", { name: "Mensagem para Neo" });
+    await waitFor(() => expect(input).not.toBeDisabled());
+    fireEvent.change(input, { target: { value: mission.targets.map((target) => `${target.pattern} something`).join(". ") } });
+    fireEvent.submit(input.closest("form"));
+    expect((await screen.findAllByLabelText(label)).length).toBeGreaterThanOrEqual(mission.targets.length);
+    expect(screen.queryByText(/Missão cumprida/)).not.toBeInTheDocument();
+  });
+
   it("shows the correction tip and reviews it before starting a new conversation", async () => {
     const { createCorrectedMistake } = await import("../../services/correctedMistakes.js");
     fetch.mockResolvedValue({ ok: true, json: async () => ({ reply: "Nice! What did you do there?",

@@ -44,15 +44,18 @@ export function localSimilarity(answer, expected) {
   return Math.round(((2 * recall * precision) / Math.max(0.0001, recall + precision)) * 100);
 }
 
-/** Correção pelo sentido via IA. mode: translate | fix | sentence. */
-export async function checkAnswerWithAi({ mode, prompt, expected, answer, level, accessToken }) {
+/**
+ * Correção pelo sentido via IA. mode: translate | fix | sentence | challenge.
+ * Devolve o contrato antigo (verdict, score, feedback…) e, além dele, assessment, passed, criteria, confidence e improvement.
+ */
+export async function checkAnswerWithAi({ mode, prompt, expected, answer, level, accessToken, criteria, difficulty, context }) {
   const response = await fetch(`${API_BASE}/api/review-check`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     },
-    body: JSON.stringify({ mode, prompt, expected, answer, level }),
+    body: JSON.stringify({ mode, prompt, expected, answer, level, criteria, difficulty, context }),
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload?.error || `Erro ${response.status}`);

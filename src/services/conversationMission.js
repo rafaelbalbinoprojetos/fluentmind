@@ -1,4 +1,5 @@
 import { learningJourneyChapters } from "../data/learningJourney.js";
+import { aggregateTargetEvidence } from "../../shared/learningEvaluation.js";
 
 const MISSION_SIZE = 3;
 
@@ -33,7 +34,7 @@ export function buildJourneyMission(chapterId) {
     title: chapter.title,
     objective: chapter.objective,
     targets,
-    scenario: `${chapter.neoPrompt} Guide the conversation so the student naturally needs these expressions: ${targets
+    scenario: `${chapter.neoPrompt} Lesson goal: ${chapter.objective} Difficulty: ${chapter.difficulty}. Guide the conversation so the student naturally needs these expressions: ${targets
       .map((target) => `"${target.expression}"`)
       .join(", ")}. Never list them or ask the student to repeat them; create situations where they fit.`,
   };
@@ -43,4 +44,22 @@ export function buildJourneyMission(chapterId) {
 export function findUsedTargets(targets = [], userTexts = []) {
   const text = ` ${normalize(userTexts.join(" "))} `;
   return targets.reduce((used, target, index) => (target.pattern && text.includes(` ${target.pattern} `) ? [...used, index] : used), []);
+}
+
+/**
+ * Evidência por expressão-alvo ao longo da conversa, a partir da avaliação que a API devolve
+ * em cada mensagem (message.targetEvaluation). Mensagem sem avaliação não aprova nada:
+ * se a expressão aparece nela, conta como "inconclusive".
+ * Status: adequate | partial | inadequate | unused | inconclusive.
+ */
+export function evaluateMissionTargets(targets = [], userMessages = []) {
+  const expressions = targets.map((target) => target.expression);
+  const perMessage = userMessages.map((message) => {
+    if (Array.isArray(message.targetEvaluation)) return message.targetEvaluation;
+    const content = ` ${normalize(message.content)} `;
+    return targets
+      .filter((target) => target.pattern && content.includes(` ${target.pattern} `))
+      .map((target) => ({ expression: target.expression, status: "inconclusive", feedback: "", suggestion: "" }));
+  });
+  return aggregateTargetEvidence(expressions, perMessage);
 }

@@ -21,6 +21,8 @@ import {
   MessagesSquare,
   Mic,
   Orbit,
+  PanelLeftClose,
+  PanelLeftOpen,
   Route,
   Search as SearchIcon,
   Settings,
@@ -157,8 +159,20 @@ function buildPersonalizedNotifications({ userId, now }) {
     },
   ];
 }
+const SIDEBAR_COLLAPSED_KEY = "fluentmind_sidebar_collapsed";
+
+function readSidebarCollapsed() {
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
 export default function Layout() {
   const [menuAberto, setMenuAberto] = useState(false);
+  // Só no desktop: a sidebar pode virar uma coluna de ícones. Aberta por padrão.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed);
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -481,6 +495,25 @@ export default function Layout() {
   }, [notificationsOpen]);
 
   useEffect(() => {
+    try {
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
+    } catch {
+      // Preferência só de conveniência; sem storage a sidebar apenas não lembra o estado.
+    }
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    const handleShortcut = (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b") {
+        event.preventDefault();
+        setSidebarCollapsed((current) => !current);
+      }
+    };
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, []);
+
+  useEffect(() => {
     if (!menuAberto) {
       return undefined;
     }
@@ -530,12 +563,13 @@ export default function Layout() {
 
       <aside
         id={navId}
-        className={`fm-sidebar fixed inset-y-0 left-0 z-40 w-72 transform overflow-y-auto border-r backdrop-blur-xl transition-transform duration-300 md:sticky md:top-0 md:h-screen md:translate-x-0 md:overflow-y-auto ${menuAberto ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fm-sidebar fixed inset-y-0 left-0 z-40 w-72 transform shrink-0 overflow-y-auto border-r backdrop-blur-xl transition-transform duration-300 md:sticky md:top-0 md:h-screen md:translate-x-0 md:overflow-y-auto ${menuAberto ? "translate-x-0" : "-translate-x-full"} ${sidebarCollapsed ? "md:w-[76px]" : ""}`}
+        data-collapsed={sidebarCollapsed || undefined}
         role="navigation"
         aria-label="Menu principal"
       >
         <div className="flex h-full flex-col">
-          <div className="fm-border flex items-center justify-between border-b px-5 py-5">
+          <div className={`fm-border flex items-center justify-between gap-2 border-b py-5 ${sidebarCollapsed ? "px-5 md:flex-col md:px-3" : "px-5"}`}>
             <Link to="/dashboard" className="group flex items-center gap-3" onClick={() => setMenuAberto(false)}>
               <span className="fm-gradient flex h-12 w-12 items-center justify-center rounded-2xl shadow-[0_18px_50px_-18px_rgba(124,58,237,0.8)]">
                 <svg viewBox="0 0 32 32" fill="none" className="h-7 w-7" aria-hidden="true">
@@ -543,7 +577,7 @@ export default function Layout() {
                   <path d="M10.2 18.1c1.4-2 3.3-3 5.8-3 2.6 0 4.7 1.1 6.4 3.4M9.3 22.7c2-1.5 4.2-2.2 6.7-2.2 2.6 0 4.8.7 6.7 2.2M15.9 15v10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </span>
-              <span className="flex flex-col leading-tight">
+              <span className={`flex flex-col leading-tight ${sidebarCollapsed ? "md:hidden" : ""}`}>
                 <span className="text-base font-bold">FluentMind</span>
                 <span className="fm-secondary text-[10px] font-semibold uppercase tracking-[0.16em]">MindBlocks Method</span>
               </span>
@@ -556,34 +590,46 @@ export default function Layout() {
             >
               <CloseIcon className="h-5 w-5" />
             </button>
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed((current) => !current)}
+              className="fm-muted hidden rounded-xl p-2 transition hover:bg-white/10 hover:text-current md:inline-flex"
+              aria-label={sidebarCollapsed ? "Expandir menu (Ctrl+B)" : "Recolher menu (Ctrl+B)"}
+              aria-expanded={!sidebarCollapsed}
+              aria-controls={navId}
+              title={sidebarCollapsed ? "Expandir menu (Ctrl+B)" : "Recolher menu (Ctrl+B)"}
+            >
+              {sidebarCollapsed ? <PanelLeftOpen className="h-5 w-5" aria-hidden="true" /> : <PanelLeftClose className="h-5 w-5" aria-hidden="true" />}
+            </button>
           </div>
 
-          <nav className="flex flex-col gap-4 px-4 py-5">
+          <nav className={`flex flex-col gap-4 py-5 ${sidebarCollapsed ? "px-4 md:px-2" : "px-4"}`}>
             {NAV_GROUPS.map((group) => (
               <div key={group.id} className="flex flex-col gap-1.5">
-                <p className="fm-subtle px-4 text-[11px] font-semibold uppercase tracking-[0.25em]">{group.label}</p>
+                <p className={`fm-subtle px-4 text-[11px] font-semibold uppercase tracking-[0.25em] ${sidebarCollapsed ? "md:sr-only" : ""}`}>{group.label}</p>
             {navItems.filter((item) => item.group === group.id).map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 end={item.to === "/"}
+                title={sidebarCollapsed ? item.label : undefined}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition ${
+                  `flex min-h-11 items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition ${sidebarCollapsed ? "md:justify-center md:px-0" : ""} ${
                     isActive
                       ? "fm-nav-active border shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
                       : "fm-nav-item"
                   }`
                 }
               >
-                <item.icon className="h-5 w-5" strokeWidth={1.75} />
-                <span>{item.label}</span>
+                <item.icon className="h-5 w-5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+                <span className={sidebarCollapsed ? "md:sr-only" : ""}>{item.label}</span>
               </NavLink>
             ))}
               </div>
             ))}
           </nav>
 
-          <div className="fm-border fm-muted mt-auto hidden border-t px-5 py-6 text-xs md:block">
+          <div className={`fm-border fm-muted mt-auto hidden border-t px-5 py-6 text-xs ${sidebarCollapsed ? "" : "md:block"}`}>
             <p className="fm-subtle text-[11px] font-semibold uppercase tracking-[0.3em]">
               Segurança
             </p>

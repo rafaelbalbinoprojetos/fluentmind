@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ onDone: null, transcribe: vi.fn(), start: vi.fn(), stop: vi.fn(), cancel: vi.fn(), play: vi.fn(), userId: "student-a" }));
+const mocks = vi.hoisted(() => ({ track: vi.fn(), onDone: null, transcribe: vi.fn(), start: vi.fn(), stop: vi.fn(), cancel: vi.fn(), play: vi.fn(), userId: "student-a" }));
 vi.mock("../../context/AuthContext.jsx", () => ({ useAuth: () => ({
   user: { id: mocks.userId }, session: { access_token: "test-token" },
   userPreferences: { assistantName: "Neo", assistantVoice: "mineirinha", targetLanguage: "en", currentLevel: "A2" },
@@ -12,6 +12,7 @@ vi.mock("../../hooks/useRecorder.js", () => ({ default: (onDone) => {
   return { state: "idle", recording: false, elapsedMs: 0, error: "", start: mocks.start, stop: mocks.stop, cancel: mocks.cancel };
 } }));
 vi.mock("../../services/speech.js", () => ({ transcribeAudio: mocks.transcribe }));
+vi.mock("../../hooks/useLearningActions.js", () => ({ default: () => ({ trackProgressionAction: mocks.track }) }));
 import SimpleConversationPage from "../SimpleConversation.jsx";
 
 const ok = (reply = "How was your day?") => ({ ok: true, json: async () => ({ reply }) });
@@ -45,6 +46,15 @@ describe("simple text and voice conversation", () => {
     expect(options.headers.Authorization).toBe("Bearer test-token");
     expect(input).toHaveValue("");
     expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it("counts a sent message toward the daily Neo mission", async () => {
+    openPage();
+    const input = screen.getByRole("textbox", { name: "Mensagem" });
+    fireEvent.change(input, { target: { value: "Hello Neo" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await screen.findByText("How was your day?");
+    expect(mocks.track).toHaveBeenCalledWith("neoMessage", expect.objectContaining({ silent: true }));
   });
 
   it("keeps Shift+Enter and IME Enter from submitting", () => {

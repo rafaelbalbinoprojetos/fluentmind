@@ -5,6 +5,7 @@ import { transcribeAudio } from "../services/speech.js";
 import { userStorageKey } from "../utils/userStorage.js";
 import useAudioMeter from "./useAudioMeter.js";
 import { createCorrectedMistake } from "../services/correctedMistakes.js";
+import useLearningActions from "./useLearningActions.js";
 
 const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
 
@@ -16,8 +17,9 @@ function restoreConversation(key) {
   } catch { return []; }
 }
 
-export default function useConversation({ defaultVoiceReplies = false, audioReactive = false, focusAfterVoice = true, scenario = "" } = {}) {
+export default function useConversation({ defaultVoiceReplies = false, audioReactive = false, focusAfterVoice = true, scenario = "", targets = null, objective = "" } = {}) {
   const { user, session, userPreferences } = useAuth();
+  const { trackProgressionAction } = useLearningActions();
   const cacheKey = userStorageKey("fluentmind_simple_conversation", user?.id);
   const [messages, setMessages] = useState(() => restoreConversation(cacheKey));
   const [input, setInput] = useState(() => {
@@ -169,6 +171,9 @@ export default function useConversation({ defaultVoiceReplies = false, audioReac
           assistantName: mentorName, userName: userPreferences?.displayName || null,
           currentLevel: userPreferences?.currentLevel || "A2", targetLanguage: userPreferences?.targetLanguage || "en",
           scenario: scenario || undefined,
+          // Missão da Jornada: a API avalia cada expressão-alvo na última mensagem.
+          targets: targets?.length ? targets : undefined,
+          objective: targets?.length ? objective : undefined,
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -178,8 +183,13 @@ export default function useConversation({ defaultVoiceReplies = false, audioReac
       const reply = { id: crypto.randomUUID(), role: "assistant", content: data.reply };
       // A correção fica presa à mensagem do usuário e vira card em Meus Erros automaticamente.
       const correction = data.correction?.correct ? data.correction : null;
-      const corrected = correction ? history.map((item) => (item.id === message.id ? { ...item, correction } : item)) : history;
+      const targetEvaluation = Array.isArray(data.targetEvaluation) ? data.targetEvaluation : null;
+      const corrected = correction || targetEvaluation
+        ? history.map((item) => (item.id === message.id ? { ...item, ...(correction ? { correction } : {}), ...(targetEvaluation ? { targetEvaluation } : {}) } : item))
+        : history;
       setMessages([...corrected, reply].slice(-100));
+      // Mesmas ações do chatbot: alimentam as missões "Praticar com o Neo" e "Salvar 1 correção".
+      trackProgressionAction("neoMessage", { reason: "Message sent", silent: true });
       if (correction && user?.id) {
         createCorrectedMistake({
           originalText: correction.wrong || content,
@@ -187,7 +197,9 @@ export default function useConversation({ defaultVoiceReplies = false, audioReac
           explanation: correction.explanation,
           category: correction.category,
           level: correction.level,
-        }, { userId: user.id }).catch((cause) => console.warn("[conversation] Falha ao salvar correção:", cause.message));
+        }, { userId: user.id })
+          .then(() => trackProgressionAction("saveCorrection", { reason: "Correction saved", category: correction.category || "Conversation", silent: true }))
+          .catch((cause) => console.warn("[conversation] Falha ao salvar correção:", cause.message));
       }
       if (!mutedRef.current && (spoken || voiceReplies)) void speak(reply);
     } catch (cause) {
@@ -203,7 +215,7 @@ export default function useConversation({ defaultVoiceReplies = false, audioReac
         if (!spoken || focusAfterVoice) inputRef.current?.focus();
       }
     }
-  }, [messages, mentorName, scenario, session?.access_token, speak, stopAudio, user?.id, userPreferences, voiceReplies, focusAfterVoice]);
+  }, [messages, mentorName, scenario, targets, objective, session?.access_token, speak, stopAudio, trackProgressionAction, user?.id, userPreferences, voiceReplies, focusAfterVoice]);
 
   const processRecording = useCallback(async ({ blob }) => {
     const generation = generationRef.current;

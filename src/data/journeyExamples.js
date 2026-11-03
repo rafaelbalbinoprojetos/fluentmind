@@ -25,7 +25,7 @@ export const journeyExamples = {
       situation: "Sendo apresentado a alguém",
       dialogue: [
         { speaker: "other", en: "This is Anna, she's our new designer.", pt: "Esta é a Anna, a nossa nova designer." },
-        { speaker: "you", en: "Hi Anna, nice to meet you. I'm Rafael.", pt: "Oi, Anna, prazer em te conhecer. Eu sou o Rafael." },
+        { speaker: "you", en: "Hi Anna, nice to meet you. I'm Lucas.", pt: "Oi, Anna, prazer em te conhecer. Eu sou o Lucas." },
       ],
       note: "Use só no primeiro encontro. Ao se despedir, diga \"Nice meeting you\".",
     },

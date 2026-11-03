@@ -2,6 +2,14 @@ import { OpenAI } from "openai";
 import { requireUser } from "./_utils/auth.js";
 import { reserveAiUsage } from "./_utils/aiUsage.js";
 import { chatModelOptions } from "./_utils/chatModel.js";
+import {
+  inconclusiveTargets,
+  normalizeCorrection,
+  normalizeTargetEvaluation,
+  relevantTargets,
+  unusedTargets,
+} from "../shared/learningEvaluation.js";
+import { evaluationKey, getCachedEvaluation, setCachedEvaluation, usageMeta } from "./_utils/evaluationCache.js";
 
 function getOpenAiClient() {
   const apiKey = process.env.OPENAI_API_KEY || process.env.CHATGPT_API_KEY || process.env.OPENAI_KEY;
@@ -390,6 +398,67 @@ function shouldAnalyzeUserCorrection(text) {
   return (englishSignals?.length || 0) >= 2;
 }
 
+// Avaliação da mensagem numa missão da Jornada: UMA chamada devolve a correção geral e a avaliação
+// de cada expressão-alvo relevante (substitui a chamada de correção, não soma outra).
+// Falha ou resposta inválida => expressões "inconclusive" e a correção cai para a análise normal.
+async function evaluateMissionMessage(openai, { targets, objective, history, latestUserMessage, currentLevel }) {
+  const startedAt = Date.now();
+  try {
+    const completion = await openai.chat.completions.create({
+      ...chatModelOptions({ correction: true, temperature: 0, maxTokens: 2048 }),
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: `You assess a Brazilian English learner (level ${currentLevel || "A2"}) in a lesson conversation. Objective: ${objective || "use the target expressions"}.
+Judge ONLY the student's latest message; earlier turns are context.
+1) "correction": the ONE most important English mistake in the latest message, or hasMistake false. Ignore capitalization/punctuation and Portuguese text. Explanation in Portuguese.
+2) "targets": for EACH target expression:
+- "adequate": used (or a natural grammatical variation) with the right meaning, fits the context, no error in it.
+- "partial": right intent, small error (article, tense, word order) that keeps the meaning, or only part of it.
+- "inadequate": wrong meaning, does not fit, or an error that changes/blocks the meaning.
+- "unused": its idea is not in the latest message. Listing or mentioning the words is NOT using it.
+"impact": "none" | "minor" | "blocks". "autonomous": false if the student copied a sentence the tutor just wrote. "confidence": "low" if unsure.
+JSON only: {"correction":{"hasMistake":bool,"wrong":str,"correct":str,"explanation":str,"category":str},"targets":[{"expression":str (exact),"status":str,"impact":str,"autonomous":bool,"confidence":"high"|"low","feedback":str (PT, short),"suggestion":str (English example in this context, or "")}]}`,
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            targets,
+            context: history.slice(-5, -1).map((message) => `${message.role === "assistant" ? "tutor" : "student"}: ${String(message.content).slice(0, 300)}`),
+            latest: String(latestUserMessage).slice(0, 1000),
+          }),
+        },
+      ],
+    });
+    const parsed = JSON.parse(completion.choices[0]?.message?.content || "{}");
+    return {
+      ok: true,
+      targets: normalizeTargetEvaluation(parsed, targets),
+      correction: normalizeCorrection(parsed.correction, currentLevel),
+      meta: usageMeta(completion, startedAt),
+    };
+  } catch (error) {
+    console.error("[chat:mission-evaluation]", error);
+    return { ok: false, targets: inconclusiveTargets(targets), correction: null, meta: { ms: Date.now() - startedAt } };
+  }
+}
+
+// Decide o que avaliar: só expressões com palavras presentes na mensagem; mesma tentativa no mesmo contexto usa o cache.
+async function assessMission(openai, { userId, targets, objective, history, latestUserMessage, currentLevel }) {
+  const relevant = relevantTargets(targets, latestUserMessage);
+  if (!relevant.length) return { targetEvaluation: unusedTargets(targets), correction: undefined, meta: { skipped: true, calls: 0 } };
+  const key = evaluationKey([userId, targets, objective, currentLevel, history.slice(-5).map((message) => [message.role, message.content])]);
+  const cached = getCachedEvaluation(key);
+  if (cached) return { ...cached, meta: { cached: true, calls: 0 } };
+  const result = await evaluateMissionMessage(openai, { targets: relevant, objective, history, latestUserMessage, currentLevel });
+  const byExpression = new Map(result.targets.map((item) => [item.expression, item]));
+  const targetEvaluation = targets.map((expression) => byExpression.get(expression) || unusedTargets([expression])[0]);
+  const value = { targetEvaluation, correction: result.ok ? result.correction : undefined };
+  if (result.ok && !targetEvaluation.some((item) => item.status === "inconclusive")) setCachedEvaluation(key, value);
+  return { ...value, meta: { calls: 1, evaluated: relevant.length, ...result.meta } };
+}
+
 async function analyzeUserCorrection(openai, latestUserMessage, { currentLevel = "A2" } = {}) {
   if (!shouldAnalyzeUserCorrection(latestUserMessage)) return null;
 
@@ -468,7 +537,10 @@ export default async function handler(req, res) {
       targetLanguage = "en",
       mode = "learning",
       scenario = "",
+      targets = [],
+      objective = "",
     } = body;
+    const targetList = Array.isArray(targets) ? targets.slice(0, 5).map((item) => String(item).slice(0, 120)).filter(Boolean) : [];
     const user = await requireUser(req);
     if (!Array.isArray(messages) || !messages.length || messages.length > 100
       || messages.some((message) => typeof message?.content !== "string" || message.content.length > 6000)) {
@@ -495,19 +567,40 @@ Keep replies concise (usually 2–5 sentences), warm and easy to speak aloud. As
         })),
     ];
 
-    // Na conversa simples, a análise de erro roda em paralelo para não atrasar a resposta.
-    const [completion, simpleCorrection] = await Promise.all([
+    // Na conversa simples, a análise roda em paralelo para não atrasar a resposta.
+    // Numa missão, a avaliação combinada (expressões + correção) substitui a chamada de correção.
+    const evaluateMission = simpleConversation && targetList.length > 0 && Boolean(latestUserMessage);
+    const missionPromise = evaluateMission
+      ? assessMission(openai, { userId: user.id, targets: targetList, objective: String(objective).slice(0, 300), history: messages, latestUserMessage, currentLevel })
+      : null;
+    const [completion, mission] = await Promise.all([
       openai.chat.completions.create({
         ...chatModelOptions(),
         messages: conversation,
       }),
-      simpleConversation ? analyzeUserCorrection(openai, latestUserMessage, { currentLevel }) : null,
+      missionPromise,
     ]);
+    // Correção: vem da avaliação combinada; se ela não rodou ou falhou, usa a análise normal.
+    let simpleCorrection = null;
+    if (simpleConversation) {
+      if (mission && mission.correction !== undefined) {
+        simpleCorrection = shouldAnalyzeUserCorrection(latestUserMessage) ? mission.correction : null;
+      } else {
+        simpleCorrection = await analyzeUserCorrection(openai, latestUserMessage, { currentLevel });
+      }
+    }
+    const targetEvaluation = mission?.targetEvaluation;
+    if (mission) console.info("[chat:mission-usage]", JSON.stringify(mission.meta));
 
     const reply = completion.choices[0]?.message?.content?.trim();
     if (simpleConversation) {
       if (!reply) throw new Error("O modelo não retornou uma resposta em texto.");
-      return res.status(200).json({ reply, suggestedMindBlocks: [], correction: simpleCorrection });
+      return res.status(200).json({
+        reply,
+        suggestedMindBlocks: [],
+        correction: simpleCorrection,
+        ...(evaluateMission ? { targetEvaluation, evaluationMeta: mission.meta } : {}),
+      });
     }
     const suggestedMindBlocks = extractMindBlockSuggestions(reply);
     const suggestedMindBlock = suggestedMindBlocks[0] ?? null;
